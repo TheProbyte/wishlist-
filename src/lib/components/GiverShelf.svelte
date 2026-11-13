@@ -75,7 +75,7 @@
 {/if}
 
 <!-- One toolbar: categories, price and "hide taken". On a share link it sticks under the header. -->
-<div class="{sticky ? 'sticky top-[76px] z-30 -mx-4 bg-cocoa-950/95 px-4 py-2 backdrop-blur-sm sm:mx-0 sm:px-0' : ''} mb-3 flex items-center gap-2">
+<div class="{sticky ? 'sticky top-[76px] z-30 -mx-4 bg-cocoa-950 px-4 py-2  sm:mx-0 sm:px-0' : ''} mb-3 flex items-center gap-2">
 	<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
 		{#if usedCategories.length > 1}
 			<button class="chip shrink-0 {category === 'all' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={category === 'all'} onclick={() => (category = 'all')}>All</button>

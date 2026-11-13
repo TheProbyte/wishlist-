@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { dur } from '#lib/motion.ts';
 
 	/**
@@ -47,6 +48,26 @@
 		return () => ro.disconnect();
 	});
 
+	// Only the page you're on is drawn straight away; its neighbours follow once the phone is idle,
+	// so they're ready before a swipe reaches them. Pages further off wait until they're near.
+	// svelte-ignore state_referenced_locally
+	const drawn = new SvelteSet<string>([active]);
+	$effect(() => {
+		const i = pages.indexOf(active);
+		if (i < 0) return;
+		drawn.add(active);
+		const near = [pages[i - 1], pages[i + 1]].filter((id): id is string => !!id && !drawn.has(id));
+		if (!near.length) return;
+		const add = () => near.forEach((id) => drawn.add(id));
+		const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+		if (ric) {
+			const h = ric(add, { timeout: 400 });
+			return () => (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(h);
+		}
+		const t = setTimeout(add, 150);
+		return () => clearTimeout(t);
+	});
+
 	// If the active page disappears, fall back to the first one.
 	$effect(() => {
 		if (pages.length && !pages.includes(active)) active = pages[0];
@@ -61,7 +82,7 @@
 >
 	{#each pages as id (id)}
 		<div class="w-full shrink-0 snap-start snap-always px-4 pb-2 sm:px-0" data-page={id} inert={id !== active}>
-			{@render page(id)}
+			{#if drawn.has(id)}{@render page(id)}{/if}
 		</div>
 	{/each}
 </div>

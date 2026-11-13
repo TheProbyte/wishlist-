@@ -405,7 +405,7 @@
 	</div>
 {:else}
 	<!-- One toolbar: categories, sort and view. It sticks under the header as you scroll. -->
-	<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex items-center gap-2 bg-cocoa-950/95 px-4 py-2 backdrop-blur-sm sm:mx-0 sm:mb-5 sm:px-0">
+	<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex items-center gap-2 bg-cocoa-950 px-4 py-2  sm:mx-0 sm:mb-5 sm:px-0">
 		<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
 			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
@@ -458,7 +458,7 @@
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
 					out:cardOut={{ on: animateChanges() }}
-					class="transition-opacity {fresh ? 'rise' : ''} {dragId === item.id ? 'opacity-40' : ''}"
+					class="transition-opacity {i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''} {dragId === item.id ? 'opacity-40' : ''}"
 					style="--i: {i}"
 					role="listitem"
 					data-gift={item.id}

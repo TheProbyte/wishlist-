@@ -393,6 +393,16 @@ html[data-nav='close']::view-transition-new(root) {
 	}
 }
 
+/* Gifts further down a long list: the browser skips laying them out until they scroll near. */
+@utility offscreen-card {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 290px;
+}
+@utility offscreen-row {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 84px;
+}
+
 /* Sideways-scrolling rows (chips, sort, pagers): scroll, but show no scrollbar. */
 @utility no-scrollbar {
 	scrollbar-width: none;
