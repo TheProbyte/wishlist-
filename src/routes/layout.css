@@ -9,9 +9,9 @@
  *   teal    sharing and givers
  */
 @theme {
-	--font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--font-sans: 'DM Sans Variable', 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 	/* Shrikhand: page titles and big numbers only. */
-	--font-display: 'Shrikhand', 'DM Sans', ui-serif, Georgia, serif;
+	--font-display: 'Shrikhand', 'DM Sans Variable', ui-serif, Georgia, serif;
 
 	--color-cocoa-950: #2b1d14; /* page */
 	--color-cocoa-900: #33231a; /* sheets, raised areas */

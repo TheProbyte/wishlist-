@@ -48,12 +48,34 @@
 	$effect(() => {
 		if (open) dragY = 0;
 	});
+
+	// Phones: when the keyboard comes up, sit the sheet on top of it (so Save stays in sight)
+	// and keep it no taller than the space that's left.
+	let keyboard = $state(0);
+	let room = $state<number | null>(null);
+	$effect(() => {
+		const vv = window.visualViewport;
+		if (!open || !vv) return;
+		const update = () => {
+			keyboard = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+			room = keyboard > 0 ? vv.height : null;
+		};
+		update();
+		vv.addEventListener('resize', update);
+		vv.addEventListener('scroll', update);
+		return () => {
+			vv.removeEventListener('resize', update);
+			vv.removeEventListener('scroll', update);
+			keyboard = 0;
+			room = null;
+		};
+	});
 </script>
 
 <svelte:window {onkeydown} />
 
 {#if open}
-	<div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+	<div class="fixed inset-x-0 top-0 z-50 flex items-end justify-center sm:items-center sm:p-6" style="bottom: {keyboard}px">
 		<button
 			type="button"
 			aria-label="Close"
@@ -69,7 +91,7 @@
 			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-cocoa-900 shadow-[0_-3px_0_0_var(--color-cocoa-700)] sm:rounded-[24px] sm:shadow-[0_4px_0_0_var(--color-edge)] {wide
 				? 'sm:max-w-3xl'
 				: 'sm:max-w-lg'} {dragging ? '' : 'transition-transform duration-300 ease-[var(--ease-spring)]'}"
-			style="transform: translateY({dragY}px)"
+			style="transform: translateY({dragY}px);{room ? ` max-height: ${room * 0.94}px` : ''}"
 			transition:fly={{ y: isPhone() ? 320 : 24, duration: dur(isPhone() ? 300 : 200), easing: cubicOut, opacity: isPhone() ? 1 : 0 }}
 		>
 			<div class="touch-none select-none" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="presentation">

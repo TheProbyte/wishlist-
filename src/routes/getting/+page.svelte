@@ -52,7 +52,7 @@
 		<div class="space-y-2.5">
 			{#each g.claims as c (c.claim_id)}
 				<div class="card flex items-center gap-3 p-2.5 pr-3 transition {c.purchased ? 'opacity-60' : ''}">
-					<ProductImage src={c.image_url} class="h-16 w-16 shrink-0 rounded-[12px]" />
+					<ProductImage src={c.image_url} size={64} class="h-16 w-16 shrink-0 rounded-[12px]" />
 					<div class="min-w-0 flex-1">
 						<p class="line-clamp-2 text-sm font-bold {c.purchased ? 'line-through decoration-2' : ''}">{c.title}</p>
 						<div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-fg-muted">

@@ -7,7 +7,12 @@ import { ensureSchema } from '#lib/server/schema.ts';
 /** Pages anyone can open: share links, sign-in, images, app files. */
 const PUBLIC = [/^\/icons\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
 
-export const handle: Handle = async ({ event, resolve }) => {
+// Ask for the two main font files up front, alongside the styles, so text never waits on them.
+const preload = ({ type, path }: { type: string; path: string }) =>
+	type === 'js' || type === 'css' || (type === 'font' && /-latin-(opsz|400)-normal/.test(path));
+
+export const handle: Handle = async ({ event, resolve: kitResolve }) => {
+	const resolve = (e: typeof event) => kitResolve(e, { preload });
 	const db = env.DB;
 	if (!db) error(500, 'Database binding "DB" is missing. Check wrangler.jsonc.');
 	await ensureSchema(db);

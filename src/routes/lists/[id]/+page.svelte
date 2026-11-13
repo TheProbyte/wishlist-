@@ -1,10 +1,16 @@
+<script lang="ts" module>
+	// Lists already opened this visit: their cards don't need to rise in again.
+	const visited = new Set<string>();
+</script>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { enhance, deserialize } from '$app/forms';
 	import { goto, invalidateAll, preloadData } from '$app/navigation';
-	import { dur, pageSwipe } from '#lib/motion.ts';
+	import { cardIn, cardOut, dur, pageSwipe } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
+	import { fly } from 'svelte/transition';
 	import ItemCard from '#lib/components/ItemCard.svelte';
 	import ItemEditor, { type Draft } from '#lib/components/ItemEditor.svelte';
 	import Modal from '#lib/components/Modal.svelte';
@@ -58,6 +64,20 @@
 	$effect(() => {
 		finePointer = matchMedia('(pointer: fine)').matches;
 	});
+
+	/* ------------------------------------------------ cards coming and going */
+
+	// The first time a list opens, its cards rise in. After that the list is simply there.
+	const fresh = $derived(!visited.has(data.list.id));
+	// Which list the cards on screen belong to. While a new list replaces the old one this lags
+	// behind, so the swap itself doesn't fly cards about; after that, gifts added or removed animate.
+	let settled = $state('');
+	$effect(() => {
+		const id = data.list.id;
+		visited.add(id);
+		settled = id;
+	});
+	const animateChanges = () => settled === data.list.id;
 
 	/* ------------------------------------------------ view: photo grid or compact rows */
 
@@ -271,6 +291,13 @@
 
 	async function bulk(op: string, extra: Record<string, string> = {}) {
 		bulkBusy = true;
+		// Act first: what's leaving this list leaves now, a new category shows now.
+		const ids = new Set(selected);
+		const leaves = op === 'delete' || op === 'remove' || (op === 'move' && !isEverything);
+		const before = items;
+		if (leaves) items = items.filter((i) => !ids.has(i.id));
+		if (op === 'category') items = items.map((i) => (ids.has(i.id) ? { ...i, category_id: extra.category || null } : i));
+		if (leaves || op === 'category') listSheet = categorySheet = deleteSheet = false;
 		const fd = new FormData();
 		fd.set('op', op);
 		for (const id of selected) fd.append('ids', id);
@@ -283,15 +310,14 @@
 			const target = data.lists.find((l) => l.id === extra.target)?.name;
 			bulkNote =
 				op === 'delete' ? `Deleted ${n}` : op === 'remove' ? `Removed ${n} from this list` : op === 'category' ? `Updated ${n}` : `${op === 'move' ? 'Moved' : 'Added'} ${n} to ${target}`;
-			const note = bulkNote;
-			bulkNote = null;
 			stopSelecting();
-			// Show the confirmation once the list on screen has caught up.
-			await invalidateAll();
-			bulkNote = note;
 			setTimeout(() => (bulkNote = null), 2400);
-		} else if (result.type === 'failure') {
-			bulkNote = String(result.data?.error ?? 'Couldn’t do that.');
+			// The screen already shows the result; this just fetches the server's copy behind it.
+			invalidateAll();
+		} else {
+			items = before;
+			bulkNote = result.type === 'failure' ? String(result.data?.error ?? 'Couldn’t do that.') : 'Couldn’t do that. Try again.';
+			setTimeout(() => (bulkNote = null), 3000);
 		}
 	}
 	// Picking gifts from the Everything list onto this occasion list.
@@ -430,7 +456,9 @@
 			{#each giftsFor(pageId) as item, i (item.id)}
 				<div
 					animate:flip={{ duration: dur(200) }}
-					class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
+					in:cardIn={{ on: animateChanges() && !fresh }}
+					out:cardOut={{ on: animateChanges() }}
+					class="transition-opacity {fresh ? 'rise' : ''} {dragId === item.id ? 'opacity-40' : ''}"
 					style="--i: {i}"
 					role="listitem"
 					data-gift={item.id}
@@ -508,8 +536,8 @@
 
 <!-- Reorder mode: arrows on every gift, and a bar to finish. -->
 {#if reordering}
-	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5">
-		<div class="pop mx-auto flex max-w-3xl items-center gap-3 rounded-[var(--radius-card)] bg-cocoa-900 p-2 pl-4 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
+	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
+		<div class="mx-auto flex max-w-3xl items-center gap-3 rounded-[var(--radius-card)] bg-cocoa-900 p-2 pl-4 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
 			<span class="flex-1 text-sm text-fg-muted">Use the arrows, or hold a gift and drag it.</span>
 			<button class="btn-primary min-h-10 px-4 text-sm" onclick={() => (reordering = false)}>Done</button>
 		</div>
@@ -526,6 +554,11 @@
 	currentList={isEverything ? null : data.list.id}
 	sizes={data.sizes}
 	saveLabel={isEverything ? 'Add gift' : 'Add to list'}
+	ongone={(id) => (items = items.filter((i) => i.id !== id))}
+	onfail={(m) => {
+		bulkNote = m;
+		setTimeout(() => (bulkNote = null), 3000);
+	}}
 />
 
 <!-- List settings -->
@@ -599,7 +632,7 @@
 				{@const on = picked.includes(g.id)}
 				<label class="relative cursor-pointer overflow-hidden rounded-[14px] bg-cocoa-850 p-1.5 ring-3 transition {on ? 'ring-mustard-400' : 'ring-transparent'}">
 					<input type="checkbox" name="ids" value={g.id} class="sr-only" checked={on} onchange={() => (picked = on ? picked.filter((x) => x !== g.id) : [...picked, g.id])} />
-					<ProductImage src={g.image_url} alt="" class="aspect-square w-full rounded-[10px]" />
+					<ProductImage src={g.image_url} alt="" size={160} class="aspect-square w-full rounded-[10px]" />
 					<span class="mt-1.5 line-clamp-2 block px-1 text-xs font-bold">{g.title}</span>
 					{#if g.price_cents != null}<span class="block px-1 pb-1 text-xs text-fg-muted">{formatPrice(g.price_cents, g.currency)}</span>{/if}
 					{#if on}<span class="absolute top-3 right-3 grid h-7 w-7 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="check" size={16} /></span>{/if}
@@ -617,7 +650,7 @@
 
 <!-- Select several: the action bar sits above the tab bar while selecting. -->
 {#if selecting}
-	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" style="view-transition-name: bulk-bar">
+	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" style="view-transition-name: bulk-bar" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
 		<div class="mx-auto flex max-w-3xl items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-2 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
 			<span class="pl-2 text-sm font-bold whitespace-nowrap">{selected.length}<span class="hidden min-[400px]:inline"> picked</span></span>
 			<button class="btn-quiet min-h-10 px-2 text-sm" onclick={() => (selected = allOnPageSelected ? selected.filter((id) => !onThisPage.includes(id)) : [...new Set([...selected, ...onThisPage])])}>

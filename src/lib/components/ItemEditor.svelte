@@ -27,7 +27,9 @@
 		sizes = {},
 		saveLabel,
 		extra = {},
-		onsaved
+		onsaved,
+		ongone,
+		onfail
 	}: {
 		open?: boolean;
 		draft: Draft | null;
@@ -44,6 +46,10 @@
 		/** Extra form fields to send with the gift (e.g. who it's for). */
 		extra?: Record<string, string>;
 		onsaved?: (id: string) => void;
+		/** Delete/remove: the page takes the gift off screen straight away... */
+		ongone?: (id: string) => void;
+		/** ...and is told if the server said no (the page has already been refreshed back). */
+		onfail?: (message: string) => void;
 	} = $props();
 
 	// Editable copy of the draft. Re-seeded whenever a new draft arrives (e.g. when the import finishes).
@@ -363,7 +369,19 @@
 		<div class="flex items-center justify-between gap-2">
 			<div>
 				{#if !isNew}
-					<form method="POST" action="?/deleteItem" class="flex flex-wrap gap-1" use:enhance={() => async ({ update }) => { open = false; await update(); }}>
+					<form method="POST" action="?/deleteItem" class="flex flex-wrap gap-1" use:enhance={() => {
+						// Act first: the gift leaves the screen now; the server catches up behind it.
+						const id = draft?.id;
+						open = false;
+						if (id) ongone?.(id);
+						return async ({ result, update }) => {
+							await update();
+							if (result.type !== 'success' && result.type !== 'redirect') {
+								await invalidateAll();
+								onfail?.('Couldn’t remove that gift. It’s back.');
+							}
+						};
+					}}>
 						<input type="hidden" name="id" value={draft?.id} />
 						{#if confirmDelete}
 							<button class="btn-danger" name="mode" value="everywhere">Delete everywhere</button>

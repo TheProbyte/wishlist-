@@ -16,26 +16,24 @@ async function ownList(locals: App.Locals, id: string) {
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const list = await ownList(locals, params.id);
-	const [items, categories, scopeLists, sizes, kid] = await Promise.all([
+	// Everything this page needs, asked for at once.
+	const [items, categories, scopeLists, sizes, kid, everything] = await Promise.all([
 		getItems(locals.db, list),
 		getCategories(locals.db, locals.user.id),
 		orderedLists(locals.db, locals.user.id, list.kid_id),
 		sizesFor(locals.db, list),
-		list.kid_id ? getKid(locals.db, list.kid_id) : null
+		list.kid_id ? getKid(locals.db, list.kid_id) : null,
+		// For an occasion list: the Everything list, to pick more gifts from.
+		list.kind === 'list'
+			? locals.db
+					.prepare('SELECT id, title, image_url, price_cents, currency FROM items WHERE list_id = ? ORDER BY rank, created_at')
+					.bind(masterOf(list))
+					.all<{ id: string; title: string; image_url: string | null; price_cents: number | null; currency: string | null }>()
+			: null
 	]);
 	refreshStale(locals.db, items);
-
-	// For an occasion list: everything else in the Everything list, to pick from.
 	const onList = new Set(items.map((i) => i.id));
-	const pickable =
-		list.kind === 'list'
-			? (
-					await locals.db
-						.prepare('SELECT id, title, image_url, price_cents, currency FROM items WHERE list_id = ? ORDER BY rank, created_at')
-						.bind(masterOf(list))
-						.all<{ id: string; title: string; image_url: string | null; price_cents: number | null; currency: string | null }>()
-				).results.filter((i) => !onList.has(i.id))
-			: [];
+	const pickable = everything ? everything.results.filter((i) => !onList.has(i.id)) : [];
 
 	// Swiping goes Everything → each occasion list, in the home page's order.
 	const order = [masterOf(list), ...scopeLists.map((l) => l.id)];

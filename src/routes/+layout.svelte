@@ -1,9 +1,12 @@
 <script lang="ts">
+	// Fonts ship with the app (cached on the phone) instead of coming from Google each time.
+	import '@fontsource-variable/dm-sans/opsz.css';
+	import '@fontsource/shrikhand/latin-400.css';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { onNavigate, preloadCode, preloadData } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
@@ -38,6 +41,14 @@
 				await nav.complete;
 			});
 		});
+	});
+
+	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
+	let loading = $state(false);
+	$effect(() => {
+		if (!navigating.to) return void (loading = false);
+		const t = setTimeout(() => (loading = true), 120);
+		return () => clearTimeout(t);
 	});
 
 	// Get the tabs ready in the background once the app has settled, so going back is instant.
@@ -76,7 +87,10 @@
 			</nav>
 		{/if}
 	</div>
-	<div class="stripes h-[12px]" aria-hidden="true"></div>
+	<div class="relative h-[12px]" aria-hidden="true">
+		<div class="stripes h-full"></div>
+		{#if loading}<div class="stripes-run absolute inset-0 opacity-90" role="progressbar" aria-label="Loading"></div>{/if}
+	</div>
 </header>
 
 <!-- The tab pager fills the space itself; other pages scroll as normal pages. -->

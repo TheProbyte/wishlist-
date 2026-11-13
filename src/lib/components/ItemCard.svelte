@@ -55,7 +55,7 @@
 	<article class="card relative flex items-center gap-3 p-2 pr-3 select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
 		{#if selected !== null}{@render tick()}{/if}
 		<button type="button" class="relative shrink-0" onclick={onopen} aria-label="Open {item.title}">
-			<ProductImage src={item.image_url} alt="" class="h-16 w-16 rounded-[10px] {soldOut ? 'opacity-60' : ''}" />
+			<ProductImage src={item.image_url} alt="" size={64} class="h-16 w-16 rounded-[10px] {soldOut ? 'opacity-60' : ''}" />
 			{#if position}<span class="absolute -top-1 -left-1 grid h-6 min-w-6 place-items-center rounded-full px-1 text-[11px] font-bold shadow-[0_2px_0_0_var(--color-edge)] {position === 1 ? 'bg-mustard-400 text-cocoa-950' : 'bg-cocoa-950 text-fg'}">{position}</span>{/if}
 		</button>
 		<div class="min-w-0 flex-1 {selected !== null ? 'pr-8' : ''}">
@@ -81,7 +81,7 @@
 	<article class="card relative flex h-full flex-col overflow-hidden select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
 		{#if selected !== null}{@render tick()}{/if}
 		<button type="button" class="block p-1.5 pb-0 text-left sm:p-2 sm:pb-0" onclick={onopen} aria-label="Open {item.title}">
-			<ProductImage src={item.image_url} alt="" class="aspect-square w-full rounded-[12px] {soldOut ? 'opacity-60' : ''}" />
+			<ProductImage src={item.image_url} alt="" size={280} class="aspect-square w-full rounded-[12px] {soldOut ? 'opacity-60' : ''}" />
 		</button>
 
 		{#if position}

@@ -153,7 +153,7 @@
 		</form>
 	{:else if phase === 'gift'}
 		<div class="card flex items-center gap-4 p-4">
-			<ProductImage src={draft?.image_url} class="h-20 w-20 shrink-0 rounded-[12px]" />
+			<ProductImage src={draft?.image_url} size={80} class="h-20 w-20 shrink-0 rounded-[12px]" />
 			<div class="min-w-0 flex-1">
 				<p class="line-clamp-2 font-bold">{draft?.title || 'New gift'}</p>
 				{#if draft?.price_cents != null}<p class="text-sm text-fg-muted">{formatPrice(draft.price_cents, draft.currency)}</p>{/if}
@@ -202,7 +202,7 @@
 				{#each wishlist as w, i (i)}
 					<label class="card relative cursor-pointer p-2 ring-3 transition {w.pick ? 'ring-mustard-400' : 'opacity-50 ring-transparent'}">
 						<input type="checkbox" class="sr-only" bind:checked={w.pick} />
-						<ProductImage src={w.image_url} class="aspect-square w-full rounded-[12px]" />
+						<ProductImage src={w.image_url} size={200} class="aspect-square w-full rounded-[12px]" />
 						<span class="mt-2 line-clamp-2 block px-1 text-sm font-bold">{w.title}</span>
 						{#if w.price_cents != null}<span class="block px-1 pb-1 text-sm text-fg-muted">{formatPrice(w.price_cents, w.currency)}</span>{/if}
 						{#if w.pick}<span class="absolute top-4 right-4 grid h-7 w-7 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="check" size={16} /></span>{/if}

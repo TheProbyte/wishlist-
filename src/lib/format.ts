@@ -152,3 +152,14 @@ export function hasPriceDrop(i: { price_cents: number | null; prev_price_cents?:
 		Date.now() / 1000 - i.price_dropped_at < 14 * 86400
 	);
 }
+
+/**
+ * A smaller copy of a product photo for grids and rows, where the shop offers one. Amazon photo
+ * addresses carry a size code (`._AC_SL1500_`); asking for ~2x the shown size keeps it sharp
+ * and a fraction of the download. Other photos are left as they are.
+ */
+export function thumb(url: string | null | undefined, px: number): string | null | undefined {
+	if (!url) return url;
+	const m = url.match(/^(https:\/\/[^/]*(?:media-amazon|ssl-images-amazon|images-amazon)\.com\/images\/I\/[^./]+)(?:\.[^/]*?)?\.(jpe?g|png|webp|gif)$/i);
+	return m ? `${m[1]}._AC_SL${px}_.${m[2]}` : url;
+}

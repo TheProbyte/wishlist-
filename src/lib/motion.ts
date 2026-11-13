@@ -251,3 +251,28 @@ export function swipe(node: HTMLElement, options: SwipeOptions) {
 		}
 	};
 }
+
+/* ------------------------------------------------------------- cards coming and going */
+
+/**
+ * A gift that's just been added drops into place; one that's removed shrinks away while the
+ * others close the gap (with animate:flip). `on: false` skips it, e.g. when a whole new list
+ * replaces the old one and nothing should fly about.
+ */
+export function cardIn(_node: Element, { on = true }: { on?: boolean } = {}) {
+	if (!on || prefersReducedMotion()) return { duration: 0 };
+	return {
+		duration: 260,
+		easing: (t: number) => 1 - Math.pow(1 - t, 3),
+		css: (t: number) => `opacity: ${Math.min(1, t * 2)}; transform: translateY(${(1 - t) * -14}px) scale(${0.92 + 0.08 * t})`
+	};
+}
+
+export function cardOut(_node: Element, { on = true }: { on?: boolean } = {}) {
+	if (!on || prefersReducedMotion()) return { duration: 0 };
+	return {
+		duration: 180,
+		easing: (t: number) => t * t,
+		css: (t: number) => `opacity: ${t}; transform: scale(${0.85 + 0.15 * t})`
+	};
+}

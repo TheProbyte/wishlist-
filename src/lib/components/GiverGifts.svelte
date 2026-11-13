@@ -42,7 +42,7 @@
 		{@const fresh = celebrating === item.id}
 		<article class="card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
 			<div class="relative p-1.5 pb-0 sm:p-2 sm:pb-0">
-				<ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" />
+				<ProductImage src={item.image_url} alt={item.title} size={280} class="aspect-square w-full rounded-[12px]" />
 				{#if item.mine > 0}
 					<!-- Yours: wrapped in a teal ribbon. -->
 					<div class="pointer-events-none absolute inset-x-2 top-2 bottom-0 overflow-hidden rounded-[12px]" aria-hidden="true">
