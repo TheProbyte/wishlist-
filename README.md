@@ -29,13 +29,28 @@ npm run dev            # http://localhost:5173
 npm test               # importer tests (saved product pages, no network)
 ```
 
-## Deploy to Cloudflare
+## Put it online (auto-updates on every push)
+
+One-time setup in the Cloudflare dashboard. After this, every push to GitHub rebuilds and redeploys the site by itself.
+
+1. Sign in at [dash.cloudflare.com](https://dash.cloudflare.com).
+2. **Workers & Pages → Create → Import a repository**, connect GitHub, and pick this repo.
+3. On the settings screen:
+   - **Project name:** `the-giver` (it must match `name` in `wrangler.jsonc`)
+   - **Build command:** `npm run build`
+   - **Deploy command:** `npm run deploy`
+   - **Production branch:** the branch you want live
+4. **Save and Deploy.** The first build takes 1–2 minutes and gives you a `the-giver.<you>.workers.dev` address.
+
+The first deploy also creates the database (D1, named `the-giver`), and every deploy applies any new database changes from `migrations/`. You don't need to create the database yourself.
+
+To use your own domain later: the project → **Settings → Domains & Routes → Add**.
+
+### Deploying by hand instead
 
 ```sh
 npx wrangler login
-npx wrangler d1 create the-giver        # copy the database_id it prints into wrangler.jsonc
-npm run db:migrate:remote
-npm run deploy                           # prints your *.workers.dev URL
+npm run build && npm run deploy
 ```
 
 ## Stack

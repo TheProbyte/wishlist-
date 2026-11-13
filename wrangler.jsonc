@@ -13,9 +13,9 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
+			// No database_id on purpose: the first `wrangler deploy` creates a D1 database
+			// called "the-giver" on your Cloudflare account, and later commands find it by name.
 			"database_name": "the-giver",
-			// Replace with the id printed by `npx wrangler d1 create the-giver` before deploying.
-			"database_id": "00000000-0000-0000-0000-000000000000",
 			"migrations_dir": "migrations"
 		}
 	]
