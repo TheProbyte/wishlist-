@@ -26,13 +26,15 @@ export function setNavDirection(d: NavDirection) {
 export const TABS = [
 	{ href: '/', label: 'Lists', icon: 'gift' },
 	{ href: '/upcoming', label: 'Coming up', icon: 'calendar' },
-	{ href: '/categories', label: 'Categories', icon: 'tag' }
+	{ href: '/people', label: 'People', icon: 'people' },
+	{ href: '/me', label: 'You', icon: 'user' }
 ] as const;
 
 export function tabIndex(path: string): number {
-	if (path === '/' || path.startsWith('/lists')) return 0;
+	if (path === '/' || path.startsWith('/lists') || path.startsWith('/add')) return 0;
 	if (path.startsWith('/upcoming')) return 1;
-	if (path.startsWith('/categories')) return 2;
+	if (/^\/(people|getting|circles|santa)/.test(path)) return 2;
+	if (path.startsWith('/me') || path.startsWith('/categories')) return 3;
 	return -1;
 }
 

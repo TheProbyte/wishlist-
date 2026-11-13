@@ -632,3 +632,86 @@ function titleCase(s: string): string {
 	return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+
+/* ------------------------------------------------- details read in the browser */
+
+/** What the bookmark button (or a share) already read from the page. */
+export interface ImportHint {
+	url?: string;
+	title?: string | null;
+	image_url?: string | null;
+	price?: string | number | null;
+	currency?: string | null;
+	specifics?: { label: string; value: string }[];
+}
+
+/**
+ * Build a result from details read in the person's own browser, filling any gaps from the
+ * server-side fetch. Shops can't block this, since it's their page in their browser.
+ */
+export async function importWithHint(hint: ImportHint, fetchGaps = true): Promise<ImportResult> {
+	const url = hint.url ? normaliseUrl(hint.url) : null;
+	const price = hint.price == null || hint.price === '' ? null : typeof hint.price === 'number' ? { cents: Math.round(hint.price * 100), currency: null } : parsePrice(String(hint.price));
+	const complete = Boolean(hint.title && hint.image_url && price);
+	const r = url && !complete && fetchGaps ? await importProduct(url.toString()) : url ? baseResult(url) : empty('');
+	if (hint.title) r.title = tidyTitle(String(hint.title), r.store);
+	if (hint.image_url && /^https?:\/\//.test(hint.image_url)) {
+		r.image_url = hint.image_url;
+		r.images = [hint.image_url, ...r.images.filter((i) => i !== hint.image_url)];
+	}
+	if (price) {
+		r.price_cents = price.cents;
+		r.currency = (hint.currency && /^[A-Z]{3}$/.test(hint.currency) ? hint.currency : null) ?? price.currency ?? r.currency ?? 'USD';
+	}
+	for (const s of hint.specifics ?? []) {
+		if (s?.label && s?.value && !r.specifics.some((x) => x.label === s.label)) r.specifics.push({ label: String(s.label).slice(0, 40), value: String(s.value).slice(0, 120) });
+	}
+	r.category_id = guessCategory(r.title ?? '');
+	r.blocked = r.blocked && !complete;
+	if (!r.title && url) r.title = titleFromSlug(url);
+	r.ok = Boolean(r.title && (r.image_url || r.price_cents != null));
+	if (r.ok) r.error = undefined;
+	return r;
+}
+
+/* ------------------------------------------------------------ Amazon wish lists */
+
+export function isAmazonWishlist(url: URL): boolean {
+	return isAmazon(url) && /\/(hz\/wishlist|gp\/registry\/wishlist|registries\/gl\/guest-view|wishlist)\b/i.test(url.pathname);
+}
+
+/** Read the items off an Amazon wish list page (public lists, as much as the page holds). */
+export function parseAmazonWishlist(html: string, base: URL): ImportHint[] {
+	const out: ImportHint[] = [];
+	for (const m of html.matchAll(/<li[^>]*data-itemid=["'][^"']+["'][^>]*>([\s\S]*?)<\/li>\s*(?=<li[^>]*data-itemid|<\/ul>)/gi)) {
+		const li = m[0];
+		const link = li.match(/<a[^>]*id=["']itemName_[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i) ?? li.match(/<a[^>]*href=["']([^"']*\/dp\/[^"']+)["'][^>]*title=["']([^"']+)["']/i);
+		if (!link) continue;
+		const href = absolute(link[1], base);
+		const img = li.match(/<img[^>]*src=["'](https:[^"']+)["']/i);
+		const dataPrice = li.match(/data-price=["']([\d.]+)["']/i);
+		const offscreen = li.match(/class=["']a-offscreen["']>([^<]+)</i);
+		out.push({
+			url: href ?? undefined,
+			title: text(link[2]),
+			image_url: img ? img[1].replace(/\._[^.]+_\./, '.') : null,
+			price: dataPrice && Number(dataPrice[1]) > 0 ? Number(dataPrice[1]) : offscreen ? text(offscreen[1]) : null,
+			currency: amazonCurrency(base.hostname)
+		});
+	}
+	return out;
+}
+
+/** Fetch a public Amazon wish list and read its items. */
+export async function importAmazonWishlist(input: string): Promise<{ items: ImportHint[]; blocked: boolean }> {
+	const url = normaliseUrl(input);
+	if (!url) return { items: [], blocked: false };
+	try {
+		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
+		const html = await readCapped(res);
+		if (isAmazonBotWall(html) && !/data-itemid/.test(html)) return { items: [], blocked: true };
+		return { items: parseAmazonWishlist(html, new URL(res.url || url.toString())), blocked: false };
+	} catch {
+		return { items: [], blocked: true };
+	}
+}

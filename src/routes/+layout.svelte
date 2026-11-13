@@ -82,10 +82,10 @@
 		style="view-transition-name: tab-bar"
 		aria-label="Main"
 	>
-		<div class="relative grid grid-cols-3">
+		<div class="relative grid grid-cols-4">
 			{#if active >= 0}
 				<span
-					class="stripes absolute top-0 left-0 h-[6px] w-1/3 transition-transform duration-300 ease-[var(--ease-spring)]"
+					class="stripes absolute top-0 left-0 h-[6px] w-1/4 transition-transform duration-300 ease-[var(--ease-spring)]"
 					style="transform: translateX({active * 100}%)"
 					aria-hidden="true"
 				></span>

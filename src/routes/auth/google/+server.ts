@@ -10,5 +10,5 @@ export const GET: RequestHandler = ({ url, cookies }) => {
 	const opts = { path: '/auth', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: 600 } as const;
 	cookies.set('oauth_state', state, opts);
 	cookies.set('oauth_next', next.startsWith('/') && !next.startsWith('//') ? next : '/', opts);
-	redirect(302, googleAuthUrl(url.origin, state));
+	redirect(302, googleAuthUrl(url.origin, state), { external: ['https://accounts.google.com'] });
 };

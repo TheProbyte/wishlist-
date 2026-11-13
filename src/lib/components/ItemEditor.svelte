@@ -26,6 +26,7 @@
 		currentList = null,
 		sizes = {},
 		saveLabel,
+		extra = {},
 		onsaved
 	}: {
 		open?: boolean;
@@ -40,6 +41,8 @@
 		/** Saved sizes, to fill in clothing sizes. */
 		sizes?: Sizes;
 		saveLabel?: string;
+		/** Extra form fields to send with the gift (e.g. who it's for). */
+		extra?: Record<string, string>;
 		onsaved?: (id: string) => void;
 	} = $props();
 
@@ -184,6 +187,7 @@
 		<input type="hidden" name="availability" value={draft?.availability ?? ''} />
 		<input type="hidden" name="allow_duplicate" value={allowDuplicate ? '1' : ''} />
 		{#each onLists as l (l)}<input type="hidden" name="in_list" value={l} />{/each}
+		{#each Object.entries(extra) as [k, v] (k)}<input type="hidden" name={k} value={v} />{/each}
 
 		{#if loading}
 			<!-- The three signature stripes, running while the shop's page is read. -->

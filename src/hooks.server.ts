@@ -5,7 +5,7 @@ import { SESSION_COOKIE, authEnabled, localUser, userFromSession } from '#lib/se
 import { ensureSchema } from '#lib/server/schema.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
-const PUBLIC = [/^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
+const PUBLIC = [/^\/icons\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const db = env.DB;

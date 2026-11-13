@@ -7,7 +7,7 @@
 	import Sticker from './Sticker.svelte';
 	import GiftTag from './GiftTag.svelte';
 	import Confetti from './Confetti.svelte';
-	import { formatPrice } from '#lib/format.ts';
+	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
 	import type { Category, Item } from '#lib/types.ts';
 
 	type GiverItem = Item & { claimed: number; mine: number };
@@ -18,8 +18,9 @@
 		categories,
 		giverName,
 		error = null,
-		hideTaken = false
-	}: { items: GiverItem[]; categories: Category[]; giverName: string; error?: string | null; hideTaken?: boolean } = $props();
+		hideTaken = false,
+		preview = false
+	}: { items: GiverItem[]; categories: Category[]; giverName: string; error?: string | null; hideTaken?: boolean; preview?: boolean } = $props();
 
 	let claimingId = $state<string | null>(null);
 	let nameOpen = $state(false);
@@ -59,6 +60,9 @@
 			{:else if taken}
 				<Sticker tone="cocoa" tilt={-5} class="absolute top-3.5 left-3.5">Taken</Sticker>
 			{/if}
+			{#if hasPriceDrop(item) && !taken}
+				<Sticker tone="mustard" tilt={5} class="absolute top-3.5 right-3.5">Price drop</Sticker>
+			{/if}
 			<div class="flex flex-1 flex-col gap-2.5 p-3.5">
 				<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs font-bold">
 					{#if category}<span class="inline-flex min-w-0 items-center gap-1 truncate" style="color: {category.color}"><Icon name={category.icon} size={14} />{category.name}</span>{:else}<span></span>{/if}
@@ -79,7 +83,9 @@
 							<a href={item.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-fg-faint hover:text-teal-300">{item.store ?? 'Shop'}<Icon name="external" size={12} /></a>
 						{/if}
 					</div>
-					{#if item.mine > 0}
+					{#if preview}
+						<!-- The owner's preview: no claiming. -->
+					{:else if item.mine > 0}
 						<form method="POST" action="?/unclaim" use:enhance>
 							<input type="hidden" name="id" value={item.id} />
 							<button class="btn-ghost w-full text-sm">Undo</button>

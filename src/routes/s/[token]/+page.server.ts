@@ -7,9 +7,10 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals, params, cookies }) => {
 	const list = await getListByToken(locals.db, params.token);
 	if (!list) error(404, 'This list isn’t shared any more.');
-	const owner = isOwner(list, locals.viewer);
+	// Only with real accounts can we tell the owner apart from a giver.
+	const owner = locals.authEnabled && isOwner(list, locals.viewer);
 	const [items, categories, sizes, kid, ownerRow] = await Promise.all([
-		giverItems(locals.db, list, { token: cookies.get(GIVER_COOKIE) ?? null, userId: locals.viewer?.id ?? null }, owner),
+		giverItems(locals.db, list, { token: cookies.get(GIVER_COOKIE) ?? null, userId: giverAccount(locals)?.id ?? null }, owner),
 		getCategories(locals.db, list.owner_id),
 		sizesFor(locals.db, list),
 		list.kid_id ? getKid(locals.db, list.kid_id) : null,
@@ -24,10 +25,13 @@ export const load: PageServerLoad = async ({ locals, params, cookies }) => {
 		categories,
 		sizes,
 		isOwner: owner,
-		giverName: cookies.get(NAME_COOKIE) ?? locals.viewer?.name ?? '',
+		giverName: cookies.get(NAME_COOKIE) ?? giverAccount(locals)?.name ?? '',
 		items
 	};
 };
+
+/** The giver's account, when accounts exist (in single-user mode everyone is the owner). */
+const giverAccount = (locals: App.Locals) => (locals.authEnabled ? locals.viewer : null);
 
 async function findFor(db: D1Database, token: string) {
 	const list = await getListByToken(db, token);
@@ -35,6 +39,6 @@ async function findFor(db: D1Database, token: string) {
 }
 
 export const actions: Actions = {
-	claim: async ({ request, locals, params, cookies }) => claim(locals.db, request, cookies, locals.viewer, await findFor(locals.db, params.token)),
-	unclaim: async ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, locals.viewer, await findFor(locals.db, params.token))
+	claim: async ({ request, locals, params, cookies }) => claim(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token)),
+	unclaim: async ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token))
 };

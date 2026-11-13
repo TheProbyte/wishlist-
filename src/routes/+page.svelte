@@ -215,7 +215,7 @@
 	{#snippet footer()}
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn-quiet" onclick={() => (addingKid = false)}>Cancel</button>
-			<button form="add-kid" class="btn-primary">Add</button>
+			<button form="add-kid" class="btn-primary">Add kid</button>
 		</div>
 	{/snippet}
 </Modal>

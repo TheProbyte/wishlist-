@@ -1,0 +1,20 @@
+{
+	"name": "The Giver",
+	"short_name": "The Giver",
+	"description": "One wish list for everything you’d love. Share it, and nobody buys the same gift twice.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#2b1d14",
+	"theme_color": "#2b1d14",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	],
+	"share_target": {
+		"action": "/add",
+		"method": "GET",
+		"params": { "title": "title", "text": "text", "url": "url" }
+	}
+}

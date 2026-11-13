@@ -31,3 +31,16 @@ test('Anytime lists have no date; one-off dates stay as entered', () => {
 	assert.equal(occasionDate('general', '2026-05-05'), null);
 	assert.equal(occasionDate('wedding', '2027-06-12', at('2026-11-13')), '2027-06-12');
 });
+
+test('Secret Santa: everyone gives to one other person, nobody draws themselves', async () => {
+	const { drawNames } = await import('../src/lib/server/santa.ts');
+	for (let n = 2; n <= 12; n++) {
+		const people = Array.from({ length: n }, (_, i) => `p${i}`);
+		for (let trial = 0; trial < 50; trial++) {
+			const pairs = drawNames(people);
+			assert.equal(pairs.size, n);
+			assert.equal(new Set(pairs.values()).size, n, 'each person receives exactly once');
+			for (const [giver, receiver] of pairs) assert.notEqual(giver, receiver);
+		}
+	}
+});

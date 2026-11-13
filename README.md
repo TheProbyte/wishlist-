@@ -6,19 +6,24 @@ See [PLAN.md](PLAN.md) for the full plan.
 
 ## What works now
 
-- **Lists** for any occasion, with a date and a countdown.
-- **Add from a link:** title, picture, price, shop, and the selected size/colour on Amazon. It reads Amazon's page layout, the product data most shops publish for Google, and standard share tags. If a shop blocks the lookup, the editor opens with whatever was found (at worst, a name taken from the link) so you can finish by hand.
-- **Add by hand** for anything without a link.
-- **Details** per gift (size, colour, fit, model…). The category suggests which ones, e.g. Clothes asks for Size, Colour, Fit.
-- **Most wanted** ranking (drag on desktop, arrows on phones), a 1–5 star rating, quantity and a note to the giver.
-- **Sort** by most wanted, rating, price or newest. **Filter** by category.
-- **Categories:** ten built-in, plus your own with icon, colour and suggested details.
-- **Sharing:** a private link. Givers tap "I'll get this", other givers see it's taken, and no one needs an account.
+- **Everything list:** one list holding every gift you’d love. Occasion lists (birthday, Christmas…) are optional: put any gift on any of them. A gift claimed on one list is taken everywhere.
+- **Add from anywhere:** paste a link, use your phone’s share menu (Android, once installed), or the “Add to The Giver” bookmark (any browser, including iPhone Safari). The bookmark reads the page in your browser, so shops can’t block it, and on an Amazon wish list it brings in every item. Pasting a public Amazon wish list link also works.
+- **Gift details:** size, colour and more, with sizes filled in from your saved sizes. Your own photo, ratings, ranking, notes, duplicate warning, move/copy between lists.
+- **Dates that look after themselves:** Christmas needs no date; birthdays are entered once and roll on every year.
+- **Sharing:** a private link to your Everything list or any single list. Givers filter by category and price, see your sizes, and tap “I’ll get this”. You never see who’s getting what.
+- **Kids’ lists:** keep lists for your kids, clearly labelled with their names.
+- **People** (needs sign-in): family and friend circles, everyone’s upcoming birthdays, “gifts I’m getting” with a bought tick, and Secret Santa with a fair draw where each person sees only their own match.
+- **Price drops and stock:** gifts are re-checked as lists are viewed (about once a day each); a drop shows a sticker and the old price.
 
-## Not yet
+## Switch on Google sign-in
 
-- **Google sign-in.** For now the app runs as a single user (`src/lib/server/auth.ts`). Until sign-in lands, anyone who can open the site can edit the lists, so don't put the deployed URL anywhere public. It also means the owner can see claims on the share page.
-- Price/stock re-checks, copying images into R2, the browser extension and phone share sheet. These are steps 5–6 in the plan.
+Until this is done the app runs as one shared account (everything works except People). About 10 minutes:
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com), create a project (any name).
+2. **APIs & Services → OAuth consent screen:** choose *External*, app name “The Giver”, your email as support and developer contact. Save. Then **Publish app** (basic sign-in needs no review).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID:** type *Web application*. Under **Authorized redirect URIs** add `https://YOUR-SITE/auth/callback` (your workers.dev address or own domain). Create, and keep the Client ID and Client secret.
+4. In Cloudflare: **Workers & Pages → wishlist → Settings → Variables and Secrets → Add**. Type *Secret*, name `GOOGLE_CLIENT_ID`, paste the ID. Add another: `GOOGLE_CLIENT_SECRET` with the secret. Save (Cloudflare redeploys by itself).
+5. Open the site and sign in **first**: the first account to sign in takes over the lists you made before sign-in.
 
 ## Run it locally
 

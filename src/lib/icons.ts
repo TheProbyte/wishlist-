@@ -48,7 +48,10 @@ export const ICONS = {
 	camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
 	music: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
 	heart: '<path d="M12 20s-8-4.5-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.5 12 20 12 20z"/>',
-	home: '<path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5"/>'
+	home: '<path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5"/>',
+	people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/>',
+	user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+	shuffle: '<path d="M3 6h3.5c4 0 6 12 10 12H21M18 15l3 3-3 3M3 18h3.5c1.6 0 2.8-2 3.9-4.5M13.6 9.5C14.7 7.6 15.6 6 17 6h4M18 3l3 3-3 3"/>'
 } as const;
 
 export type IconName = keyof typeof ICONS;

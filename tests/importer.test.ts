@@ -90,3 +90,32 @@ test('URL handling', () => {
 	assert.equal(storeName(new URL('https://www.johnlewis.com/x')), 'John Lewis');
 	assert.equal(storeName(new URL('https://shop.example.co.uk/x')), 'Example');
 });
+
+test('Amazon wish list page: every item with title, link, picture and price', async () => {
+	const { parseAmazonWishlist } = await import('../src/lib/server/importer.ts');
+	const html = `<ul id="g-items">
+<li data-id="X" data-itemid="I1" data-price="24.99" class="g-item-sortable"><div><img src="https://m.media-amazon.com/images/I/81abc._SS135_.jpg">
+<a id="itemName_I1" class="a-link-normal" title="Hydro Flask 32 oz" href="/dp/B01ACATW7E/?coliid=I1">Hydro Flask 32 oz Wide Mouth</a></div></li>
+<li data-id="X" data-itemid="I2" data-price="-Infinity" class="g-item-sortable"><div><img src="https://m.media-amazon.com/images/I/71xyz._SS135_.jpg">
+<a id="itemName_I2" href="/dp/B07FZ8S74R/">Echo Dot</a><span class="a-price"><span class="a-offscreen">$49.99</span></span></div></li>
+</ul>`;
+	const items = parseAmazonWishlist(html, new URL('https://www.amazon.com/hz/wishlist/ls/ABC123'));
+	assert.equal(items.length, 2);
+	assert.equal(items[0].title, 'Hydro Flask 32 oz Wide Mouth');
+	assert.equal(items[0].url, 'https://www.amazon.com/dp/B01ACATW7E/?coliid=I1');
+	assert.equal(items[0].price, 24.99);
+	assert.equal(items[0].image_url, 'https://m.media-amazon.com/images/I/81abc.jpg');
+	assert.equal(items[1].price, '$49.99');
+});
+
+test('Details read in the browser win, with no fetch when complete', async () => {
+	const { importWithHint } = await import('../src/lib/server/importer.ts');
+	const r = await importWithHint({ url: 'https://www.amazon.com/Some-Thing/dp/B000000001?ref=x', title: 'Amazon.com: Wool Socks', image_url: 'https://img.example/s.jpg', price: '$12.50', specifics: [{ label: 'Size', value: 'L' }] });
+	assert.equal(r.ok, true);
+	assert.equal(r.url, 'https://www.amazon.com/dp/B000000001');
+	assert.equal(r.title, 'Wool Socks');
+	assert.equal(r.price_cents, 1250);
+	assert.equal(r.currency, 'USD');
+	assert.deepEqual(r.specifics, [{ label: 'Size', value: 'L' }]);
+	assert.equal(r.category_id, 'cat_clothes');
+});
