@@ -119,3 +119,26 @@ test('Details read in the browser win, with no fetch when complete', async () =>
 	assert.deepEqual(r.specifics, [{ label: 'Size', value: 'L' }]);
 	assert.equal(r.category_id, 'cat_clothes');
 });
+
+test('Amazon wish list: works whatever order the link attributes come in', async () => {
+	const { parseAmazonWishlist } = await import('../src/lib/server/importer.ts');
+	const html = `<ul id="g-items">
+<li data-id="L1" data-itemId="IAAA" data-price="129.0" class="a-spacing-none g-item-sortable">
+  <div class="a-row"><a class="a-link-normal" href="/dp/B0BX1/?coliid=IAAA&ref_=lv_ov_lig_dp_it" title="Instant Pot Duo 7-in-1"><img alt="Instant Pot" src="https://m.media-amazon.com/images/I/71V._SS135_.jpg"></a></div>
+  <h2 class="a-size-base"><a class="a-link-normal" title="Instant Pot Duo 7-in-1 Electric Pressure Cooker" href="/dp/B0BX1/?coliid=IAAA" id="itemName_IAAA">Instant Pot Duo 7-in-1 Electric Pressure Cooker</a></h2>
+  <ul class="a-unordered-list"><li><span>Add to cart</span></li></ul>
+</li>
+<li data-id="L1" data-itemId="IBBB" data-price="-Infinity" class="a-spacing-none g-item-sortable">
+  <a href="/dp/B0CC2/" class="a-link-normal" title="Kindle Paperwhite"><img src="https://m.media-amazon.com/images/I/61K._SS135_.jpg"></a>
+  <span class="a-price"><span class="a-offscreen">$149.99</span></span>
+</li>
+</ul>`;
+	const items = parseAmazonWishlist(html, new URL('https://www.amazon.com/hz/wishlist/ls/ABC'));
+	assert.equal(items.length, 2);
+	assert.equal(items[0].title, 'Instant Pot Duo 7-in-1 Electric Pressure Cooker');
+	assert.equal(items[0].price, 129);
+	assert.equal(items[0].image_url, 'https://m.media-amazon.com/images/I/71V.jpg');
+	assert.equal(items[1].title, 'Kindle Paperwhite');
+	assert.equal(items[1].url, 'https://www.amazon.com/dp/B0CC2/');
+	assert.equal(items[1].price, '$149.99');
+});

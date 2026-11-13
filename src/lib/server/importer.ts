@@ -677,41 +677,82 @@ export async function importWithHint(hint: ImportHint, fetchGaps = true): Promis
 /* ------------------------------------------------------------ Amazon wish lists */
 
 export function isAmazonWishlist(url: URL): boolean {
-	return isAmazon(url) && /\/(hz\/wishlist|gp\/registry\/wishlist|registries\/gl\/guest-view|wishlist)\b/i.test(url.pathname);
+	return (
+		isAmazon(url) &&
+		(/\/(hz\/wishlist|gp\/registry\/wishlist|registries\/gl\/guest-view|gp\/aw\/ls|wishlist)\b/i.test(url.pathname) || url.searchParams.has('lid'))
+	);
 }
 
-/** Read the items off an Amazon wish list page (public lists, as much as the page holds). */
+/** Amazon's app shares short links (a.co, amzn.to). Follow one to see where it really goes. */
+export async function resolveShortLink(input: string): Promise<string> {
+	const url = normaliseUrl(input);
+	if (!url || !/^(a\.co|amzn\.(to|eu|asia))$/i.test(url.hostname)) return input;
+	try {
+		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
+		res.body?.cancel().catch(() => {});
+		return res.url || input;
+	} catch {
+		return input;
+	}
+}
+
+/**
+ * Read the items off an Amazon wish list page. Amazon's markup varies (attribute order, which
+ * links carry the title), so each item is cut out by its data-itemid and read loosely.
+ */
 export function parseAmazonWishlist(html: string, base: URL): ImportHint[] {
 	const out: ImportHint[] = [];
-	for (const m of html.matchAll(/<li[^>]*data-itemid=["'][^"']+["'][^>]*>([\s\S]*?)<\/li>\s*(?=<li[^>]*data-itemid|<\/ul>)/gi)) {
-		const li = m[0];
-		const link = li.match(/<a[^>]*id=["']itemName_[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i) ?? li.match(/<a[^>]*href=["']([^"']*\/dp\/[^"']+)["'][^>]*title=["']([^"']+)["']/i);
-		if (!link) continue;
-		const href = absolute(link[1], base);
-		const img = li.match(/<img[^>]*src=["'](https:[^"']+)["']/i);
-		const dataPrice = li.match(/data-price=["']([\d.]+)["']/i);
-		const offscreen = li.match(/class=["']a-offscreen["']>([^<]+)</i);
+	const starts = [...html.matchAll(/<li\b[^>]*\bdata-itemid=["'][^"']+["'][^>]*>/gi)];
+	starts.forEach((m, i) => {
+		const chunk = html.slice(m.index!, starts[i + 1]?.index ?? Math.min(html.length, m.index! + 40000));
+		const liAttrs = parseAttrs(m[0]);
+		// The item's name link: id="itemName_…", else the first product link with a title.
+		const links = [...chunk.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)].map((a) => ({ attrs: parseAttrs(a[0].slice(0, a[0].indexOf('>') + 1)), inner: a[1] }));
+		const named =
+			links.find((l) => /^itemName_/i.test(l.attrs.id ?? '')) ??
+			links.find((l) => /\/(dp|gp\/product)\//.test(l.attrs.href ?? '') && (l.attrs.title || text(l.inner))) ??
+			null;
+		if (!named?.attrs.href) return;
+		// The visible name is usually the full one; the title attribute is sometimes cut short.
+		const shown = text(named.inner);
+		const attr = decode(named.attrs.title ?? '').trim();
+		const title = shown.length >= attr.length ? shown : attr;
+		if (!title) return;
+		const img = chunk.match(/<img\b[^>]*\bsrc=["'](https:[^"']+)["']/i);
+		const dataPrice = Number(liAttrs['data-price']);
+		const offscreen = chunk.match(/class=["']a-offscreen["'][^>]*>([^<]+)</i);
 		out.push({
-			url: href ?? undefined,
-			title: text(link[2]),
+			url: absolute(named.attrs.href, base) ?? undefined,
+			title: decode(title),
 			image_url: img ? img[1].replace(/\._[^.]+_\./, '.') : null,
-			price: dataPrice && Number(dataPrice[1]) > 0 ? Number(dataPrice[1]) : offscreen ? text(offscreen[1]) : null,
+			price: Number.isFinite(dataPrice) && dataPrice > 0 ? dataPrice : offscreen ? text(offscreen[1]) : null,
 			currency: amazonCurrency(base.hostname)
 		});
-	}
+	});
 	return out;
 }
 
+export interface WishlistImport {
+	items: ImportHint[];
+	blocked: boolean;
+	/** What Amazon sent instead, when no items were found (for the error message). */
+	saw?: string;
+}
+
 /** Fetch a public Amazon wish list and read its items. */
-export async function importAmazonWishlist(input: string): Promise<{ items: ImportHint[]; blocked: boolean }> {
+export async function importAmazonWishlist(input: string): Promise<WishlistImport> {
 	const url = normaliseUrl(input);
 	if (!url) return { items: [], blocked: false };
 	try {
 		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
 		const html = await readCapped(res);
-		if (isAmazonBotWall(html) && !/data-itemid/.test(html)) return { items: [], blocked: true };
-		return { items: parseAmazonWishlist(html, new URL(res.url || url.toString())), blocked: false };
+		const items = parseAmazonWishlist(html, new URL(res.url || url.toString()));
+		if (items.length) return { items, blocked: false };
+		const pageTitle = text(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '').slice(0, 80);
+		const blocked = res.status >= 400 || /validateCaptcha|Enter the characters you see below|Sorry! Something went wrong|automated access/i.test(html);
+		const signIn = /ap\/signin|Amazon Sign-In/i.test(res.url + pageTitle);
+		return { items: [], blocked: blocked || signIn, saw: signIn ? 'its sign-in page' : pageTitle ? `a page titled “${pageTitle}” (${res.status})` : `an empty page (${res.status})` };
 	} catch {
-		return { items: [], blocked: true };
+		return { items: [], blocked: true, saw: 'nothing (it didn’t answer in time)' };
 	}
 }
