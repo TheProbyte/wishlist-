@@ -4,104 +4,110 @@
 	import Sticker from './Sticker.svelte';
 	import Icon from './Icon.svelte';
 	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
-	import type { Category, Item } from '#lib/types.ts';
+	import type { Item } from '#lib/types.ts';
 
+	/**
+	 * One gift: photo, name, price and stars, with size/colour as small pills. The shop, notes and
+	 * the rest live in the gift's sheet. `layout="row"` is the compact one-per-line version.
+	 */
 	let {
 		item,
-		category,
 		position,
 		onopen,
 		onrate,
-		onmove,
+		onstep,
+		layout = 'grid',
 		selected = null
 	}: {
 		item: Item;
-		category?: Category;
 		/** 1-based rank shown when sorted by most wanted. */
 		position?: number;
 		onopen: () => void;
 		onrate?: (rating: number) => void;
-		onmove?: (delta: -1 | 1) => void;
+		/** Reorder mode: move up or down one place with clear buttons. */
+		onstep?: (delta: -1 | 1) => void;
+		layout?: 'grid' | 'row';
 		/** In select mode: whether this card is ticked (null when not selecting). */
 		selected?: boolean | null;
 	} = $props();
+
+	const soldOut = $derived(item.availability === 'out_of_stock');
+	const dropped = $derived(hasPriceDrop(item));
+	const pills = $derived([...item.specifics.slice(0, layout === 'row' ? 2 : 3).map((s) => s.value), ...(item.quantity > 1 ? [`× ${item.quantity}`] : [])]);
 </script>
 
-<!-- Gift cards stay plain (cream photo tile, cocoa body) so the products are the colour. -->
-<article class="card group relative flex h-full flex-col overflow-hidden transition {selected ? 'ring-3 ring-mustard-400' : ''}">
-	{#if selected !== null}
-		<!-- Select mode: the whole card is one big tick box. -->
-		<button type="button" class="absolute inset-0 z-10 cursor-pointer {selected ? 'bg-mustard-400/10' : ''}" aria-pressed={selected} aria-label="{selected ? 'Untick' : 'Tick'} {item.title}" onclick={onopen}></button>
-		<span class="pointer-events-none absolute top-3.5 right-3.5 z-10 grid h-8 w-8 place-items-center rounded-full border-2 shadow-[0_2px_0_0_var(--color-edge)] transition {selected ? 'border-mustard-400 bg-mustard-400 text-cocoa-950' : 'border-cream/80 bg-cocoa-950/60'}">
-			{#if selected}<Icon name="check" size={18} />{/if}
-		</span>
-	{/if}
-	<button type="button" class="block p-2 pb-0 text-left" onclick={onopen} aria-label="Edit {item.title}">
-		<ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" />
-	</button>
+{#snippet tick()}
+	<!-- Select mode: the whole card is one big tick box. -->
+	<button type="button" class="absolute inset-0 z-10 cursor-pointer {selected ? 'bg-mustard-400/10' : ''}" aria-pressed={selected} aria-label="{selected ? 'Untick' : 'Tick'} {item.title}" onclick={onopen}></button>
+	<span class="pointer-events-none absolute z-10 grid h-7 w-7 place-items-center rounded-full border-2 shadow-[0_2px_0_0_var(--color-edge)] transition {layout === 'row' ? 'top-1/2 right-3 -translate-y-1/2' : 'top-3 right-3'} {selected ? 'border-mustard-400 bg-mustard-400 text-cocoa-950' : 'border-cream/80 bg-cocoa-950/60'}">
+		{#if selected}<Icon name="check" size={16} />{/if}
+	</span>
+{/snippet}
 
-	{#if position}
-		<div class="absolute top-3.5 left-3.5 flex items-center gap-1">
-			<Sticker tone={position === 1 ? 'mustard' : 'cocoa'} tilt={position % 2 ? -5 : 4}>#{position}</Sticker>
-			{#if onmove}
-				<div class="ml-1 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-					{#each [-1, 1] as const as d (d)}
-						<button type="button" class="grid h-8 w-8 place-items-center rounded-full bg-cocoa-950/85 text-fg hover:bg-cocoa-950" aria-label={d === -1 ? 'Move up' : 'Move down'} onclick={() => onmove(d)}>
-							<Icon name={d === -1 ? 'chevron-up' : 'chevron-down'} size={16} />
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/if}
+{#snippet price(cls: string)}
+	<span class="flex items-baseline gap-1.5">
+		<span class="font-bold tabular-nums {cls}">{formatPrice(item.price_cents, item.currency) || '—'}</span>
+		{#if dropped}<s class="text-[11px] text-fg-faint tabular-nums">{formatPrice(item.prev_price_cents, item.currency)}</s>{/if}
+	</span>
+{/snippet}
 
-	{#if item.availability === 'out_of_stock'}
-		<Sticker tone="rust" tilt={5} class="absolute top-3.5 right-3.5">Sold out</Sticker>
-	{:else if hasPriceDrop(item)}
-		<Sticker tone="mustard" tilt={5} class="absolute top-3.5 right-3.5">Price drop</Sticker>
-	{/if}
-
-	<div class="flex flex-1 flex-col gap-2.5 p-3.5">
-		<div class="flex items-center justify-between gap-2 text-xs font-bold">
-			{#if category}
-				<span class="inline-flex min-w-0 items-center gap-1 truncate" style="color: {category.color}"><Icon name={category.icon} size={14} />{category.name}</span>
-			{:else}
-				<span></span>
-			{/if}
-			{#if item.store}
-				{#if item.url}
-					<a href={item.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-w-0 items-center gap-1 truncate text-fg-faint hover:text-mustard-400">
-						{item.store}<Icon name="external" size={12} />
-					</a>
-				{:else}
-					<span class="truncate text-fg-faint">{item.store}</span>
-				{/if}
-			{/if}
-		</div>
-
-		<button type="button" class="text-left" onclick={onopen}>
-			<h3 class="line-clamp-2 text-[15px] leading-snug font-bold text-fg">{item.title}</h3>
+{#if layout === 'row'}
+	<article class="card relative flex items-center gap-3 p-2 pr-3 select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
+		{#if selected !== null}{@render tick()}{/if}
+		<button type="button" class="relative shrink-0" onclick={onopen} aria-label="Open {item.title}">
+			<ProductImage src={item.image_url} alt="" class="h-16 w-16 rounded-[10px] {soldOut ? 'opacity-60' : ''}" />
+			{#if position}<span class="absolute -top-1 -left-1 grid h-6 min-w-6 place-items-center rounded-full px-1 text-[11px] font-bold shadow-[0_2px_0_0_var(--color-edge)] {position === 1 ? 'bg-mustard-400 text-cocoa-950' : 'bg-cocoa-950 text-fg'}">{position}</span>{/if}
 		</button>
-
-		{#if item.specifics.length || item.quantity > 1}
-			<div class="flex flex-wrap gap-1.5">
-				{#each item.specifics.slice(0, 4) as s, i (i)}
-					<span class="pill"><span class="text-fg-faint">{s.label}</span>{s.value}</span>
-				{/each}
-				{#if item.quantity > 1}<span class="pill">× {item.quantity}</span>{/if}
+		<div class="min-w-0 flex-1 {selected !== null ? 'pr-8' : ''}">
+			<button type="button" class="block w-full text-left" onclick={onopen}>
+				<h3 class="line-clamp-2 text-[14px] leading-snug font-bold text-fg">{item.title}</h3>
+			</button>
+			<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+				{@render price('text-[14px]')}
+				{#if soldOut}<span class="pill bg-rust-500 text-cream">Sold out</span>{:else if dropped}<span class="pill bg-mustard-400 text-cocoa-950">Price drop</span>{/if}
+				{#each pills as p, i (i)}<span class="pill">{p}</span>{/each}
+				{#if !onstep && selected === null}<Stars value={item.rating} size={14} onchange={onrate} />{/if}
+			</div>
+		</div>
+		{#if onstep}
+			<div class="flex shrink-0 flex-col gap-1">
+				<button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-cocoa-800 text-fg active:scale-95" aria-label="Move {item.title} up" onclick={() => onstep(-1)}><Icon name="chevron-up" size={18} /></button>
+				<button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-cocoa-800 text-fg active:scale-95" aria-label="Move {item.title} down" onclick={() => onstep(1)}><Icon name="chevron-down" size={18} /></button>
 			</div>
 		{/if}
+	</article>
+{:else}
+	<!-- Gift cards stay plain (cream photo tile, cocoa body) so the products are the colour. -->
+	<article class="card relative flex h-full flex-col overflow-hidden select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
+		{#if selected !== null}{@render tick()}{/if}
+		<button type="button" class="block p-1.5 pb-0 text-left sm:p-2 sm:pb-0" onclick={onopen} aria-label="Open {item.title}">
+			<ProductImage src={item.image_url} alt="" class="aspect-square w-full rounded-[12px] {soldOut ? 'opacity-60' : ''}" />
+		</button>
 
-		{#if item.note}
-			<p class="line-clamp-2 text-xs text-fg-muted italic">“{item.note}”</p>
+		{#if position}
+			<Sticker tone={position === 1 ? 'mustard' : 'cocoa'} tilt={position % 2 ? -5 : 4} class="absolute top-3 left-3">#{position}</Sticker>
+		{/if}
+		{#if selected === null}
+			{#if soldOut}
+				<Sticker tone="rust" tilt={5} class="absolute top-3 right-3">Sold out</Sticker>
+			{:else if dropped}
+				<Sticker tone="mustard" tilt={5} class="absolute top-3 right-3">Price drop</Sticker>
+			{/if}
 		{/if}
 
-		<div class="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-1">
-			<span class="flex items-baseline gap-1.5">
-				<span class="text-lg font-bold tabular-nums">{formatPrice(item.price_cents, item.currency) || '—'}</span>
-				{#if hasPriceDrop(item)}<s class="text-xs text-fg-faint tabular-nums">{formatPrice(item.prev_price_cents, item.currency)}</s>{/if}
-			</span>
-			<Stars value={item.rating} size={16} onchange={onrate} />
+		<div class="flex flex-1 flex-col gap-1.5 p-2.5 pt-2 sm:gap-2 sm:p-3.5 sm:pt-3">
+			<button type="button" class="text-left" onclick={onopen}>
+				<h3 class="line-clamp-2 text-[14px] leading-snug font-bold text-fg sm:text-[15px]">{item.title}</h3>
+			</button>
+			{#if pills.length}
+				<div class="flex flex-wrap gap-1">
+					{#each pills as p, i (i)}<span class="pill">{p}</span>{/each}
+				</div>
+			{/if}
+			<div class="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-0.5">
+				{@render price('text-[15px] sm:text-lg')}
+				<Stars value={item.rating} size={14} onchange={onrate} />
+			</div>
 		</div>
-	</div>
-</article>
+	</article>
+{/if}

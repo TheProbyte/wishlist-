@@ -5,7 +5,6 @@
 	import Modal from './Modal.svelte';
 	import Icon from './Icon.svelte';
 	import Sticker from './Sticker.svelte';
-	import GiftTag from './GiftTag.svelte';
 	import Confetti from './Confetti.svelte';
 	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
 	import type { Category, Item } from '#lib/types.ts';
@@ -30,7 +29,6 @@
 	let celebrating = $state<string | null>(null);
 	let fire = $state(0);
 
-	const catById = $derived(new Map(categories.map((c) => [c.id, c])));
 	const visible = $derived(hideTaken ? items.filter((i) => i.claimed < i.quantity || i.mine > 0) : items);
 	const claimingItem = $derived(items.find((i) => i.id === claimingId));
 	// Each claim sheet needs its own form id when several of these are on one page.
@@ -38,13 +36,12 @@
 	const formId = `claim-${uid}`;
 </script>
 
-<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
 	{#each visible as item, i (item.id)}
 		{@const taken = item.claimed >= item.quantity && item.mine === 0}
-		{@const category = item.category_id ? catById.get(item.category_id) : undefined}
 		{@const fresh = celebrating === item.id}
 		<article class="card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
-			<div class="relative p-2 pb-0">
+			<div class="relative p-1.5 pb-0 sm:p-2 sm:pb-0">
 				<ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" />
 				{#if item.mine > 0}
 					<!-- Yours: wrapped in a teal ribbon. -->
@@ -63,26 +60,23 @@
 			{#if hasPriceDrop(item) && !taken}
 				<Sticker tone="mustard" tilt={5} class="absolute top-3.5 right-3.5">Price drop</Sticker>
 			{/if}
-			<div class="flex flex-1 flex-col gap-2.5 p-3.5">
-				<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs font-bold">
-					{#if category}<span class="inline-flex min-w-0 items-center gap-1 truncate" style="color: {category.color}"><Icon name={category.icon} size={14} />{category.name}</span>{:else}<span></span>{/if}
-					{#if item.rating}<Stars value={item.rating} size={13} />{/if}
-				</div>
-				<h3 class="line-clamp-2 text-[15px] leading-snug font-bold">{item.title}</h3>
+			<div class="flex flex-1 flex-col gap-1.5 p-2.5 pt-2 sm:gap-2 sm:p-3.5 sm:pt-3">
+				<h3 class="line-clamp-2 text-[14px] leading-snug font-bold sm:text-[15px]">{item.title}</h3>
 				{#if item.specifics.length || item.quantity > 1}
-					<div class="flex flex-wrap gap-1.5">
-						{#each item.specifics as s, i (i)}<span class="pill"><span class="text-fg-faint">{s.label}</span>{s.value}</span>{/each}
+					<div class="flex flex-wrap gap-1">
+						{#each item.specifics.slice(0, 3) as s, i (i)}<span class="pill">{s.value}</span>{/each}
 						{#if item.quantity > 1}<span class="pill">{item.claimed}/{item.quantity} taken</span>{/if}
 					</div>
 				{/if}
-				{#if item.note}<p class="text-xs text-fg-muted italic">“{item.note}”</p>{/if}
-				<div class="mt-auto space-y-3 pt-1">
-					<div class="flex items-center justify-between gap-2">
-						{#if item.price_cents != null}<GiftTag tone="cream">{formatPrice(item.price_cents, item.currency)}</GiftTag>{:else}<span></span>{/if}
-						{#if item.url}
-							<a href={item.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-fg-faint hover:text-teal-300">{item.store ?? 'Shop'}<Icon name="external" size={12} /></a>
-						{/if}
+				{#if item.note}<p class="line-clamp-2 text-xs text-fg-muted italic">“{item.note}”</p>{/if}
+				<div class="mt-auto space-y-2 pt-0.5">
+					<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+						<span class="text-[15px] font-bold tabular-nums sm:text-lg">{formatPrice(item.price_cents, item.currency) || '—'}</span>
+						{#if item.rating}<Stars value={item.rating} size={13} />{/if}
 					</div>
+					{#if item.url}
+						<a href={item.url} target="_blank" rel="noopener noreferrer" class="-my-1 flex min-h-9 items-center gap-1 truncate text-xs font-bold text-fg-faint hover:text-teal-300"><span class="truncate">{item.store ?? 'See it in the shop'}</span><Icon name="external" size={12} /></a>
+					{/if}
 					{#if preview}
 						<!-- The owner's preview: no claiming. -->
 					{:else if item.mine > 0}

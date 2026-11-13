@@ -17,7 +17,8 @@
 		error = null,
 		sizes = {},
 		person = null,
-		preview = false
+		preview = false,
+		sticky = false
 	}: {
 		items: GiverItem[];
 		categories: Category[];
@@ -26,6 +27,8 @@
 		sizes?: Sizes;
 		person?: string | null;
 		preview?: boolean;
+		/** Stick the toolbar under the header (not inside a swipe strip, where it can't stick). */
+		sticky?: boolean;
 	} = $props();
 
 	const PRICES = [
@@ -38,6 +41,7 @@
 	let category = $state('all');
 	let price = $state('any');
 	let hideTaken = $state(false);
+	let priceOpen = $state(false);
 
 	const usedCategories = $derived(categories.filter((c) => items.some((i) => i.category_id === c.id)));
 	const usedPrices = $derived(PRICES.filter((p) => items.some((i) => i.price_cents != null && p.test(i.price_cents))));
@@ -52,54 +56,65 @@
 	const takenCount = $derived(items.filter((i) => i.claimed >= i.quantity).length);
 </script>
 
+<svelte:window onclick={() => (priceOpen = false)} onkeydown={(e) => e.key === 'Escape' && (priceOpen = false)} />
+
 {#if preview}
-	<div class="mb-6 flex gap-3 rounded-[var(--radius-card)] bg-teal-600/25 px-4 py-3 text-sm text-teal-300">
+	<div class="mb-4 flex gap-3 rounded-[var(--radius-card)] bg-teal-600/25 px-4 py-3 text-sm text-teal-300">
 		<Icon name="gift" size={20} />
 		<span><span class="font-bold">This is what givers see.</span> Who’s getting what is hidden from you, so it stays a surprise.</span>
 	</div>
 {/if}
 
 {#if savedSizes.length}
-	<div class="card mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-		<span class="flex items-center gap-2 text-sm font-bold"><Icon name="shirt" size={18} class="text-rust-300" />{person ? `${person.split(' ')[0]}’s sizes` : 'Sizes'}</span>
+	<div class="card no-scrollbar mb-4 flex items-center gap-2 overflow-x-auto px-3.5 py-2.5 whitespace-nowrap" data-no-swipe>
+		<span class="flex shrink-0 items-center gap-2 pr-1 text-sm font-bold"><Icon name="shirt" size={18} class="text-rust-300" />{person ? `${person.split(' ')[0]}’s sizes` : 'Sizes'}</span>
 		{#each savedSizes as f (f.key)}
-			<span class="pill text-xs"><span class="text-fg-faint">{f.label}</span>{sizes[f.key]}</span>
+			<span class="pill shrink-0 text-xs"><span class="text-fg-faint">{f.label}</span>{sizes[f.key]}</span>
 		{/each}
 	</div>
 {/if}
 
-<div class="mb-5 space-y-3">
-	{#if usedCategories.length > 1}
-		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 no-scrollbar" data-no-swipe>
+<!-- One toolbar: categories, price and "hide taken". On a share link it sticks under the header. -->
+<div class="{sticky ? 'sticky top-[76px] z-30 -mx-4 bg-cocoa-950/95 px-4 py-2 backdrop-blur-sm sm:mx-0 sm:px-0' : ''} mb-3 flex items-center gap-2">
+	<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
+		{#if usedCategories.length > 1}
 			<button class="chip shrink-0 {category === 'all' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={category === 'all'} onclick={() => (category = 'all')}>All</button>
 			{#each usedCategories as c (c.id)}
 				<button class="chip shrink-0 {category === c.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={category === c.id} onclick={() => (category = category === c.id ? 'all' : c.id)}>
 					<Icon name={c.icon} size={15} />{c.name}
 				</button>
 			{/each}
-		</div>
-	{/if}
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		{#if usedPrices.length > 1}
-			<div class="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
-				<div class="flex shrink-0 gap-1 rounded-[var(--radius-control)] bg-sunken p-1">
-					<button class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap {price === 'any' ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}" aria-pressed={price === 'any'} onclick={() => (price = 'any')}>Any price</button>
-					{#each usedPrices as p (p.id)}
-						<button class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap {price === p.id ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}" aria-pressed={price === p.id} onclick={() => (price = p.id)}>{p.label}</button>
-					{/each}
-				</div>
-			</div>
 		{:else}
-			<span></span>
-		{/if}
-		{#if !preview}
-			<label class="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-fg-muted">
-				<span class="text-fg-faint">{items.length} gifts · {takenCount} taken</span>
-				<input type="checkbox" class="ml-2 h-5 w-5 rounded-md border-2 border-cocoa-600 bg-sunken text-teal-600 focus:ring-0 focus:ring-offset-0" bind:checked={hideTaken} />
-				Hide taken
-			</label>
+			<span class="self-center text-sm font-bold text-fg-faint">{items.length} {items.length === 1 ? 'gift' : 'gifts'}{#if !preview && takenCount}&nbsp;· {takenCount} taken{/if}</span>
 		{/if}
 	</div>
+	{#if usedPrices.length > 1}
+		<div class="relative shrink-0">
+			<button
+				class="chip px-3 hover:text-fg {price !== 'any' ? 'chip-on' : ''}"
+				aria-haspopup="menu"
+				aria-expanded={priceOpen}
+				onclick={(e) => {
+					e.stopPropagation();
+					priceOpen = !priceOpen;
+				}}>{PRICES.find((p) => p.id === price)?.label ?? 'Any price'}<Icon name="chevron-down" size={14} /></button
+			>
+			{#if priceOpen}
+				<div role="menu" tabindex="-1" class="pop absolute top-full right-0 z-40 mt-2 w-44 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+					{#each [{ id: 'any', label: 'Any price' }, ...usedPrices] as p (p.id)}
+						<button role="menuitemradio" aria-checked={price === p.id} class="flex min-h-11 w-full items-center justify-between rounded-[10px] px-3 text-left text-sm font-bold {price === p.id ? 'bg-cocoa-800 text-fg' : 'text-fg-muted hover:text-fg'}" onclick={() => { price = p.id; priceOpen = false; }}>
+							{p.label}{#if price === p.id}<Icon name="check" size={16} class="text-mustard-400" />{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+	{#if !preview && takenCount}
+		<button class="chip shrink-0 px-3 {hideTaken ? 'chip-on' : 'hover:text-fg'}" aria-pressed={hideTaken} onclick={() => (hideTaken = !hideTaken)}>
+			<Icon name={hideTaken ? 'check' : 'gift'} size={15} /><span class="max-[379px]:sr-only">Hide taken</span>
+		</button>
+	{/if}
 </div>
 
 <GiverGifts items={shown} {categories} {giverName} {error} {hideTaken} {preview} />

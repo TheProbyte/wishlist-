@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance, deserialize } from '$app/forms';
 	import { goto, invalidateAll, preloadData } from '$app/navigation';
-	import { dur, pageSwipe, setNavDirection } from '#lib/motion.ts';
+	import { dur, pageSwipe } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
 	import ItemCard from '#lib/components/ItemCard.svelte';
@@ -10,10 +11,12 @@
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import ProductImage from '#lib/components/ProductImage.svelte';
-	import GiftTag from '#lib/components/GiftTag.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
+	import PasteBar from '#lib/components/PasteBar.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
-	import { countdownLabel, formatDate, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
+	import { holdDrag } from '#lib/holdDrag.ts';
+	import { firstTime, getPref, setPref } from '#lib/prefs.ts';
+	import { countdownLabel, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
@@ -23,8 +26,8 @@
 	const SORTS: { value: Sort; label: string }[] = [
 		{ value: 'rank', label: 'Most wanted' },
 		{ value: 'rating', label: 'Rating' },
-		{ value: 'price_asc', label: 'Price ↑' },
-		{ value: 'price_desc', label: 'Price ↓' },
+		{ value: 'price_asc', label: 'Price, low' },
+		{ value: 'price_desc', label: 'Price, high' },
 		{ value: 'newest', label: 'Newest' }
 	];
 
@@ -49,31 +52,32 @@
 		if (sort === 'newest') list = [...list].sort((a, b) => b.created_at - a.created_at);
 		return list;
 	}
-	const canReorder = $derived(sort === 'rank' && filter === 'all');
 	const rankable = (pageId: string) => sort === 'rank' && pageId === 'all';
-	// Drag-to-rank is for mice. On touch screens dragging would swallow swipes, and the arrows do the job.
+	// Mice drag with the browser's own drag and drop; touch screens use press-and-hold (holdDrag).
 	let finePointer = $state(false);
 	$effect(() => {
 		finePointer = matchMedia('(pointer: fine)').matches;
 	});
+
+	/* ------------------------------------------------ view: photo grid or compact rows */
+
+	let view = $state<'grid' | 'row'>('grid');
+	// Remembered per list, on this device.
+	$effect(() => {
+		view = getPref(`view:${data.list.id}`) === 'row' ? 'row' : 'grid';
+	});
+	function toggleView() {
+		view = view === 'grid' ? 'row' : 'grid';
+		setPref(`view:${data.list.id}`, view);
+	}
 
 	/* ------------------------------------------------ swiping */
 
 	// Categories are pages side by side in a native scroll-snap strip, so a swipe follows the finger
 	// exactly: All, then each category in use.
 	const pages = $derived(['all', ...usedCategories.map((c) => c.id)]);
-	function showCategory(id: string) {
-		filter = id;
-	}
 	function followChip(id: string) {
 		document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: dur(1) ? 'smooth' : 'auto' });
-	}
-
-	// Swipe the header (or use the arrows) to flip to the next or previous list.
-	function toList(id: string | null, direction: 'next' | 'prev') {
-		if (!id) return;
-		setNavDirection(direction);
-		return goto(`/lists/${id}`);
 	}
 	function liveToList(id: string | null) {
 		if (!id) return;
@@ -102,6 +106,7 @@
 	let importing = $state(false);
 	let notice = $state<string | null>(null);
 	let importSeq = 0;
+	let plusOpen = $state(false);
 
 	async function importLink(raw = link) {
 		const value = raw.trim();
@@ -146,6 +151,7 @@
 	}
 
 	function addManually() {
+		plusOpen = false;
 		importSeq++;
 		importing = false;
 		notice = null;
@@ -175,12 +181,12 @@
 		await post('rate', { id: item.id, rating: String(rating) });
 	}
 
-	async function saveOrder() {
-		await post('reorder', { ids: items.map((i) => i.id).join(',') });
-		await invalidateAll();
+	// The new order shows straight away; saving happens behind it.
+	function saveOrder() {
+		post('reorder', { ids: items.map((i) => i.id).join(',') });
 	}
 
-	function move(item: Item, delta: -1 | 1) {
+	function step(item: Item, delta: -1 | 1) {
 		const from = items.findIndex((i) => i.id === item.id);
 		const to = from + delta;
 		if (to < 0 || to >= items.length) return;
@@ -190,16 +196,21 @@
 		saveOrder();
 	}
 
+	function moveOnto(dragged: string, over: string) {
+		const from = items.findIndex((i) => i.id === dragged);
+		const to = items.findIndex((i) => i.id === over);
+		if (from < 0 || to < 0 || from === to) return;
+		const next = [...items];
+		next.splice(to, 0, next.splice(from, 1)[0]);
+		items = next;
+	}
+
+	// Mouse drag and drop (desktop).
 	let dragId = $state<string | null>(null);
 	function dragOver(e: DragEvent, over: Item) {
 		if (!dragId || dragId === over.id) return;
 		e.preventDefault();
-		const from = items.findIndex((i) => i.id === dragId);
-		const to = items.findIndex((i) => i.id === over.id);
-		if (from < 0 || to < 0) return;
-		const next = [...items];
-		next.splice(to, 0, next.splice(from, 1)[0]);
-		items = next;
+		moveOnto(dragId, over.id);
 	}
 	function dragEnd() {
 		if (!dragId) return;
@@ -207,9 +218,29 @@
 		saveOrder();
 	}
 
-	/* ------------------------------------------------ list settings & sharing */
+	/* ------------------------------------------------ menus */
 
+	let sortOpen = $state(false);
+	let moreOpen = $state(false);
 	let settingsOpen = $state(false);
+	let reordering = $state(false);
+	const layout = $derived(reordering ? 'row' : view);
+
+	function startReorder() {
+		moreOpen = false;
+		stopSelecting();
+		sort = 'rank';
+		filter = 'all';
+		reordering = true;
+	}
+
+	// One-time tips, the first time they'd be useful on this device.
+	let hint = $state<string | null>(null);
+	onMount(() => {
+		if (!matchMedia('(pointer: coarse)').matches) return;
+		if (items.length > 2 && firstTime('hold')) hint = 'Press and hold a gift to drag it up or down. Hold and let go to pick several.';
+		else if (pages.length > 1 && firstTime('swipe')) hint = 'Swipe across your gifts to flip through categories.';
+	});
 
 	/* ------------------------------------------------ select several */
 
@@ -223,6 +254,12 @@
 	const isSelected = (id: string) => selected.includes(id);
 	function toggleSelect(id: string) {
 		selected = isSelected(id) ? selected.filter((x) => x !== id) : [...selected, id];
+	}
+	function startSelecting(first?: string) {
+		moreOpen = false;
+		reordering = false;
+		selecting = true;
+		selected = first ? [first] : [];
 	}
 	function stopSelecting() {
 		selecting = false;
@@ -263,6 +300,12 @@
 	let shareOpen = $state(false);
 	let confirmDeleteList = $state(false);
 	let copied = $state(false);
+	const canPick = $derived(!isEverything && data.pickable.length > 0);
+	function openPick() {
+		plusOpen = false;
+		picked = [];
+		pickOpen = true;
+	}
 
 	async function copyShare() {
 		if (!shareUrl) return;
@@ -273,23 +316,12 @@
 </script>
 
 <svelte:head><title>{title} · The Giver</title></svelte:head>
+<svelte:window onclick={() => (sortOpen = false)} onkeydown={(e) => e.key === 'Escape' && (sortOpen = false)} />
 
-<div class="-mt-2 mb-3 flex items-center justify-between">
-	<a href="/" class="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg">
-		<Icon name="chevron-left" size={18} />
-		All lists
-	</a>
-	{#if data.neighbours.prev || data.neighbours.next}
-		<div class="flex gap-1">
-			<button class="btn-quiet w-11 px-0" aria-label="Previous list" disabled={!data.neighbours.prev} onclick={() => toList(data.neighbours.prev, 'prev')}><Icon name="chevron-left" size={20} /></button>
-			<button class="btn-quiet w-11 px-0" aria-label="Next list" disabled={!data.neighbours.next} onclick={() => toList(data.neighbours.next, 'next')}><Icon name="chevron-right" size={20} /></button>
-		</div>
-	{/if}
-</div>
-
-<!-- Header: a strip of this list's wrapping paper, then the title on plain cocoa. Swipe it to change list. -->
+<!-- Header: a short strip of this list's paper with the buttons on it, then the name and one line
+     of facts. Swipe it to flip to the next list. -->
 <section
-	class="mb-6"
+	class="mb-4 sm:mb-6"
 	use:pageSwipe={{
 		canLeft: !!data.neighbours.next,
 		canRight: !!data.neighbours.prev,
@@ -302,153 +334,186 @@
 		target: () => document.querySelector('main')
 	}}
 >
-	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} transitionName="paper-{data.list.id}" />
-	<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-		<div class="min-w-0">
-			<p class="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-fg-muted">
-				{#if data.kid}<span class="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs text-cream">{data.kid.name}</span>{/if}
-				{#if isEverything}
-					<span class="inline-flex items-center gap-1.5"><Icon name="gift" size={16} />Every gift{data.kid ? ` ${data.kid.name} would love` : ' you’d love'}, in one list</span>
-				{:else}
-					<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
-				{/if}
-				{#if nextDate && !isEverything}
-					<span class="text-cocoa-500">·</span><span>{formatDate(nextDate)}</span>
-					<span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>
-				{/if}
-			</p>
-			<h1 class="display text-[34px] leading-[1.08] break-words sm:text-[44px]">{title}</h1>
-			<div class="mt-3 flex flex-wrap gap-2">
-				<GiftTag>{items.length} {items.length === 1 ? 'gift' : 'gifts'}</GiftTag>
-				{#each totals as [cur, cents] (cur)}<GiftTag tone="mustard">{formatPrice(cents, cur)}</GiftTag>{/each}
-			</div>
-		</div>
-		<div class="flex shrink-0 gap-2">
-			<button class="btn-teal" onclick={() => (shareOpen = true)}>
-				<Icon name={data.list.share_token ? 'check' : 'share'} size={18} />
-				{data.list.share_token ? 'Shared' : 'Share'}
+	<div class="relative -mt-3 sm:mt-0">
+		<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} transitionName="paper-{data.list.id}" height="h-[60px] sm:h-20" />
+		<a href="/" class="absolute top-2.5 left-2.5 grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95" aria-label="All lists">
+			<Icon name="chevron-left" size={22} />
+		</a>
+		<div class="absolute top-2.5 right-2.5 flex gap-2">
+			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 {data.list.share_token ? 'text-teal-300' : 'text-fg'}" aria-label={data.list.share_token ? 'Shared: see the link' : 'Share with givers'} onclick={() => (shareOpen = true)}>
+				<Icon name="share" size={19} />
 			</button>
-			<button class="btn-ghost w-11 px-0" aria-label="List settings" onclick={() => { confirmDeleteList = false; settingsOpen = true; }}>
+			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95" aria-label="More" onclick={() => (moreOpen = true)}>
 				<Icon name="more" size={20} />
 			</button>
 		</div>
 	</div>
+	<h1 class="display mt-3 text-[30px] leading-[1.08] break-words sm:text-[44px]">{title}</h1>
+	<p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-bold text-fg-muted">
+		{#if data.kid}<span class="rounded-full bg-teal-600 px-2 py-0.5 text-xs text-cream">{data.kid.name}</span>{/if}
+		<Icon name={isEverything ? 'gift' : meta.icon} size={15} />
+		<span>{items.length} {items.length === 1 ? 'gift' : 'gifts'}</span>
+		{#each totals as [cur, cents] (cur)}<span class="text-cocoa-500">·</span><span class="text-mustard-400 tabular-nums">{formatPrice(cents, cur)}</span>{/each}
+		{#if nextDate && !isEverything}<span class="text-cocoa-500">·</span><span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>{/if}
+	</p>
 </section>
 
-<!-- Add a gift -->
-<form
-	class="paste-dock flex items-center gap-2 sm:mb-8 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400 {selecting ? 'max-sm:hidden' : ''}"
-	onsubmit={(e) => {
-		e.preventDefault();
-		importLink();
-	}}
->
-	<label class="flex flex-1 items-center gap-3 px-3">
-		<Icon name="link" size={20} class="text-mustard-400" />
-		<span class="sr-only">Product link</span>
-		<input
-			class="w-full border-0 bg-transparent py-3 text-[15px] text-fg placeholder:text-fg-faint focus:ring-0 focus:outline-none"
-			placeholder="Paste a link to add a gift…"
-			bind:value={link}
-			onpaste={(e) => {
-				const text = e.clipboardData?.getData('text') ?? '';
-				if (/https?:\/\//.test(text)) {
-					e.preventDefault();
-					importLink(text);
-				}
-			}}
-		/>
-	</label>
-	<div class="flex shrink-0 gap-2">
-		{#if !isEverything && data.pickable.length}
-			<button type="button" class="btn-quiet hidden sm:inline-flex" onclick={() => { picked = []; pickOpen = true; }}>From Everything</button>
-		{/if}
-		<button type="button" class="btn-quiet hidden sm:inline-flex" onclick={addManually}>Add by hand</button>
-		<button class="btn-primary" disabled={!link.trim()}>Add<span class="hidden sm:inline">&nbsp;gift</span></button>
-	</div>
-</form>
-
-<!-- Phones: the other ways to add sit here, since the paste bar is docked at the bottom. -->
-<div class="mb-6 flex gap-2 sm:hidden">
-	<button type="button" class="btn-ghost flex-1 text-sm" onclick={addManually}><Icon name="plus" size={16} />Add by hand</button>
-	{#if !isEverything && data.pickable.length}
-		<button type="button" class="btn-ghost flex-1 text-sm" onclick={() => { picked = []; pickOpen = true; }}><Icon name="gift" size={16} />From Everything</button>
-	{/if}
-</div>
+<!-- Add a gift. On phones this docks above the tab bar; it steps aside while selecting. -->
+<PasteBar
+	bind:value={link}
+	onsubmit={importLink}
+	onpastelink={importLink}
+	onplus={() => (plusOpen = true)}
+	class="paste-dock sm:mb-6 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
+/>
 
 {#if items.length === 0}
-	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-16 text-center">
+	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-14 text-center">
 		<div class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-cocoa-850 text-mustard-400"><Icon name="gift" size={30} /></div>
 		<h2 class="display text-2xl">Nothing wrapped yet</h2>
-		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">Copy a product link from any shop and paste it above. The picture, name and price come in by themselves.</p>
+		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">Copy a product link from any shop and paste it in the bar. The picture, name and price come in by themselves.</p>
+		<div class="mt-5 flex flex-wrap justify-center gap-2">
+			<button class="btn-ghost text-sm" onclick={addManually}><Icon name="plus" size={16} />Add by hand</button>
+			{#if canPick}<button class="btn-ghost text-sm" onclick={openPick}><Icon name="gift" size={16} />From Everything</button>{/if}
+		</div>
 	</div>
 {:else}
-	<!-- Toolbar -->
-	<div class="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 no-scrollbar" data-no-swipe>
-			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => showCategory('all')}>All <span class="opacity-70">{items.length}</span></button>
+	<!-- One toolbar: categories, sort and view. It sticks under the header as you scroll. -->
+	<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex items-center gap-2 bg-cocoa-950/95 px-4 py-2 backdrop-blur-sm sm:mx-0 sm:mb-5 sm:px-0">
+		<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
+			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
-				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" data-chip={c.id} aria-pressed={filter === c.id} onclick={() => showCategory(filter === c.id ? 'all' : c.id)}>
+				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" data-chip={c.id} aria-pressed={filter === c.id} onclick={() => (filter = filter === c.id ? 'all' : c.id)}>
 					<Icon name={c.icon} size={15} />{c.name} <span class="opacity-70">{c.count}</span>
 				</button>
 			{/each}
 		</div>
-		<div class="flex max-w-full min-w-0 items-center gap-2 self-stretch lg:self-auto">
-		<button class="btn-ghost min-h-11 shrink-0 px-3 text-sm {selecting ? 'bg-mustard-400 text-cocoa-950 hover:bg-mustard-300' : ''}" aria-pressed={selecting} onclick={() => (selecting ? stopSelecting() : (selecting = true))}>
-			<Icon name="check" size={16} />{selecting ? 'Done' : 'Select'}
+		<div class="relative shrink-0">
+			<button
+				class="chip px-3 hover:text-fg {sort !== 'rank' ? 'text-mustard-400' : ''}"
+				aria-haspopup="menu"
+				aria-expanded={sortOpen}
+				disabled={reordering}
+				onclick={(e) => {
+					e.stopPropagation();
+					sortOpen = !sortOpen;
+				}}
+			>
+				<Icon name="sort" size={15} /><span class="max-[379px]:sr-only">{SORTS.find((s) => s.value === sort)?.label}</span>
+			</button>
+			{#if sortOpen}
+				<div role="menu" tabindex="-1" class="pop absolute top-full right-0 z-40 mt-2 w-48 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+					{#each SORTS as s (s.value)}
+						<button role="menuitemradio" aria-checked={sort === s.value} class="flex min-h-11 w-full items-center justify-between rounded-[10px] px-3 text-left text-sm font-bold {sort === s.value ? 'bg-cocoa-800 text-fg' : 'text-fg-muted hover:text-fg'}" onclick={() => { sort = s.value; sortOpen = false; }}>
+							{s.label}{#if sort === s.value}<Icon name="check" size={16} class="text-mustard-400" />{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg" aria-label={view === 'grid' ? 'Show as a list' : 'Show as photos'} disabled={reordering} onclick={toggleView}>
+			<Icon name={view === 'grid' ? 'rows' : 'grid'} size={17} />
 		</button>
-		<div class="flex min-w-0 items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1 no-scrollbar" data-no-swipe>
-			{#each SORTS as s (s.value)}
-				<button
-					class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap transition {sort === s.value ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}"
-					aria-pressed={sort === s.value}
-					onclick={() => (sort = s.value)}>{s.label}</button
-				>
-			{/each}
-		</div>
-		</div>
 	</div>
 
-	{#if canReorder && items.length > 1}
-		<p class="-mt-3 mb-5 hidden text-xs text-fg-faint sm:block">Drag cards to rank them. Top-left is the one you want most.</p>
-	{/if}
-	{#if pages.length > 1}
-		<p class="-mt-3 mb-4 text-xs text-fg-faint sm:hidden">Swipe across your gifts to flip through categories.</p>
+	{#if hint}
+		<p class="pop mb-3 flex items-start gap-2 rounded-[14px] bg-cocoa-850 px-3 py-2.5 text-[13px] text-fg-muted">
+			<Icon name="sparkle" size={16} class="mt-px text-mustard-400" />
+			<span class="flex-1">{hint}</span>
+			<button class="-m-1 grid h-7 w-7 shrink-0 place-items-center text-fg-faint" aria-label="Got it" onclick={() => (hint = null)}><Icon name="close" size={15} /></button>
+		</p>
 	{/if}
 
 	<SwipePages {pages} bind:active={filter} onchange={followChip}>
-	{#snippet page(pageId)}
-	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-		{#each giftsFor(pageId) as item, i (item.id)}
-			<div
-				animate:flip={{ duration: dur(220) }}
-				class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
-				style="--i: {i}"
-				draggable={rankable(pageId) && finePointer && !selecting}
-				role="listitem"
-				ondragstart={(e) => {
-					dragId = item.id;
-					e.dataTransfer?.setData('text/plain', item.id);
-					if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-				}}
-				ondragover={(e) => dragOver(e, item)}
-				ondrop={(e) => e.preventDefault()}
-				ondragend={dragEnd}
-			>
-				<ItemCard
-					{item}
-					category={item.category_id ? catById.get(item.category_id) : undefined}
-					position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
-					onopen={() => (selecting ? toggleSelect(item.id) : edit(item))}
-					onrate={selecting ? undefined : (r) => rate(item, r)}
-					onmove={rankable(pageId) && !selecting ? (d) => move(item, d) : undefined}
-					selected={selecting ? isSelected(item.id) : null}
-				/>
-			</div>
-		{/each}
-	</div>
-	{/snippet}
+		{#snippet page(pageId)}
+		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3' : 'grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4'} role="list">
+			{#each giftsFor(pageId) as item, i (item.id)}
+				<div
+					animate:flip={{ duration: dur(200) }}
+					class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
+					style="--i: {i}"
+					role="listitem"
+					data-gift={item.id}
+					draggable={rankable(pageId) && finePointer && !selecting}
+					ondragstart={(e) => {
+						dragId = item.id;
+						e.dataTransfer?.setData('text/plain', item.id);
+						if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+					}}
+					ondragover={(e) => dragOver(e, item)}
+					ondrop={(e) => e.preventDefault()}
+					ondragend={dragEnd}
+					use:holdDrag={{
+						id: item.id,
+						enabled: !selecting,
+						draggable: rankable(pageId),
+						onhold: (id) => (reordering ? undefined : startSelecting(id)),
+						onover: moveOnto,
+						ondrop: saveOrder
+					}}
+				>
+					<ItemCard
+						{item}
+						{layout}
+						position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
+						onopen={() => (selecting ? toggleSelect(item.id) : reordering ? undefined : edit(item))}
+						onrate={selecting ? undefined : (r) => rate(item, r)}
+						onstep={reordering && rankable(pageId) ? (d) => step(item, d) : undefined}
+						selected={selecting ? isSelected(item.id) : null}
+					/>
+				</div>
+			{/each}
+		</div>
+		{/snippet}
 	</SwipePages>
+{/if}
+
+<!-- More: everything that used to crowd the header. -->
+<Modal bind:open={moreOpen} title={title}>
+	<div class="space-y-2">
+		{#if items.length}
+			<button class="card flex w-full items-center gap-3 p-3.5 text-left" onclick={() => startSelecting()}>
+				<span class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-800 text-mustard-400"><Icon name="check-box" size={20} /></span>
+				<span><span class="block font-bold">Select gifts</span><span class="text-sm text-fg-muted">Move, delete or sort several at once.</span></span>
+			</button>
+		{/if}
+		{#if items.length > 1}
+			<button class="card flex w-full items-center gap-3 p-3.5 text-left" onclick={startReorder}>
+				<span class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-800 text-mustard-400"><Icon name="grip" size={20} /></span>
+				<span><span class="block font-bold">Reorder</span><span class="text-sm text-fg-muted">Put the ones you want most at the top.</span></span>
+			</button>
+		{/if}
+		<button class="card flex w-full items-center gap-3 p-3.5 text-left" onclick={() => { moreOpen = false; confirmDeleteList = false; settingsOpen = true; }}>
+			<span class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-800 text-mustard-400"><Icon name={isEverything ? 'gift' : meta.icon} size={20} /></span>
+			<span><span class="block font-bold">{isEverything ? 'Wish list settings' : 'List settings'}</span><span class="text-sm text-fg-muted">{isEverything ? 'Name and wrapping paper.' : 'Name, date and wrapping paper.'}</span></span>
+		</button>
+	</div>
+</Modal>
+
+<!-- + in the paste bar: the other ways to add. -->
+<Modal bind:open={plusOpen} title="Add a gift">
+	<div class="space-y-2">
+		<button class="card flex w-full items-center gap-3 p-4 text-left" onclick={addManually}>
+			<span class="grid h-11 w-11 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="plus" size={22} /></span>
+			<span><span class="block font-bold">Add by hand</span><span class="text-sm text-fg-muted">Anything, no link needed. Add your own photo.</span></span>
+		</button>
+		{#if canPick}
+			<button class="card flex w-full items-center gap-3 p-4 text-left" onclick={openPick}>
+				<span class="grid h-11 w-11 place-items-center rounded-full bg-teal-600 text-cream"><Icon name="gift" size={20} /></span>
+				<span><span class="block font-bold">From Everything</span><span class="text-sm text-fg-muted">Pick gifts already on your wish list.</span></span>
+			</button>
+		{/if}
+	</div>
+</Modal>
+
+<!-- Reorder mode: arrows on every gift, and a bar to finish. -->
+{#if reordering}
+	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5">
+		<div class="pop mx-auto flex max-w-3xl items-center gap-3 rounded-[var(--radius-card)] bg-cocoa-900 p-2 pl-4 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
+			<span class="flex-1 text-sm text-fg-muted">Use the arrows, or hold a gift and drag it.</span>
+			<button class="btn-primary min-h-10 px-4 text-sm" onclick={() => (reordering = false)}>Done</button>
+		</div>
+	</div>
 {/if}
 
 <ItemEditor

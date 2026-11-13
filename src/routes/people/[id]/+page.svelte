@@ -20,17 +20,17 @@
 
 <svelte:head><title>{first}’s wish list · The Giver</title></svelte:head>
 
-<a href="/people" class="-mt-2 mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg"><Icon name="chevron-left" size={18} />People</a>
-
-<section class="mb-6 flex items-center gap-4">
-	<Avatar name={data.person.name} src={data.person.avatar_url} size={64} />
+<!-- Compact header: back, their picture and name, and their birthday. -->
+<section class="mb-4 flex items-center gap-3">
+	<a href="/people" class="-ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cocoa-850 text-fg active:scale-95" aria-label="People"><Icon name="chevron-left" size={22} /></a>
+	<Avatar name={data.person.name} src={data.person.avatar_url} size={48} />
 	<div class="min-w-0">
-		<h1 class="display truncate text-[34px] leading-tight sm:text-[42px]">{first}’s wish lists</h1>
+		<h1 class="display truncate text-[28px] leading-tight sm:text-[40px]">{first}’s wish lists</h1>
 		{#if data.person.birthday}<p class="text-sm font-bold text-rust-300">Birthday {countdownLabel(occasionDate('birthday', data.person.birthday))}</p>{/if}
 	</div>
 </section>
 
-<div class="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 no-scrollbar" data-no-swipe>
+<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex gap-1.5 overflow-x-auto bg-cocoa-950/95 px-4 py-2 backdrop-blur-sm sm:mx-0 sm:flex-wrap sm:px-0 no-scrollbar" data-no-swipe>
 	{#each data.pages as p (p.id)}
 		<button class="chip shrink-0 {active === p.id ? 'chip-on' : 'hover:text-fg'}" data-chip={p.id} aria-pressed={active === p.id} onclick={() => (active = p.id)}>
 			<Icon name={p.kid && p.label === p.kid ? 'teddy' : p.label === 'Everything' ? 'gift' : occasionMeta(p.occasion).icon} size={15} />{p.label}

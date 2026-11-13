@@ -372,6 +372,14 @@ html[data-nav='close']::view-transition-new(root) {
 
 /* Phones: the paste-a-link bar sits just above the tab bar, in thumb reach. */
 @utility paste-dock {
+	transition:
+		opacity 160ms,
+		translate 200ms var(--ease-out-soft);
+	/* Out of the way while a gift is being dragged. */
+	:root[data-lifted] & {
+		opacity: 0;
+		pointer-events: none;
+	}
 	@media (width < 40rem) {
 		position: fixed;
 		left: 0.75rem;
