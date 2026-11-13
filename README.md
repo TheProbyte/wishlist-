@@ -36,7 +36,7 @@ One-time setup in the Cloudflare dashboard. After this, every push to GitHub reb
 1. Sign in at [dash.cloudflare.com](https://dash.cloudflare.com).
 2. **Workers & Pages → Create → Import a repository**, connect GitHub, and pick this repo.
 3. On the settings screen:
-   - **Project name:** `the-giver` (it must match `name` in `wrangler.jsonc`)
+   - **Project name:** `wishlist` (it must match `name` in `wrangler.jsonc`, currently `wishlist`)
    - **Build command:** `npm run build`
    - **Deploy command:** `npm run deploy`
    - **Production branch:** the branch you want live
