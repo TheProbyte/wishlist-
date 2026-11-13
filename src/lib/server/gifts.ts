@@ -114,3 +114,59 @@ export async function findDuplicate(db: D1Database, master: string, url: string 
 	const t = title ? norm(title) : null;
 	return results.find((r) => (url && r.url && r.url === url) || (t && t.length > 6 && norm(r.title) === t)) ?? null;
 }
+
+export interface NewGift {
+	url: string | null;
+	title: string;
+	image_url: string | null;
+	price_cents: number | null;
+	currency: string | null;
+	store: string | null;
+	category_id: string | null;
+}
+
+/**
+ * Add many gifts at once (an imported wish list): one duplicate check against what's already
+ * there, then everything saved together, so a long list takes a moment, not minutes.
+ */
+export async function addGiftsBulk(db: D1Database, master: string, gifts: NewGift[], lists: string[]): Promise<{ added: number; skipped: number }> {
+	const allowed = await allowedLists(db, master);
+	const onLists = lists.filter((l) => allowed.has(l));
+	const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+	const [{ results: existing }, max] = await Promise.all([
+		db.prepare('SELECT title, url FROM items WHERE list_id = ?').bind(master).all<{ title: string; url: string | null }>(),
+		db.prepare('SELECT COALESCE(MAX(rank), -1) AS r FROM items WHERE list_id = ?').bind(master).first<{ r: number }>()
+	]);
+	const urls = new Set(existing.map((e) => e.url).filter(Boolean));
+	const titles = new Set(existing.map((e) => norm(e.title)));
+
+	let rank = (max?.r ?? -1) + 1;
+	let skipped = 0;
+	const statements: D1PreparedStatement[] = [];
+	const now = Math.floor(Date.now() / 1000);
+	for (const g of gifts) {
+		const t = norm(g.title);
+		if ((g.url && urls.has(g.url)) || titles.has(t)) {
+			skipped++;
+			continue;
+		}
+		urls.add(g.url);
+		titles.add(t);
+		const id = newId('itm');
+		statements.push(
+			db
+				.prepare(
+					`INSERT INTO items (id, list_id, url, title, image_url, price_cents, currency, store, category_id, availability, rank, last_checked)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unknown', ?, ?)`
+				)
+				.bind(id, master, g.url, g.title.slice(0, 200), g.image_url, g.price_cents, g.currency, g.store, g.category_id, rank++, g.url ? now : null)
+		);
+		if (g.price_cents != null) statements.push(db.prepare('INSERT INTO price_history (item_id, price_cents, currency) VALUES (?, ?, ?)').bind(id, g.price_cents, g.currency));
+		for (const l of onLists)
+			statements.push(db.prepare('INSERT OR IGNORE INTO list_items (list_id, item_id, rank) VALUES (?, ?, (SELECT COALESCE(MAX(rank), -1) + 1 FROM list_items WHERE list_id = ?))').bind(l, id, l));
+	}
+	for (const l of [master, ...onLists]) statements.push(db.prepare('UPDATE lists SET updated_at = unixepoch() WHERE id = ?').bind(l));
+	// D1 takes batches of statements; keep each one a comfortable size.
+	for (let i = 0; i < statements.length; i += 80) await db.batch(statements.slice(i, i + 80));
+	return { added: gifts.length - skipped, skipped };
+}

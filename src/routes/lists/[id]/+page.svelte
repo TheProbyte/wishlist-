@@ -210,6 +210,53 @@
 	/* ------------------------------------------------ list settings & sharing */
 
 	let settingsOpen = $state(false);
+
+	/* ------------------------------------------------ select several */
+
+	let selecting = $state(false);
+	let selected = $state<string[]>([]);
+	let listSheet = $state(false);
+	let categorySheet = $state(false);
+	let deleteSheet = $state(false);
+	let bulkBusy = $state(false);
+	let bulkNote = $state<string | null>(null);
+	const isSelected = (id: string) => selected.includes(id);
+	function toggleSelect(id: string) {
+		selected = isSelected(id) ? selected.filter((x) => x !== id) : [...selected, id];
+	}
+	function stopSelecting() {
+		selecting = false;
+		selected = [];
+		listSheet = categorySheet = deleteSheet = false;
+	}
+	const onThisPage = $derived(giftsFor(filter).map((i) => i.id));
+	const allOnPageSelected = $derived(onThisPage.length > 0 && onThisPage.every((id) => selected.includes(id)));
+
+	async function bulk(op: string, extra: Record<string, string> = {}) {
+		bulkBusy = true;
+		const fd = new FormData();
+		fd.set('op', op);
+		for (const id of selected) fd.append('ids', id);
+		for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+		const res = await fetch('?/bulk', { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		const result = deserialize(await res.text());
+		bulkBusy = false;
+		if (result.type === 'success') {
+			const n = selected.length;
+			const target = data.lists.find((l) => l.id === extra.target)?.name;
+			bulkNote =
+				op === 'delete' ? `Deleted ${n}` : op === 'remove' ? `Removed ${n} from this list` : op === 'category' ? `Updated ${n}` : `${op === 'move' ? 'Moved' : 'Added'} ${n} to ${target}`;
+			const note = bulkNote;
+			bulkNote = null;
+			stopSelecting();
+			// Show the confirmation once the list on screen has caught up.
+			await invalidateAll();
+			bulkNote = note;
+			setTimeout(() => (bulkNote = null), 2400);
+		} else if (result.type === 'failure') {
+			bulkNote = String(result.data?.error ?? 'Couldn’t do that.');
+		}
+	}
 	// Picking gifts from the Everything list onto this occasion list.
 	let pickOpen = $state(false);
 	let picked = $state<string[]>([]);
@@ -338,7 +385,11 @@
 				</button>
 			{/each}
 		</div>
-		<div class="flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1" data-no-swipe>
+		<div class="flex max-w-full min-w-0 items-center gap-2 self-stretch lg:self-auto">
+		<button class="btn-ghost min-h-11 shrink-0 px-3 text-sm {selecting ? 'bg-mustard-400 text-cocoa-950 hover:bg-mustard-300' : ''}" aria-pressed={selecting} onclick={() => (selecting ? stopSelecting() : (selecting = true))}>
+			<Icon name="check" size={16} />{selecting ? 'Done' : 'Select'}
+		</button>
+		<div class="flex min-w-0 items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1" data-no-swipe>
 			{#each SORTS as s (s.value)}
 				<button
 					class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap transition {sort === s.value ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}"
@@ -346,6 +397,7 @@
 					onclick={() => (sort = s.value)}>{s.label}</button
 				>
 			{/each}
+		</div>
 		</div>
 	</div>
 
@@ -364,7 +416,7 @@
 				animate:flip={{ duration: dur(220) }}
 				class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
 				style="--i: {i}"
-				draggable={rankable(pageId) && finePointer}
+				draggable={rankable(pageId) && finePointer && !selecting}
 				role="listitem"
 				ondragstart={(e) => {
 					dragId = item.id;
@@ -379,9 +431,10 @@
 					{item}
 					category={item.category_id ? catById.get(item.category_id) : undefined}
 					position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
-					onopen={() => edit(item)}
-					onrate={(r) => rate(item, r)}
-					onmove={rankable(pageId) ? (d) => move(item, d) : undefined}
+					onopen={() => (selecting ? toggleSelect(item.id) : edit(item))}
+					onrate={selecting ? undefined : (r) => rate(item, r)}
+					onmove={rankable(pageId) && !selecting ? (d) => move(item, d) : undefined}
+					selected={selecting ? isSelected(item.id) : null}
 				/>
 			</div>
 		{/each}
@@ -485,6 +538,72 @@
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn-quiet" onclick={() => (pickOpen = false)}>Cancel</button>
 			<button form="pick-form" class="btn-primary" disabled={!picked.length}>Add {picked.length || ''} {picked.length === 1 ? 'gift' : 'gifts'}</button>
+		</div>
+	{/snippet}
+</Modal>
+
+<!-- Select several: the action bar sits above the tab bar while selecting. -->
+{#if selecting}
+	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" style="view-transition-name: bulk-bar">
+		<div class="mx-auto flex max-w-3xl items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-2 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
+			<span class="pl-2 text-sm font-bold whitespace-nowrap">{selected.length}<span class="hidden min-[400px]:inline"> picked</span></span>
+			<button class="btn-quiet min-h-10 px-2 text-sm" onclick={() => (selected = allOnPageSelected ? selected.filter((id) => !onThisPage.includes(id)) : [...new Set([...selected, ...onThisPage])])}>
+				{allOnPageSelected ? 'None' : 'All'}
+			</button>
+			<span class="flex-1"></span>
+			{#if data.lists.length}
+				<button class="btn-ghost min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => (listSheet = true)}><Icon name="plus" size={16} />List</button>
+			{/if}
+			<button class="btn-ghost min-h-10 px-2.5 text-sm" aria-label="Set category" disabled={!selected.length || bulkBusy} onclick={() => (categorySheet = true)}><Icon name="tag" size={16} /><span class="hidden min-[420px]:inline">Category</span></button>
+			{#if !isEverything}
+				<button class="btn-ghost min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => bulk('remove')}>Remove</button>
+			{/if}
+			<button class="btn-danger min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => (deleteSheet = true)}>Delete</button>
+		</div>
+	</div>
+{/if}
+{#if bulkNote}
+	<div class="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 sm:bottom-6" role="status">
+		<span class="stamp rounded-full bg-cream px-4 py-2 text-sm font-bold text-cocoa-950 shadow-[0_3px_0_0_var(--color-edge)]">{bulkNote}</span>
+	</div>
+{/if}
+
+<Modal bind:open={listSheet} title="Put {selected.length} on a list">
+	<p class="mb-4 text-sm text-fg-muted">They stay in Everything{isEverything ? '' : ' too'}.</p>
+	<div class="space-y-2">
+		{#each data.lists.filter((l) => l.id !== data.list.id) as l (l.id)}
+			<div class="flex items-center gap-2 rounded-[var(--radius-control)] bg-cocoa-850 p-2 pl-3.5">
+				<Icon name={occasionMeta(l.occasion).icon} size={18} />
+				<span class="flex-1 font-bold">{l.name}</span>
+				<button class="btn-ghost min-h-10 px-3 text-sm" disabled={bulkBusy} onclick={() => bulk('add', { target: l.id })}>Add</button>
+				{#if !isEverything}<button class="btn-primary min-h-10 px-3 text-sm" disabled={bulkBusy} onclick={() => bulk('move', { target: l.id })}>Move</button>{/if}
+			</div>
+		{/each}
+	</div>
+	{#if !isEverything}<p class="mt-4 text-xs text-fg-faint">Add keeps them here as well. Move takes them off {data.list.name}.</p>{/if}
+	{#snippet footer()}
+		<div class="flex justify-end"><button class="btn-quiet" onclick={() => (listSheet = categorySheet = false)}>Cancel</button></div>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={categorySheet} title="Set a category for {selected.length}">
+	<div class="flex flex-wrap gap-2">
+		{#each data.categories as c (c.id)}
+			<button class="chip min-h-11 hover:text-fg" disabled={bulkBusy} onclick={() => bulk('category', { category: c.id })}><Icon name={c.icon} size={16} />{c.name}</button>
+		{/each}
+		<button class="chip min-h-11 hover:text-fg" disabled={bulkBusy} onclick={() => bulk('category', { category: '' })}>No category</button>
+	</div>
+	{#snippet footer()}
+		<div class="flex justify-end"><button class="btn-quiet" onclick={() => (listSheet = categorySheet = false)}>Cancel</button></div>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={deleteSheet} title="Delete {selected.length} {selected.length === 1 ? 'gift' : 'gifts'}?">
+	<p class="text-sm text-fg-muted">They’ll be gone from Everything and every list they’re on.{#if !isEverything} To just take them off {data.list.name}, use Remove instead.{/if}</p>
+	{#snippet footer()}
+		<div class="flex justify-end gap-2">
+			<button class="btn-quiet" onclick={() => (deleteSheet = false)}>Keep them</button>
+			<button class="btn-danger" disabled={bulkBusy} onclick={() => bulk('delete')}>{bulkBusy ? 'Deleting…' : 'Delete'}</button>
 		</div>
 	{/snippet}
 </Modal>

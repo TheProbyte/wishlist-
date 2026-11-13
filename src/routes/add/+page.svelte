@@ -27,6 +27,7 @@
 	let scopeId = $state(data.scopes[0].id);
 	let importLists = $state<string[]>([]);
 	let doneMessage = $state('');
+	let importing = $state(false);
 
 	const scope = $derived(data.scopes.find((s) => s.id === scopeId) ?? data.scopes[0]);
 	const picked = $derived(wishlist.filter((w) => w.pick));
@@ -156,13 +157,19 @@
 		<form
 			method="POST"
 			action="?/importMany"
-			use:enhance={() => async ({ result, update }) => {
+			use:enhance={() => {
+				importing = true;
+				return async ({ result, update }) => {
+				importing = false;
 				await update({ reset: false });
 				if (result.type === 'success') {
 					const d = result.data as { imported: number; skipped: number };
 					doneMessage = `Added ${d.imported} ${d.imported === 1 ? 'gift' : 'gifts'}${d.skipped ? ` (${d.skipped} were already there)` : ''}.`;
 					phase = 'done';
+				} else {
+					notice = 'Couldn’t add those just now. Try again in a moment.';
 				}
+			};
 			}}
 		>
 			<input type="hidden" name="scope" value={scope.id} />
@@ -196,7 +203,10 @@
 				{/each}
 			</div>
 			<div class="sticky bottom-20 mt-6 flex justify-end sm:bottom-4">
-				<button class="btn-primary shadow-[0_8px_24px_-6px_rgb(0_0_0/0.6)]" disabled={!picked.length}>Add {picked.length} {picked.length === 1 ? 'gift' : 'gifts'}</button>
+				<button class="btn-primary relative overflow-hidden shadow-[0_8px_24px_-6px_rgb(0_0_0/0.6)]" disabled={!picked.length || importing}>
+					{#if importing}<span class="stripes-run absolute inset-x-0 bottom-0 h-1"></span>{/if}
+					{importing ? `Adding ${picked.length}…` : `Add ${picked.length} ${picked.length === 1 ? 'gift' : 'gifts'}`}
+				</button>
 			</div>
 		</form>
 	{:else if phase === 'done'}

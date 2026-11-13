@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { ensureMaster, getCategories, getKids, masterId, safeJson } from '#lib/server/db.ts';
 import { readItemForm } from '#lib/server/items.ts';
-import { findDuplicate, saveGift } from '#lib/server/gifts.ts';
+import { addGiftsBulk, findDuplicate, saveGift } from '#lib/server/gifts.ts';
 import { orderedLists } from '#lib/server/lists.ts';
 import type { Sizes } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -61,33 +61,19 @@ export const actions: Actions = {
 		const master = await masterFor(locals, String(form.get('scope') ?? locals.user.id));
 		const lists = form.getAll('in_list').map(String);
 		const gifts = safeJson<{ url: string | null; title: string; image_url: string | null; price_cents: number | null; currency: string | null; store: string | null; category_id: string | null }[]>(String(form.get('items') ?? '[]'), []);
-		let added = 0;
-		let skipped = 0;
-		for (const g of gifts.slice(0, 300)) {
-			if (!g.title) continue;
-			if (await findDuplicate(locals.db, master, g.url, g.title)) {
-				skipped++;
-				continue;
-			}
-			const r = await saveGift(locals.db, master, {
-				id: null,
-				url: g.url,
-				title: String(g.title).slice(0, 200),
-				image_url: g.image_url,
-				price_cents: typeof g.price_cents === 'number' ? g.price_cents : null,
-				currency: g.currency ?? (g.price_cents != null ? 'USD' : null),
-				store: g.store,
-				category_id: g.category_id,
-				rating: 0,
-				quantity: 1,
-				note: null,
-				description: null,
-				availability: null,
-				specifics: [],
-				lists
-			});
-			if (typeof r === 'string') added++;
-		}
+		const clean = gifts
+			.slice(0, 300)
+			.filter((g) => g && typeof g.title === 'string' && g.title.trim())
+			.map((g) => ({
+				url: typeof g.url === 'string' && /^https?:\/\//.test(g.url) ? g.url : null,
+				title: g.title.trim(),
+				image_url: typeof g.image_url === 'string' && /^https?:\/\//.test(g.image_url) ? g.image_url : null,
+				price_cents: typeof g.price_cents === 'number' ? Math.round(g.price_cents) : null,
+				currency: g.currency ?? (typeof g.price_cents === 'number' ? 'USD' : null),
+				store: g.store ?? null,
+				category_id: g.category_id ?? null
+			}));
+		const { added, skipped } = await addGiftsBulk(locals.db, master, clean, lists);
 		return { imported: added, skipped, master };
 	}
 };

@@ -718,18 +718,33 @@ export function parseAmazonWishlist(html: string, base: URL): ImportHint[] {
 		const attr = decode(named.attrs.title ?? '').trim();
 		const title = shown.length >= attr.length ? shown : attr;
 		if (!title) return;
-		const img = chunk.match(/<img\b[^>]*\bsrc=["'](https:[^"']+)["']/i);
+		const img = photoIn(chunk);
 		const dataPrice = Number(liAttrs['data-price']);
 		const offscreen = chunk.match(/class=["']a-offscreen["'][^>]*>([^<]+)</i);
 		out.push({
 			url: absolute(named.attrs.href, base) ?? undefined,
 			title: decode(title),
-			image_url: img ? img[1].replace(/\._[^.]+_\./, '.') : null,
+			image_url: img,
 			price: Number.isFinite(dataPrice) && dataPrice > 0 ? dataPrice : offscreen ? text(offscreen[1]) : null,
 			currency: amazonCurrency(base.hostname)
 		});
 	});
 	return out.length ? out : parseProductTiles(html, base);
+}
+
+/**
+ * The product photo in a piece of Amazon HTML. Pictures are lazy-loaded (the real address sits
+ * in srcset or data-* until shown), and badges or icons aren't product photos.
+ */
+function photoIn(html: string): string | null {
+	const urls: string[] = [];
+	for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
+		const a = parseAttrs(m[0]);
+		const set = a.srcset ?? a['data-srcset'];
+		for (const u of [a['data-old-hires'], a['data-src'], a['data-a-hires'], set?.split(',').map((x) => x.trim().split(' ')[0]).pop(), a.src]) if (u && /^https?:/.test(u)) urls.push(decode(u));
+	}
+	const best = urls.find((u) => /\/images\/I\//.test(u)) ?? urls.find((u) => !/\/images\/G\/|sprite|transparent|pixel/i.test(u));
+	return best ? best.replace(/\._[^/]*_\./, '.') : null;
 }
 
 /**
@@ -743,11 +758,11 @@ function parseProductTiles(html: string, base: URL): ImportHint[] {
 		const attrs = parseAttrs(m[0].slice(0, m[0].indexOf('>') + 1));
 		const inner = m[3];
 		const alt = inner.match(/<img\b[^>]*\balt=["']([^"']+)["']/i)?.[1];
-		const img = inner.match(/<img\b[^>]*\bsrc=["'](https:[^"']+)["']/i)?.[1];
+		const img = photoIn(inner);
 		const name = [decode(attrs.title ?? ''), decode(attrs['aria-label'] ?? ''), text(inner), decode(alt ?? '')].map((t) => t.trim()).sort((a, b) => b.length - a.length)[0];
 		const hint = byAsin.get(asin) ?? { url: `https://${base.hostname}/dp/${asin}`, title: null, image_url: null, price: null, currency: amazonCurrency(base.hostname) };
 		if (name && name.length > (hint.title?.length ?? 0) && name.length < 300) hint.title = name;
-		if (img && !hint.image_url) hint.image_url = img.replace(/\._[^.]+_\./, '.');
+		if (img && !hint.image_url) hint.image_url = img;
 		// A price shown just after the product link belongs to it.
 		if (hint.price == null) {
 			const after = html.slice(m.index! + m[0].length, m.index! + m[0].length + 3000);

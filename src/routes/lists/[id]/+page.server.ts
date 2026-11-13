@@ -119,6 +119,46 @@ export const actions: Actions = {
 		return { reordered: true };
 	},
 
+	/** Do one thing to many gifts: delete, remove from this list, put on / move to another list, set a category. */
+	bulk: async ({ request, locals, params }) => {
+		const list = await ownList(locals, params.id);
+		const form = await request.formData();
+		const master = masterOf(list);
+		const op = String(form.get('op') ?? '');
+		const asked = [...new Set(form.getAll('ids').map(String))].slice(0, 1000);
+		if (!asked.length) return fail(400, { error: 'Pick some gifts first.' });
+		// Only gifts that really are this person's.
+		const marks = asked.map(() => '?').join(',');
+		const { results } = await locals.db.prepare(`SELECT id FROM items WHERE list_id = ? AND id IN (${marks})`).bind(master, ...asked).all<{ id: string }>();
+		const ids = results.map((r) => r.id);
+		if (!ids.length) return fail(404, { error: 'Those gifts no longer exist.' });
+		const idMarks = ids.map(() => '?').join(',');
+		const db = locals.db;
+
+		if (op === 'delete') {
+			await db.prepare(`DELETE FROM items WHERE list_id = ? AND id IN (${idMarks})`).bind(master, ...ids).run();
+		} else if (op === 'remove') {
+			if (list.kind !== 'list') return fail(400, { error: 'They’re in Everything; delete them instead.' });
+			await db.prepare(`DELETE FROM list_items WHERE list_id = ? AND item_id IN (${idMarks})`).bind(list.id, ...ids).run();
+		} else if (op === 'add' || op === 'move') {
+			const target = String(form.get('target') ?? '');
+			const ok = await db.prepare("SELECT id FROM lists WHERE id = ? AND owner_id = ? AND kind = 'list' AND COALESCE(kid_id, '') = COALESCE(?, '')").bind(target, locals.user.id, list.kid_id).first();
+			if (!ok) return fail(404, { error: 'Pick a list to put them on.' });
+			const statements = ids.map((id) =>
+				db.prepare('INSERT OR IGNORE INTO list_items (list_id, item_id, rank) VALUES (?, ?, (SELECT COALESCE(MAX(rank), -1) + 1 FROM list_items WHERE list_id = ?))').bind(target, id, target)
+			);
+			if (op === 'move' && list.kind === 'list' && target !== list.id) statements.push(db.prepare(`DELETE FROM list_items WHERE list_id = ? AND item_id IN (${idMarks})`).bind(list.id, ...ids));
+			statements.push(db.prepare('UPDATE lists SET updated_at = unixepoch() WHERE id = ?').bind(target));
+			await db.batch(statements);
+		} else if (op === 'category') {
+			const category = String(form.get('category') ?? '') || null;
+			await db.prepare(`UPDATE items SET category_id = ?, updated_at = unixepoch() WHERE list_id = ? AND id IN (${idMarks})`).bind(category, master, ...ids).run();
+		} else {
+			return fail(400, { error: 'Unknown action.' });
+		}
+		return { bulkDone: op, count: ids.length };
+	},
+
 	updateList: async ({ request, locals, params }) => {
 		const list = await ownList(locals, params.id);
 		const form = await request.formData();

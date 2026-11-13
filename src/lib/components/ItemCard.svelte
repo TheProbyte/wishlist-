@@ -12,7 +12,8 @@
 		position,
 		onopen,
 		onrate,
-		onmove
+		onmove,
+		selected = null
 	}: {
 		item: Item;
 		category?: Category;
@@ -21,11 +22,20 @@
 		onopen: () => void;
 		onrate?: (rating: number) => void;
 		onmove?: (delta: -1 | 1) => void;
+		/** In select mode: whether this card is ticked (null when not selecting). */
+		selected?: boolean | null;
 	} = $props();
 </script>
 
 <!-- Gift cards stay plain (cream photo tile, cocoa body) so the products are the colour. -->
-<article class="card group relative flex h-full flex-col overflow-hidden">
+<article class="card group relative flex h-full flex-col overflow-hidden transition {selected ? 'ring-3 ring-mustard-400' : ''}">
+	{#if selected !== null}
+		<!-- Select mode: the whole card is one big tick box. -->
+		<button type="button" class="absolute inset-0 z-10 cursor-pointer {selected ? 'bg-mustard-400/10' : ''}" aria-pressed={selected} aria-label="{selected ? 'Untick' : 'Tick'} {item.title}" onclick={onopen}></button>
+		<span class="pointer-events-none absolute top-3.5 right-3.5 z-10 grid h-8 w-8 place-items-center rounded-full border-2 shadow-[0_2px_0_0_var(--color-edge)] transition {selected ? 'border-mustard-400 bg-mustard-400 text-cocoa-950' : 'border-cream/80 bg-cocoa-950/60'}">
+			{#if selected}<Icon name="check" size={18} />{/if}
+		</span>
+	{/if}
 	<button type="button" class="block p-2 pb-0 text-left" onclick={onopen} aria-label="Edit {item.title}">
 		<ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" />
 	</button>
