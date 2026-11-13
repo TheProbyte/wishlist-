@@ -385,7 +385,7 @@
 {:else}
 	<!-- Toolbar -->
 	<div class="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" data-no-swipe>
+		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 no-scrollbar" data-no-swipe>
 			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => showCategory('all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
 				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" data-chip={c.id} aria-pressed={filter === c.id} onclick={() => showCategory(filter === c.id ? 'all' : c.id)}>
@@ -397,7 +397,7 @@
 		<button class="btn-ghost min-h-11 shrink-0 px-3 text-sm {selecting ? 'bg-mustard-400 text-cocoa-950 hover:bg-mustard-300' : ''}" aria-pressed={selecting} onclick={() => (selecting ? stopSelecting() : (selecting = true))}>
 			<Icon name="check" size={16} />{selecting ? 'Done' : 'Select'}
 		</button>
-		<div class="flex min-w-0 items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1" data-no-swipe>
+		<div class="flex min-w-0 items-center gap-1 overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1 no-scrollbar" data-no-swipe>
 			{#each SORTS as s (s.value)}
 				<button
 					class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap transition {sort === s.value ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}"

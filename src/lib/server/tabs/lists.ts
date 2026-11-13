@@ -4,9 +4,9 @@ import { daysUntil, storedDate } from '#lib/format.ts';
 import { masterListEnsured, orderedLists } from '#lib/server/lists.ts';
 import { upcomingInCircles } from '#lib/server/people.ts';
 import { isPaper } from '#lib/papers.ts';
-import type { Actions, PageServerLoad } from './$types';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const loadLists = async ({ locals }: RequestEvent) => {
 	const { db, user } = locals;
 	const [everything, lists, kids, friends] = await Promise.all([masterListEnsured(db, user.id), orderedLists(db, user.id), getKids(db, user.id), upcomingInCircles(db, user.id, 45)]);
 
@@ -32,8 +32,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { everything: everything!, lists, kids: kidSections, nextId: next?.id ?? null, next, reminders, friends };
 };
 
-export const actions: Actions = {
-	create: async ({ request, locals }) => {
+export const listsActions = {
+	create: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
 		const occasion = String(form.get('occasion') ?? 'general');
@@ -52,7 +52,7 @@ export const actions: Actions = {
 		redirect(303, `/lists/${id}`);
 	},
 
-	addKid: async ({ request, locals }) => {
+	addKid: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim().slice(0, 40);
 		const birthday = String(form.get('birthday') ?? '').trim();
@@ -73,13 +73,13 @@ export const actions: Actions = {
 	},
 
 	/** Share someone's Everything list (yours, or a kid's). */
-	shareAll: async ({ request, locals }) => {
+	shareAll: async ({ request, locals }: RequestEvent) => {
 		const id = await ownMaster(locals, request);
 		if (!id) return fail(404, {});
 		await locals.db.prepare('UPDATE lists SET share_token = COALESCE(share_token, ?) WHERE id = ?').bind(newToken(), id).run();
 		return { sharedAll: true };
 	},
-	unshareAll: async ({ request, locals }) => {
+	unshareAll: async ({ request, locals }: RequestEvent) => {
 		const id = await ownMaster(locals, request);
 		if (!id) return fail(404, {});
 		await locals.db.prepare('UPDATE lists SET share_token = NULL WHERE id = ?').bind(id).run();
@@ -93,3 +93,5 @@ async function ownMaster(locals: App.Locals, request: Request): Promise<string |
 	return row?.id ?? null;
 }
 
+
+export type ListsData = Awaited<ReturnType<typeof loadLists>>;

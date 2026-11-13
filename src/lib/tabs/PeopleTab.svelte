@@ -6,9 +6,11 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import { countdownLabel, formatDate, formatPrice } from '#lib/format.ts';
-	import type { PageProps } from './$types';
+	import type { TabForm } from './types.ts';
+	import type { PeopleData } from '#lib/server/tabs/people.ts';
 
-	let { data, form }: PageProps = $props();
+	/** One of the three tabs; the shell around it is in routes/[[tab=tab]]. */
+	let { data, form, me = null }: { data: PeopleData; form: TabForm; me?: { id: string; name: string } | null } = $props();
 
 	let newCircle = $state(false);
 	let newSanta = $state(false);
@@ -19,8 +21,6 @@
 		setTimeout(() => (copied = null), 1800);
 	}
 </script>
-
-<svelte:head><title>People · The Giver</title></svelte:head>
 
 <section class="mb-8">
 	<h1 class="display text-[40px] leading-[1.05]">People</h1>
@@ -86,7 +86,7 @@
 						</div>
 						<div class="mt-3 flex flex-wrap gap-2">
 							{#each c.members as m (m.id)}
-								{#if m.id === data.me?.id}
+								{#if m.id === me?.id}
 									<span class="chip pr-3.5 pl-1"><Avatar name={m.name} src={m.avatar_url} size={26} />You</span>
 								{:else}
 									<a href="/people/{m.id}" class="chip pr-3.5 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} size={26} />{m.name.split(' ')[0]}</a>

@@ -84,8 +84,15 @@
 			if (fromPage && Array.isArray(fromPage.items)) return void load({ items: fromPage.items });
 			if (fromPage && typeof fromPage.url === 'string') return void load({ url: fromPage.url, hint: fromPage });
 		}
-		// From a pasted link or the share menu.
 		const params = page.url.searchParams;
+		// "Add by hand" from the + menu: straight into a blank gift.
+		if (params.has('manual')) {
+			draft = { title: '' };
+			phase = 'gift';
+			editorOpen = true;
+			return;
+		}
+		// From a pasted link or the share menu.
 		const url = firstUrl(params.get('url')) ?? firstUrl(params.get('text')) ?? (params.get('url') || null);
 		if (url) return void load({ url });
 		phase = 'empty';

@@ -8,11 +8,14 @@
 	import EverythingCard from '#lib/components/EverythingCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
+	import PasteBar from '#lib/components/PasteBar.svelte';
 	import CountUp from '#lib/components/CountUp.svelte';
 	import { countdownLabel, formatDate, milestone, daysUntil } from '#lib/format.ts';
-	import type { PageProps } from './$types';
+	import type { TabForm } from './types.ts';
+	import type { ListsData } from '#lib/server/tabs/lists.ts';
 
-	let { data, form }: PageProps = $props();
+	/** One of the three tabs; the shell around it is in routes/[[tab=tab]]. */
+	let { data, form, me = null }: { data: ListsData; form: TabForm; me?: { id: string; name: string } | null } = $props();
 
 	// New list: for you, or for one of your kids.
 	let creating = $state(false);
@@ -53,11 +56,9 @@
 	const gifts = (n: number) => `${n} ${n === 1 ? 'gift' : 'gifts'}`;
 </script>
 
-<svelte:head><title>Your lists · The Giver</title></svelte:head>
-
 <section class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
 	<div>
-		<p class="mb-1 text-[15px] font-bold text-mustard-400">Hey{data.everything.item_count ? ' again' : ''}{page.data.me?.name && page.data.me.name !== 'You' ? `, ${page.data.me.name.split(' ')[0]}` : ''}!</p>
+		<p class="mb-1 text-[15px] font-bold text-mustard-400">Hey{data.everything.item_count ? ' again' : ''}{me?.name && me.name !== 'You' ? `, ${me.name.split(' ')[0]}` : ''}!</p>
 		<h1 class="display text-[40px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
 	</div>
 	<div class="flex gap-2 self-start sm:self-auto">
@@ -72,15 +73,8 @@
 	</div>
 </section>
 
-<!-- Add a gift from anywhere: paste a link, pick where it goes next. -->
-<form method="GET" action="/add" class="paste-dock flex sm:mb-6 items-center gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400">
-	<label class="flex flex-1 items-center gap-3 px-3">
-		<Icon name="link" size={20} class="text-mustard-400" />
-		<span class="sr-only">Product link</span>
-		<input name="url" class="w-full border-0 bg-transparent py-3 text-[15px] text-fg placeholder:text-fg-faint focus:ring-0 focus:outline-none" placeholder="Paste a link to add a gift…" required />
-	</label>
-	<button class="btn-primary">Add</button>
-</form>
+<!-- Bigger screens: the paste bar sits here. Phones get it docked above the tab bar (the shell). -->
+<PasteBar class="mb-6 hidden sm:flex" />
 
 <EverythingCard id={data.everything.id} count={data.everything.item_count} wrap={data.everything.wrap} />
 
@@ -98,7 +92,7 @@
 {#if data.friends.length}
 	<section class="mt-8">
 		<h2 class="mb-3 flex items-center justify-between text-lg font-bold">Coming up for your people <a href="/people" class="text-sm text-teal-300 hover:underline">See all</a></h2>
-		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" data-no-swipe>
+		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
 			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
 				<a href={f.listId ? `/people/${f.personId}?list=${f.listId}` : `/people/${f.personId}`} class="card rise flex w-56 shrink-0 items-center gap-3 p-3 transition active:translate-y-0.5" style="--i: {i}">
 					<Avatar name={f.name} src={f.avatar_url} size={44} />
@@ -137,19 +131,15 @@
 
 <section class="mt-9">
 	<div class="mb-3 flex items-baseline justify-between">
-		<h2 class="text-lg font-bold">Occasion lists</h2>
-		{#if data.lists.length}<button class="text-sm font-bold text-mustard-400 hover:underline" onclick={() => newList()}>+ New list</button>{/if}
+		<h2 class="text-lg font-bold">Lists</h2>
 	</div>
-	{#if data.lists.length}
-		<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-			{#each data.lists as list, i (list.id)}<ListCard {list} index={i} />{/each}
-		</div>
-	{:else}
-		<p class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-5 py-6 text-sm text-fg-muted">
-			Optional. Everything works from one list, but you can also make one for a birthday or Christmas and pick which gifts go on it.
-			<button class="font-bold text-mustard-400 hover:underline" onclick={() => newList()}>Make one</button>
-		</p>
-	{/if}
+	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+		{#each data.lists as list, i (list.id)}<ListCard {list} index={i} />{:else}
+		<button class="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 text-sm font-bold text-fg-muted transition hover:border-mustard-400 hover:text-mustard-400" onclick={() => newList()}>
+			<Icon name="plus" size={22} />New list
+		</button>
+		{/each}
+	</div>
 </section>
 
 {#each data.kids as section (section.kid.id)}

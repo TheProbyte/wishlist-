@@ -2,9 +2,9 @@ import { fail, redirect } from '@sveltejs/kit';
 import { newId, newToken } from '#lib/server/db.ts';
 import { GIVER_COOKIE } from '#lib/server/giving.ts';
 import { upcomingInCircles } from '#lib/server/people.ts';
-import type { Actions, PageServerLoad } from './$types';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export const load: PageServerLoad = async ({ locals, cookies }) => {
+export const loadPeople = async ({ locals, cookies }: RequestEvent) => {
 	if (!locals.authEnabled) return { authEnabled: false as const };
 	const { db, user } = locals;
 	const [circles, members, exchanges, getting, upcoming] = await Promise.all([
@@ -42,8 +42,8 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 	};
 };
 
-export const actions: Actions = {
-	createCircle: async ({ request, locals }) => {
+export const peopleActions = {
+	createCircle: async ({ request, locals }: RequestEvent) => {
 		const name = String((await request.formData()).get('name') ?? '').trim().slice(0, 50);
 		if (!name) return fail(400, { circleError: 'Name your circle.' });
 		const id = newId('cir');
@@ -53,14 +53,14 @@ export const actions: Actions = {
 		]);
 		return { circleCreated: id };
 	},
-	leaveCircle: async ({ request, locals }) => {
+	leaveCircle: async ({ request, locals }: RequestEvent) => {
 		const id = String((await request.formData()).get('id') ?? '');
 		await locals.db.prepare('DELETE FROM circle_members WHERE circle_id = ? AND user_id = ?').bind(id, locals.user.id).run();
 		// The last one out turns off the lights.
 		await locals.db.prepare('DELETE FROM circles WHERE id = ? AND NOT EXISTS (SELECT 1 FROM circle_members WHERE circle_id = ?)').bind(id, id).run();
 		return { left: id };
 	},
-	createExchange: async ({ request, locals }) => {
+	createExchange: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim().slice(0, 60) || 'Secret Santa';
 		const budget = Math.round(Number(String(form.get('budget') ?? '').replace(/[^\d.]/g, '')) * 100) || null;
@@ -75,3 +75,5 @@ export const actions: Actions = {
 		redirect(303, `/santa/${id}`);
 	}
 };
+
+export type PeopleData = Awaited<ReturnType<typeof loadPeople>>;

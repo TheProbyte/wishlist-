@@ -4,16 +4,26 @@
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { page } from '$app/state';
-	import { goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
+	import { onNavigate, preloadCode, preloadData } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { TABS, navDirection, pageSwipe, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
+	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
+	import { shell } from '#lib/shell.svelte.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
 	// Pages givers see through a share link: no app navigation.
 	const shared = $derived(page.url.pathname.startsWith('/s/') || page.url.pathname.startsWith('/u/'));
-	const active = $derived(tabIndex(page.url.pathname));
-	const onTabRoot = $derived(TABS.some((t) => t.href === page.url.pathname));
+	// On the tab pager the active tab follows the swipe; elsewhere it's from the address.
+	const onPager = $derived(page.route.id === '/[[tab=tab]]');
+	const active = $derived(onPager && shell.active ? Math.round(shell.progress) : tabIndex(page.url.pathname));
+	const marker = $derived(onPager && shell.active ? shell.progress : active);
+
+	function tabClick(e: MouseEvent, i: number) {
+		if (onPager && shell.active) {
+			e.preventDefault();
+			shell.go(i);
+		} else setNavDirection(i === active ? 'close' : i > active ? 'next' : 'prev');
+	}
 
 	// Page changes slide in the direction of travel, where the browser supports view transitions.
 	onNavigate((nav) => {
@@ -30,22 +40,18 @@
 		});
 	});
 
-	// Get the tabs ready in the background once the app has settled, so switching is instant.
+	// Get the tabs ready in the background once the app has settled, so going back is instant.
 	onMount(() => {
 		if (shared) return;
 		const warm = () => {
-			for (const t of TABS) {
-				preloadCode(t.href);
-				if (t.href !== page.url.pathname) preloadData(t.href).catch(() => {});
-			}
+			preloadCode('/[[tab=tab]]');
+			if (!onPager) preloadData('/').catch(() => {});
 		};
 		const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
 		if (idle) idle(warm);
 		else setTimeout(warm, 800);
 	});
 
-	// Swipe sideways between the tabs. The page follows the finger (pageSwipe).
-	const tabHref = (i: number) => TABS[i]?.href;
 </script>
 
 <svelte:head>
@@ -62,7 +68,7 @@
 		{#if !shared}
 			<nav class="hidden items-center gap-1 sm:flex" aria-label="Main">
 				{#each TABS as tab, i (tab.href)}
-					<a href={tab.href} aria-current={active === i ? 'page' : undefined} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
+					<a href={tab.href} onclick={(e) => tabClick(e, i)} aria-current={active === i ? 'page' : undefined} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
 						{tab.label}
 						{#if active === i}<span class="stripes absolute inset-x-3 bottom-1.5 h-[6px] rounded-full"></span>{/if}
 					</a>
@@ -73,20 +79,8 @@
 	<div class="stripes h-[12px]" aria-hidden="true"></div>
 </header>
 
-<main
-	class="mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 {shared ? 'pb-24' : 'pb-52 sm:pb-24'}"
-	use:pageSwipe={{
-		enabled: onTabRoot,
-		canLeft: active < TABS.length - 1,
-		canRight: active > 0,
-		left: () => goto(tabHref(active + 1)!),
-		right: () => goto(tabHref(active - 1)!),
-		preload: (d) => {
-			const href = tabHref(d === 'left' ? active + 1 : active - 1);
-			if (href) preloadData(href);
-		}
-	}}
->
+<!-- The tab pager fills the space itself; other pages scroll as normal pages. -->
+<main class={onPager ? 'overflow-hidden' : `mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 ${shared ? 'pb-24' : 'pb-52 sm:pb-24'}`}>
 	{@render children()}
 </main>
 
@@ -99,9 +93,10 @@
 	>
 		<div class="relative grid grid-cols-3">
 			{#if active >= 0}
+				<!-- Follows the finger while swiping tabs; springs into place otherwise. -->
 				<span
-					class="stripes absolute top-0 left-0 h-[6px] w-1/3 transition-transform duration-300 ease-[var(--ease-spring)]"
-					style="transform: translateX({active * 100}%)"
+					class="stripes absolute top-0 left-0 h-[6px] w-1/3 {onPager && shell.active ? '' : 'transition-transform duration-300 ease-[var(--ease-spring)]'}"
+					style="transform: translateX({marker * 100}%)"
 					aria-hidden="true"
 				></span>
 			{/if}
@@ -110,7 +105,7 @@
 					href={tab.href}
 					aria-current={active === i ? 'page' : undefined}
 					class="flex min-h-16 flex-col items-center justify-center gap-1 pt-1.5 text-[11px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint'}"
-					onclick={() => setNavDirection(i === active ? 'close' : i > active ? 'next' : 'prev')}
+					onclick={(e) => tabClick(e, i)}
 				>
 					<Icon name={tab.icon} size={22} class="transition-transform duration-300 {active === i ? '-translate-y-0.5 text-mustard-400' : ''}" />
 					{tab.label}

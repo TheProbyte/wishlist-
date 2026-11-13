@@ -384,3 +384,11 @@ html[data-nav='close']::view-transition-new(root) {
 			0 12px 32px -8px rgb(0 0 0 / 0.75);
 	}
 }
+
+/* Sideways-scrolling rows (chips, sort, pagers): scroll, but show no scrollbar. */
+@utility no-scrollbar {
+	scrollbar-width: none;
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}

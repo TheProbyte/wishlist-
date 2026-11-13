@@ -6,10 +6,12 @@
 	import SizeFields from '#lib/components/SizeFields.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import { bookmarklet } from '#lib/bookmarklet.ts';
+	import type { TabForm } from './types.ts';
 	import type { Kid } from '#lib/types.ts';
-	import type { PageProps } from './$types';
+	import type { MeData } from '#lib/server/tabs/me.ts';
 
-	let { data, form }: PageProps = $props();
+	/** One of the three tabs; the shell around it is in routes/[[tab=tab]]. */
+	let { data, form, me = null }: { data: MeData; form: TabForm; me?: { id: string; name: string } | null } = $props();
 
 	let savedNote = $state<string | null>(null);
 	const flash = (msg: string) => {
@@ -29,8 +31,6 @@
 		setTimeout(() => (copiedCode = false), 1800);
 	}
 </script>
-
-<svelte:head><title>You · The Giver</title></svelte:head>
 
 <section class="mb-8 flex items-center gap-4">
 	<Avatar name={data.profile.name === 'You' ? 'Y' : data.profile.name} src={data.profile.avatar_url} size={64} />

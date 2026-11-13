@@ -70,7 +70,7 @@
 
 <div class="mb-5 space-y-3">
 	{#if usedCategories.length > 1}
-		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" data-no-swipe>
+		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 no-scrollbar" data-no-swipe>
 			<button class="chip shrink-0 {category === 'all' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={category === 'all'} onclick={() => (category = 'all')}>All</button>
 			{#each usedCategories as c (c.id)}
 				<button class="chip shrink-0 {category === c.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={category === c.id} onclick={() => (category = category === c.id ? 'all' : c.id)}>
@@ -81,7 +81,7 @@
 	{/if}
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		{#if usedPrices.length > 1}
-			<div class="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-no-swipe>
+			<div class="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
 				<div class="flex shrink-0 gap-1 rounded-[var(--radius-control)] bg-sunken p-1">
 					<button class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap {price === 'any' ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}" aria-pressed={price === 'any'} onclick={() => (price = 'any')}>Any price</button>
 					{#each usedPrices as p (p.id)}
