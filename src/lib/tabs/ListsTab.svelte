@@ -76,7 +76,6 @@
 <!-- Bigger screens: the paste bar sits here. Phones get it docked above the tab bar (the shell). -->
 <PasteBar class="mb-6 hidden sm:flex" />
 
-<EverythingCard id={data.everything.id} count={data.everything.item_count} wrap={data.everything.wrap} />
 
 {#each data.reminders as r (r.id)}
 	<a href="/lists/{r.id}" class="rise mt-4 flex items-center gap-3 rounded-[var(--radius-card)] bg-rust-500/15 px-4 py-3 text-sm text-rust-300 transition hover:bg-rust-500/20">
@@ -89,23 +88,6 @@
 	</a>
 {/each}
 
-{#if data.friends.length}
-	<section class="mt-8">
-		<h2 class="mb-3 flex items-center justify-between text-lg font-bold">Coming up for your people <a href="/people" class="text-sm text-teal-300 hover:underline">See all</a></h2>
-		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
-			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
-				<a href={f.listId ? `/people/${f.personId}?list=${f.listId}` : `/people/${f.personId}`} class="card rise flex w-56 shrink-0 items-center gap-3 p-3 transition active:translate-y-0.5" style="--i: {i}">
-					<Avatar name={f.name} src={f.avatar_url} size={44} />
-					<div class="min-w-0">
-						<p class="truncate text-sm font-bold">{f.kid ? f.kid : f.name.split(' ')[0]}</p>
-						<p class="truncate text-xs text-fg-muted">{f.label}</p>
-						<p class="text-xs font-bold text-rust-300">{countdownLabel(f.date)}</p>
-					</div>
-				</a>
-			{/each}
-		</div>
-	</section>
-{/if}
 
 {#if next}
 	{@const days = daysUntil(next.next_date) ?? 0}
@@ -141,6 +123,29 @@
 		{/each}
 	</div>
 </section>
+
+<!-- Everything: every gift in one list. Phones have it docked above the paste bar instead. -->
+<section class="mt-8 hidden sm:block">
+	<EverythingCard id={data.everything.id} count={data.everything.item_count} wrap={data.everything.wrap} />
+</section>
+
+{#if data.friends.length}
+	<section class="mt-8">
+		<h2 class="mb-3 flex items-center justify-between text-lg font-bold">Coming up for your people <a href="/people" class="text-sm text-teal-300 hover:underline">See all</a></h2>
+		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
+			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
+				<a href={f.listId ? `/people/${f.personId}?list=${f.listId}` : `/people/${f.personId}`} class="card rise flex w-56 shrink-0 items-center gap-3 p-3 transition active:translate-y-0.5" style="--i: {i}">
+					<Avatar name={f.name} src={f.avatar_url} size={44} />
+					<div class="min-w-0">
+						<p class="truncate text-sm font-bold">{f.kid ? f.kid : f.name.split(' ')[0]}</p>
+						<p class="truncate text-xs text-fg-muted">{f.label}</p>
+						<p class="text-xs font-bold text-rust-300">{countdownLabel(f.date)}</p>
+					</div>
+				</a>
+			{/each}
+		</div>
+	</section>
+{/if}
 
 {#each data.kids as section (section.kid.id)}
 	<section class="mt-12">

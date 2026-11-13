@@ -4,10 +4,10 @@
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { enhance, deserialize } from '$app/forms';
 	import { goto, invalidateAll, preloadData } from '$app/navigation';
-	import { cardIn, cardOut, dur, pageSwipe } from '#lib/motion.ts';
+	import { cardIn, cardOut, dur, pageSwipe, prefersReducedMotion } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -86,9 +86,24 @@
 	$effect(() => {
 		view = getPref(`view:${data.list.id}`) === 'row' ? 'row' : 'grid';
 	});
-	function toggleView() {
-		view = view === 'grid' ? 'row' : 'grid';
-		setPref(`view:${data.list.id}`, view);
+	// Switching view morphs: each gift and its photo glide from the old layout to the new one
+	// (where the browser can; elsewhere it simply switches).
+	let morphing = $state(false);
+	async function toggleView() {
+		const next = view === 'grid' ? 'row' : 'grid';
+		const apply = () => {
+			view = next;
+			setPref(`view:${data.list.id}`, next);
+		};
+		if (!document.startViewTransition || prefersReducedMotion()) return apply();
+		morphing = true;
+		await tick();
+		document.documentElement.dataset.nav = 'morph';
+		const t = document.startViewTransition(async () => {
+			apply();
+			await tick();
+		});
+		t.finished.finally(() => (morphing = false));
 	}
 
 	/* ------------------------------------------------ swiping */
@@ -369,7 +384,7 @@
 			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 {data.list.share_token ? 'text-teal-300' : 'text-fg'}" aria-label={data.list.share_token ? 'Shared: see the link' : 'Share with givers'} onclick={() => (shareOpen = true)}>
 				<Icon name="share" size={19} />
 			</button>
-			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95" aria-label="More" onclick={() => (moreOpen = true)}>
+			<button class="hidden h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 sm:grid" aria-label="More" onclick={() => (moreOpen = true)}>
 				<Icon name="more" size={20} />
 			</button>
 		</div>
@@ -384,14 +399,8 @@
 	</p>
 </section>
 
-<!-- Add a gift. On phones this docks above the tab bar; it steps aside while selecting. -->
-<PasteBar
-	bind:value={link}
-	onsubmit={importLink}
-	onpastelink={importLink}
-	onplus={() => (plusOpen = true)}
-	class="paste-dock sm:mb-6 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
-/>
+<!-- Add a gift: at the top of the list. (The bottom, in thumb reach, is for sorting and filtering.) -->
+<PasteBar bind:value={link} onsubmit={importLink} onpastelink={importLink} onplus={() => (plusOpen = true)} class="mb-4 sm:mb-6" />
 
 {#if items.length === 0}
 	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-14 text-center">
@@ -404,8 +413,12 @@
 		</div>
 	</div>
 {:else}
-	<!-- One toolbar: categories, sort and view. It sticks under the header as you scroll. -->
-	<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex items-center gap-2 bg-cocoa-950 px-4 py-2  sm:mx-0 sm:mb-5 sm:px-0">
+	<!-- One toolbar: categories, sort, view and more. Phones: docked above the tab bar, in thumb
+	     reach (it steps aside while selecting). Bigger screens: sticks under the header. -->
+	<div
+		class="lift-hide fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-1.5 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition duration-200 sm:sticky sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:mb-5 sm:gap-2 sm:rounded-none sm:bg-cocoa-950 sm:p-0 sm:py-2 sm:shadow-none sm:ring-0 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
+		style="view-transition-name: list-toolbar"
+	>
 		<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
 			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
@@ -425,10 +438,10 @@
 					sortOpen = !sortOpen;
 				}}
 			>
-				<Icon name="sort" size={15} /><span class="max-[379px]:sr-only">{SORTS.find((s) => s.value === sort)?.label}</span>
+				<Icon name="sort" size={15} /><span class="max-sm:sr-only">{SORTS.find((s) => s.value === sort)?.label}</span>
 			</button>
 			{#if sortOpen}
-				<div role="menu" tabindex="-1" class="pop absolute top-full right-0 z-40 mt-2 w-48 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+				<div role="menu" tabindex="-1" class="menu-in origin-bottom-right sm:origin-top-right absolute right-0 bottom-full z-40 mb-3 w-48 sm:top-full sm:bottom-auto sm:mt-2 sm:mb-0 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
 					{#each SORTS as s (s.value)}
 						<button role="menuitemradio" aria-checked={sort === s.value} class="flex min-h-11 w-full items-center justify-between rounded-[10px] px-3 text-left text-sm font-bold {sort === s.value ? 'bg-cocoa-800 text-fg' : 'text-fg-muted hover:text-fg'}" onclick={() => { sort = s.value; sortOpen = false; }}>
 							{s.label}{#if sort === s.value}<Icon name="check" size={16} class="text-mustard-400" />{/if}
@@ -440,10 +453,13 @@
 		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg" aria-label={view === 'grid' ? 'Show as a list' : 'Show as photos'} disabled={reordering} onclick={toggleView}>
 			<Icon name={view === 'grid' ? 'rows' : 'grid'} size={17} />
 		</button>
+		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg sm:hidden" aria-label="More" onclick={() => (moreOpen = true)}>
+			<Icon name="more" size={18} />
+		</button>
 	</div>
 
 	{#if hint}
-		<p class="pop mb-3 flex items-start gap-2 rounded-[14px] bg-cocoa-850 px-3 py-2.5 text-[13px] text-fg-muted">
+		<p class="rise mb-3 flex items-start gap-2 rounded-[14px] bg-cocoa-850 px-3 py-2.5 text-[13px] text-fg-muted">
 			<Icon name="sparkle" size={16} class="mt-px text-mustard-400" />
 			<span class="flex-1">{hint}</span>
 			<button class="-m-1 grid h-7 w-7 shrink-0 place-items-center text-fg-faint" aria-label="Got it" onclick={() => (hint = null)}><Icon name="close" size={15} /></button>
@@ -458,8 +474,9 @@
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
 					out:cardOut={{ on: animateChanges() }}
-					class="transition-opacity {i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''} {dragId === item.id ? 'opacity-40' : ''}"
-					style="--i: {i}"
+					class="{i > 7 && !morphing ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''}"
+					style="--i: {i};{morphing && pageId === filter && i < 16 ? ` view-transition-name: g-${item.id}` : ''}"
+					data-slot={dragId === item.id ? '' : undefined}
 					role="listitem"
 					data-gift={item.id}
 					draggable={rankable(pageId) && finePointer && !selecting}
@@ -483,6 +500,7 @@
 					<ItemCard
 						{item}
 						{layout}
+						morph={morphing && pageId === filter && i < 16}
 						position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
 						onopen={() => (selecting ? toggleSelect(item.id) : reordering ? undefined : edit(item))}
 						onrate={selecting ? undefined : (r) => rate(item, r)}
@@ -669,7 +687,7 @@
 	</div>
 {/if}
 {#if bulkNote}
-	<div class="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 sm:bottom-6" role="status">
+	<div class="fixed inset-x-0 bottom-[calc(8.75rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 sm:bottom-6" role="status">
 		<span class="stamp rounded-full bg-cream px-4 py-2 text-sm font-bold text-cocoa-950 shadow-[0_3px_0_0_var(--color-edge)]">{bulkNote}</span>
 	</div>
 {/if}

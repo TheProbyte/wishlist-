@@ -100,7 +100,7 @@
 				}}>{PRICES.find((p) => p.id === price)?.label ?? 'Any price'}<Icon name="chevron-down" size={14} /></button
 			>
 			{#if priceOpen}
-				<div role="menu" tabindex="-1" class="pop absolute top-full right-0 z-40 mt-2 w-44 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+				<div role="menu" tabindex="-1" class="menu-in origin-top-right absolute top-full right-0 z-40 mt-2 w-44 rounded-[16px] bg-cocoa-850 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
 					{#each [{ id: 'any', label: 'Any price' }, ...usedPrices] as p (p.id)}
 						<button role="menuitemradio" aria-checked={price === p.id} class="flex min-h-11 w-full items-center justify-between rounded-[10px] px-3 text-left text-sm font-bold {price === p.id ? 'bg-cocoa-800 text-fg' : 'text-fg-muted hover:text-fg'}" onclick={() => { price = p.id; priceOpen = false; }}>
 							{p.label}{#if price === p.id}<Icon name="check" size={16} class="text-mustard-400" />{/if}

@@ -184,6 +184,17 @@ select.field {
 	animation: pop 320ms var(--ease-spring) both;
 }
 
+/* Small menus open from their button: a quick fade and grow, never bigger than they end up. */
+@keyframes menu-in {
+	from {
+		opacity: 0;
+		transform: scale(0.92);
+	}
+}
+@utility menu-in {
+	animation: menu-in 160ms var(--ease-out-soft) both;
+}
+
 /* A sticker slapped on. */
 @keyframes stamp {
 	0% {
@@ -370,28 +381,6 @@ html[data-nav='close']::view-transition-new(root) {
 	}
 }
 
-/* Phones: the paste-a-link bar sits just above the tab bar, in thumb reach. */
-@utility paste-dock {
-	transition:
-		opacity 160ms,
-		translate 200ms var(--ease-out-soft);
-	/* Out of the way while a gift is being dragged. */
-	:root[data-lifted] & {
-		opacity: 0;
-		pointer-events: none;
-	}
-	@media (width < 40rem) {
-		position: fixed;
-		left: 0.75rem;
-		right: 0.75rem;
-		bottom: calc(4rem + env(safe-area-inset-bottom) + 0.5rem);
-		z-index: 35;
-		margin: 0;
-		box-shadow:
-			0 3px 0 0 var(--color-edge),
-			0 12px 32px -8px rgb(0 0 0 / 0.75);
-	}
-}
 
 /* Gifts further down a long list: the browser skips laying them out until they scroll near. */
 @utility offscreen-card {
@@ -409,4 +398,21 @@ html[data-nav='close']::view-transition-new(root) {
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+/* The space a dragged gift will drop into (see holdDrag). */
+[data-slot] {
+	border-radius: var(--radius-card);
+	outline: 2px dashed var(--color-cocoa-600);
+	outline-offset: -2px;
+	background: rgb(0 0 0 / 0.12);
+}
+[data-slot] > * {
+	visibility: hidden;
+}
+
+/* While a gift is held, the bars along the bottom step aside. */
+:root[data-lifted] .lift-hide {
+	opacity: 0;
+	pointer-events: none;
 }

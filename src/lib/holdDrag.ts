@@ -56,9 +56,10 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 		navigator.vibrate?.(8);
 		const r = node.getBoundingClientRect();
 		origin = { left: r.left, top: r.top };
-		// A floating copy follows the finger; the card itself stays behind, faded, as the gap.
+		// A floating copy follows the finger; the card itself stays behind as the gap.
 		ghost = node.cloneNode(true) as HTMLElement;
 		ghost.removeAttribute('data-gift');
+		ghost.removeAttribute('data-slot');
 		ghost.setAttribute('aria-hidden', 'true');
 		Object.assign(ghost.style, {
 			position: 'fixed',
@@ -76,7 +77,8 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 			animation: 'none'
 		});
 		document.body.appendChild(ghost);
-		node.style.opacity = '0.3';
+		// Where it'll land: an empty dashed space, not a second copy of the card.
+		node.dataset.slot = '';
 		document.documentElement.dataset.lifted = '';
 		// After the lift, the copy tracks the finger without lag.
 		requestAnimationFrame(() => ghost && (ghost.style.transition = 'box-shadow 140ms'));
@@ -158,12 +160,12 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 		scrollFrame = 0;
 		const g = ghost;
 		ghost = null;
-		if (!g) return void (node.style.opacity = '');
+		if (!g) return void (delete node.dataset.slot);
 		requestAnimationFrame(() => {
 			const r = node.getBoundingClientRect();
 			if (prefersReducedMotion()) {
 				g.remove();
-				node.style.opacity = '';
+				delete node.dataset.slot;
 				return;
 			}
 			g.style.transition = 'transform 180ms var(--ease-out-soft), box-shadow 180ms';
@@ -171,7 +173,7 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 			g.style.boxShadow = '0 3px 0 0 var(--color-edge)';
 			setTimeout(() => {
 				g.remove();
-				node.style.opacity = '';
+				delete node.dataset.slot;
 			}, 190);
 		});
 	}

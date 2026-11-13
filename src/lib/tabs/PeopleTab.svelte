@@ -22,9 +22,9 @@
 	}
 </script>
 
-<section class="mb-8">
+<section class="mb-6">
 	<h1 class="display text-[40px] leading-[1.05]">People</h1>
-	<p class="mt-3 max-w-lg text-fg-muted">The people you buy for: your circles, what’s coming up for them, and what you’re getting.</p>
+	<p class="mt-2 max-w-lg text-fg-muted">Everyone in your circles. Tap someone to see their wish lists and pick a gift.</p>
 </section>
 
 {#if !data.authEnabled}
@@ -34,6 +34,35 @@
 		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">Circles, Secret Santa and “gifts I’m getting” need everyone to have their own account. They switch on as soon as Google sign-in is set up.</p>
 	</div>
 {:else}
+	<!-- Your people: the main thing this page is for. -->
+	<section class="mb-8">
+		{#if data.people.length}
+			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+				{#each data.people as person, i (person.id)}
+					<a href="/people/{person.id}" class="card rise flex flex-col items-center gap-2 p-4 pt-5 text-center transition active:translate-y-0.5" style="--i: {i}">
+						<Avatar name={person.name} src={person.avatar_url} size={64} />
+						<span class="w-full truncate text-[17px] font-bold">{person.name.split(' ')[0]}</span>
+						<span class="-mt-1.5 w-full truncate text-xs text-fg-faint">{person.circles.join(' · ')}</span>
+						{#if person.next}
+							<span class="pill bg-rust-500/20 text-rust-300">{person.next.kid ? `${person.next.kid}’s ` : ''}{person.next.label} {countdownLabel(person.next.date)}</span>
+						{/if}
+						<span class="mt-auto inline-flex items-center gap-1 pt-1 text-sm font-bold text-teal-300">
+							{person.gift_count ? `${person.gift_count} ${person.gift_count === 1 ? 'gift' : 'gifts'}` : 'Wish lists'}<Icon name="chevron-right" size={16} />
+						</span>
+					</a>
+				{/each}
+			</div>
+		{:else}
+			<div class="card p-5">
+				<p class="font-bold">No one here yet</p>
+				<p class="mt-1 text-sm text-fg-muted">
+					{data.circles.length ? 'Your circle is just you so far. Send the invite link below to family or friends; once they join, they show up here.' : 'Make a circle for your family or friends and send them the invite link. Once they join, they show up here and you can see each other’s wish lists.'}
+				</p>
+				{#if !data.circles.length}<button class="btn-teal mt-4" onclick={() => (newCircle = true)}><Icon name="plus" size={16} />Make a circle</button>{/if}
+			</div>
+		{/if}
+	</section>
+
 	<!-- Gifts I'm getting -->
 	<a href="/getting" class="card mb-8 flex items-center gap-4 p-4 transition active:translate-y-0.5">
 		<span class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-teal-600 text-cream"><Icon name="gift" size={24} /></span>
@@ -51,7 +80,7 @@
 		<section class="mb-10">
 			<h2 class="mb-3 text-lg font-bold">Coming up</h2>
 			<div class="space-y-2.5">
-				{#each data.upcoming.slice(0, 12) as u, i (u.personId + u.label + u.date)}
+				{#each data.upcoming.slice(0, 6) as u, i (u.personId + u.label + u.date)}
 					<a href={u.listId ? `/people/${u.personId}?list=${u.listId}` : `/people/${u.personId}`} class="card rise flex items-center gap-3 p-3 pr-4 transition active:translate-y-0.5" style="--i: {i}">
 						<Avatar name={u.kid ?? u.name} src={u.kid ? null : u.avatar_url} size={44} />
 						<div class="min-w-0 flex-1">
@@ -67,34 +96,44 @@
 
 	<!-- Circles -->
 	<section class="mb-10">
-		<div class="mb-3 flex items-baseline justify-between">
-			<h2 class="text-lg font-bold">Circles</h2>
+		<div class="mb-1 flex items-baseline justify-between">
+			<h2 class="text-lg font-bold">Your circles</h2>
 			<button class="text-sm font-bold text-teal-300 hover:underline" onclick={() => (newCircle = true)}>+ New circle</button>
 		</div>
+		<p class="mb-3 text-sm text-fg-muted">
+			{#if data.circles.length}You’re in {data.circles.length} {data.circles.length === 1 ? 'circle' : 'circles'}. {/if}Everyone in a circle can see each other’s wish lists and birthdays. To add someone, send them the circle’s invite link; they sign in with Google and they’re in.
+		</p>
 		{#if data.circles.length === 0}
-			<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 p-5 text-sm text-fg-muted">
-				Make a circle for your family or friends, then send them the invite link. Everyone in it can see each other’s wish lists and upcoming birthdays.
-				<button class="mt-3 block font-bold text-teal-300 hover:underline" onclick={() => (newCircle = true)}>Make a circle</button>
-			</div>
+			<button class="flex w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 py-8 text-sm font-bold text-fg-muted transition hover:border-teal-300 hover:text-teal-300" onclick={() => (newCircle = true)}>
+				<Icon name="people" size={24} />Make your first circle
+			</button>
 		{:else}
 			<div class="grid gap-3 md:grid-cols-2">
 				{#each data.circles as c (c.id)}
+					{@const others = c.members.filter((m) => m.id !== me?.id)}
 					<div class="card p-4">
-						<div class="flex items-center justify-between gap-2">
-							<h3 class="display text-xl">{c.name}</h3>
-							<span class="text-xs font-bold text-fg-faint">{c.members.length} {c.members.length === 1 ? 'person' : 'people'}</span>
+						<div class="flex items-start justify-between gap-2">
+							<div class="min-w-0">
+								<h3 class="display truncate text-xl">{c.name}</h3>
+								<p class="text-xs font-bold text-fg-faint">{c.owner_id === me?.id ? 'You made this' : 'You joined'} · {c.members.length} {c.members.length === 1 ? 'person' : 'people'}</p>
+							</div>
+							<!-- Everyone's faces, overlapping -->
+							<div class="flex shrink-0 -space-x-2.5">
+								{#each c.members.slice(0, 5) as m (m.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={m.name} src={m.avatar_url} size={30} /></span>{/each}
+								{#if c.members.length > 5}<span class="grid h-[30px] min-w-[30px] place-items-center rounded-full bg-cocoa-800 px-1 text-xs font-bold ring-3 ring-cocoa-850">+{c.members.length - 5}</span>{/if}
+							</div>
 						</div>
-						<div class="mt-3 flex flex-wrap gap-2">
-							{#each c.members as m (m.id)}
-								{#if m.id === me?.id}
-									<span class="chip pr-3.5 pl-1"><Avatar name={m.name} src={m.avatar_url} size={26} />You</span>
-								{:else}
-									<a href="/people/{m.id}" class="chip pr-3.5 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} size={26} />{m.name.split(' ')[0]}</a>
-								{/if}
-							{/each}
-						</div>
+						{#if others.length}
+							<div class="mt-3 flex flex-wrap gap-1.5">
+								{#each others as m (m.id)}
+									<a href="/people/{m.id}" class="chip pr-3 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} size={26} />{m.name.split(' ')[0]}<Icon name="chevron-right" size={14} /></a>
+								{/each}
+							</div>
+						{:else}
+							<p class="mt-3 text-sm text-fg-muted">Just you so far. Send the invite link to get people in.</p>
+						{/if}
 						<div class="mt-4 flex items-center justify-between gap-2">
-							<button class="btn-teal text-sm" onclick={() => copyInvite(c.invite_token)}><Icon name={copied === c.invite_token ? 'check' : 'link'} size={16} />{copied === c.invite_token ? 'Invite copied' : 'Copy invite link'}</button>
+							<button class="btn-teal text-sm" onclick={() => copyInvite(c.invite_token)}><Icon name={copied === c.invite_token ? 'check' : 'link'} size={16} />{copied === c.invite_token ? 'Invite link copied' : 'Copy invite link'}</button>
 							<form method="POST" action="?/leaveCircle" use:enhance>
 								<input type="hidden" name="id" value={c.id} />
 								<button class="btn-quiet text-sm hover:text-rust-300">Leave</button>
