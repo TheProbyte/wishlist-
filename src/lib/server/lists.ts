@@ -1,5 +1,5 @@
 import { daysUntil, occasionDate } from '#lib/format.ts';
-import { masterId } from './db';
+import { ensureMaster, masterId } from './db';
 import type { List } from '#lib/types.ts';
 
 export type ListWithCount = List & { item_count: number; next_date: string | null };
@@ -38,4 +38,12 @@ export async function masterList(db: D1Database, personId: string): Promise<(Lis
 		.prepare('SELECT l.*, (SELECT COUNT(*) FROM items i WHERE i.list_id = l.id) AS item_count FROM lists l WHERE l.id = ?')
 		.bind(masterId(personId))
 		.first<List & { item_count: number }>();
+}
+
+/** Like masterList, but creates the Everything list in the rare case it doesn't exist yet. */
+export async function masterListEnsured(db: D1Database, ownerId: string, kidId: string | null = null) {
+	const found = await masterList(db, kidId ?? ownerId);
+	if (found) return found;
+	await ensureMaster(db, ownerId, kidId);
+	return (await masterList(db, kidId ?? ownerId))!;
 }

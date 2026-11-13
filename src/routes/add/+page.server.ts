@@ -1,15 +1,14 @@
 import { error, fail } from '@sveltejs/kit';
-import { ensureMaster, getCategories, getKids, masterId, safeJson } from '#lib/server/db.ts';
+import { getCategories, getKids, masterId, safeJson } from '#lib/server/db.ts';
 import { readItemForm } from '#lib/server/items.ts';
 import { addGiftsBulk, findDuplicate, saveGift } from '#lib/server/gifts.ts';
-import { orderedLists } from '#lib/server/lists.ts';
+import { masterListEnsured, orderedLists } from '#lib/server/lists.ts';
 import type { Sizes } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Who a gift can be for: you, or one of your kids. Each has an Everything list and lists. */
 async function scopes(locals: App.Locals) {
 	const { db, user } = locals;
-	await ensureMaster(db, user.id);
 	const [me, lists, kids] = await Promise.all([
 		db.prepare('SELECT sizes FROM users WHERE id = ?').bind(user.id).first<{ sizes: string }>(),
 		orderedLists(db, user.id),
@@ -17,7 +16,6 @@ async function scopes(locals: App.Locals) {
 	]);
 	const kidScopes = await Promise.all(
 		kids.map(async (k) => {
-			await ensureMaster(db, user.id, k.id);
 			return { id: k.id, name: k.name, master: masterId(k.id), sizes: k.sizes, lists: (await orderedLists(db, user.id, k.id)).map((l) => ({ id: l.id, name: l.name, occasion: l.occasion })) };
 		})
 	);
@@ -34,9 +32,13 @@ export const load: PageServerLoad = async ({ locals }) => ({
 
 /** The Everything list for a scope id, if it's yours or your kid's. */
 async function masterFor(locals: App.Locals, scope: string): Promise<string> {
-	if (scope === locals.user.id) return masterId(scope);
+	if (scope === locals.user.id) {
+		await masterListEnsured(locals.db, scope);
+		return masterId(scope);
+	}
 	const kid = await locals.db.prepare('SELECT id FROM kids WHERE id = ? AND parent_id = ?').bind(scope, locals.user.id).first();
 	if (!kid) error(404, 'That list isn’t yours.');
+	await masterListEnsured(locals.db, locals.user.id, scope);
 	return masterId(scope);
 }
 

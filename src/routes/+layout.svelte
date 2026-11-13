@@ -4,7 +4,8 @@
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { page } from '$app/state';
-	import { goto, onNavigate, preloadData } from '$app/navigation';
+	import { goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { TABS, navDirection, pageSwipe, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
 	import type { LayoutProps } from './$types';
 
@@ -29,7 +30,21 @@
 		});
 	});
 
-	// Swipe sideways between the three tabs. The page follows the finger (pageSwipe).
+	// Get the tabs ready in the background once the app has settled, so switching is instant.
+	onMount(() => {
+		if (shared) return;
+		const warm = () => {
+			for (const t of TABS) {
+				preloadCode(t.href);
+				if (t.href !== page.url.pathname) preloadData(t.href).catch(() => {});
+			}
+		};
+		const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+		if (idle) idle(warm);
+		else setTimeout(warm, 800);
+	});
+
+	// Swipe sideways between the tabs. The page follows the finger (pageSwipe).
 	const tabHref = (i: number) => TABS[i]?.href;
 </script>
 
@@ -59,7 +74,7 @@
 </header>
 
 <main
-	class="mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 {shared ? 'pb-24' : 'pb-32 sm:pb-24'}"
+	class="mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 {shared ? 'pb-24' : 'pb-52 sm:pb-24'}"
 	use:pageSwipe={{
 		enabled: onTabRoot,
 		canLeft: active < TABS.length - 1,
@@ -82,10 +97,10 @@
 		style="view-transition-name: tab-bar"
 		aria-label="Main"
 	>
-		<div class="relative grid grid-cols-4">
+		<div class="relative grid grid-cols-3">
 			{#if active >= 0}
 				<span
-					class="stripes absolute top-0 left-0 h-[6px] w-1/4 transition-transform duration-300 ease-[var(--ease-spring)]"
+					class="stripes absolute top-0 left-0 h-[6px] w-1/3 transition-transform duration-300 ease-[var(--ease-spring)]"
 					style="transform: translateX({active * 100}%)"
 					aria-hidden="true"
 				></span>

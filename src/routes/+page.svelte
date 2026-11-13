@@ -16,14 +16,14 @@
 
 	// New list: for you, or for one of your kids.
 	let creating = $state(false);
-	let creatingFor = $state<string | null>(null);
+	// Who the new list is for: 'me', one of the kids (their id), or 'new-kid' to add a kid.
+	let creatingFor = $state<string>('me');
 	let busy = $state(false);
 	function newList(kidId: string | null = null) {
-		creatingFor = kidId;
+		creatingFor = kidId ?? 'me';
 		creating = true;
 	}
 
-	let addingKid = $state(false);
 
 	// Share an Everything list (yours, or a kid's).
 	let sharing = $state<{ id: string; token: string | null; who: string } | null>(null);
@@ -65,15 +65,15 @@
 			<Icon name="plus" size={18} />
 			New list
 		</button>
-		<button class="btn-teal" onclick={() => openShare(data.everything.id, data.everything.share_token, 'your')}>
+		<button class="btn-teal" onclick={() => openShare(data.everything.id, data.everything.share_token, 'your')} title="Share your whole wish list (Everything)">
 			<Icon name={data.everything.share_token ? 'check' : 'share'} size={18} />
-			{data.everything.share_token ? 'Shared' : 'Share'}
+			{data.everything.share_token ? 'Sharing all' : 'Share all'}
 		</button>
 	</div>
 </section>
 
 <!-- Add a gift from anywhere: paste a link, pick where it goes next. -->
-<form method="GET" action="/add" class="mb-6 flex items-center gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400">
+<form method="GET" action="/add" class="paste-dock flex sm:mb-6 items-center gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400">
 	<label class="flex flex-1 items-center gap-3 px-3">
 		<Icon name="link" size={20} class="text-mustard-400" />
 		<span class="sr-only">Product link</span>
@@ -132,6 +132,7 @@
 			</div>
 		</div>
 	</a>
+	<a href="/upcoming" class="mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={16} />See everything coming up<Icon name="chevron-right" size={16} /></a>
 {/if}
 
 <section class="mt-9">
@@ -169,61 +170,64 @@
 	</section>
 {/each}
 
-<button class="mt-12 flex w-full items-center justify-center gap-2 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-5 py-5 text-sm font-bold text-fg-muted transition hover:border-teal-300 hover:text-teal-300" onclick={() => (addingKid = true)}>
-	<Icon name="teddy" size={20} />Add a kid’s wish list
-</button>
 
-<Modal bind:open={creating} title={creatingFor ? `New list for ${data.kids.find((k) => k.kid.id === creatingFor)?.kid.name}` : 'New list'}>
-	<form
-		id="new-list"
-		method="POST"
-		action="?/create"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
-		}}
-	>
-		<input type="hidden" name="kid_id" value={creatingFor ?? ''} />
-		<ListForm />
-		{#if form?.error}<p class="mt-4 text-sm font-bold text-rust-300">{form.error}</p>{/if}
-	</form>
+
+<Modal bind:open={creating} title={creatingFor === 'new-kid' ? 'Add a kid’s wish list' : creatingFor === 'me' ? 'New list' : `New list for ${data.kids.find((k) => k.kid.id === creatingFor)?.kid.name}`}>
+	<div class="mb-6">
+		<span class="label">Who’s it for?</span>
+		<div class="flex flex-wrap gap-2">
+			<button type="button" class="chip {creatingFor === 'me' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={creatingFor === 'me'} onclick={() => (creatingFor = 'me')}><Icon name="user" size={15} />Me</button>
+			{#each data.kids as k (k.kid.id)}
+				<button type="button" class="chip {creatingFor === k.kid.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={creatingFor === k.kid.id} onclick={() => (creatingFor = k.kid.id)}><Icon name="teddy" size={15} />{k.kid.name}</button>
+			{/each}
+			<button type="button" class="chip {creatingFor === 'new-kid' ? 'chip-on' : 'bg-transparent ring-2 ring-cocoa-700 ring-inset hover:text-fg'}" aria-pressed={creatingFor === 'new-kid'} onclick={() => (creatingFor = 'new-kid')}><Icon name="plus" size={15} />A kid</button>
+		</div>
+	</div>
+
+	{#if creatingFor === 'new-kid'}
+		<form id="new-list" method="POST" action="?/addKid" use:enhance={() => { busy = true; return async ({ update }) => { await update(); busy = false; }; }} class="space-y-5">
+			<p class="text-sm text-fg-muted">Keep a wish list for a child: you pick what goes on it, and it’s clearly labelled with their name when you share it.</p>
+			<label class="block">
+				<span class="label">Their name</span>
+				<input class="field" name="name" required maxlength="40" placeholder="e.g. Maya" />
+			</label>
+			<label class="block">
+				<span class="label">Birthday <span class="normal-case text-fg-faint">(optional)</span></span>
+				<input class="field sm:max-w-56" type="date" name="birthday" />
+				<span class="mt-1.5 block text-xs text-fg-faint">Adds a birthday list that counts down to their next birthday every year.</span>
+			</label>
+			{#if form?.kidError}<p class="text-sm font-bold text-rust-300">{form.kidError}</p>{/if}
+		</form>
+	{:else}
+		<form
+			id="new-list"
+			method="POST"
+			action="?/create"
+			use:enhance={() => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}}
+		>
+			<input type="hidden" name="kid_id" value={creatingFor === 'me' ? '' : creatingFor} />
+			<ListForm />
+			{#if form?.error}<p class="mt-4 text-sm font-bold text-rust-300">{form.error}</p>{/if}
+		</form>
+	{/if}
 	{#snippet footer()}
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn-quiet" onclick={() => (creating = false)}>Cancel</button>
-			<button form="new-list" class="btn-primary" disabled={busy}>{busy ? 'Wrapping…' : 'Make list'}</button>
+			<button form="new-list" class="btn-primary" disabled={busy}>{busy ? 'Wrapping…' : creatingFor === 'new-kid' ? 'Add kid' : 'Make list'}</button>
 		</div>
 	{/snippet}
 </Modal>
 
-<Modal bind:open={addingKid} title="Add a kid’s wish list">
-	<form id="add-kid" method="POST" action="?/addKid" use:enhance class="space-y-5">
-		<p class="text-sm text-fg-muted">Keep a list for a child: you pick what goes on it, and it’s clearly labelled with their name when you share it.</p>
-		<label class="block">
-			<span class="label">Their name</span>
-			<input class="field" name="name" required maxlength="40" placeholder="e.g. Maya" />
-		</label>
-		<label class="block">
-			<span class="label">Birthday <span class="normal-case text-fg-faint">(optional)</span></span>
-			<input class="field sm:max-w-56" type="date" name="birthday" />
-			<span class="mt-1.5 block text-xs text-fg-faint">Adds a birthday list that counts down to their next birthday every year.</span>
-		</label>
-		{#if form?.kidError}<p class="text-sm font-bold text-rust-300">{form.kidError}</p>{/if}
-	</form>
-	{#snippet footer()}
-		<div class="flex justify-end gap-2">
-			<button type="button" class="btn-quiet" onclick={() => (addingKid = false)}>Cancel</button>
-			<button form="add-kid" class="btn-primary">Add kid</button>
-		</div>
-	{/snippet}
-</Modal>
-
-<Modal bind:open={shareOpen} title="Share {sharing?.who ?? 'your'} wish list">
+<Modal bind:open={shareOpen} title="Share {sharing?.who ?? 'your'} whole wish list">
 	{#if sharing}
 		{#if shareUrl}
-			<p class="mb-4 text-sm text-fg-muted">One link to every gift on {sharing.who} wish list. Anyone with it can mark a gift as theirs, and it’s crossed off everywhere so nobody doubles up.</p>
+			<p class="mb-4 text-sm text-fg-muted">This link shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. Anyone with it can mark a gift as theirs, and it’s crossed off everywhere so nobody doubles up. To share just one list, like Christmas, open it and tap Share there.</p>
 			<div class="flex gap-2">
 				<input class="field font-mono text-xs" readonly value={shareUrl} onfocus={(e) => e.currentTarget.select()} />
 				<button class="btn-teal shrink-0" onclick={copy}>{copied ? 'Copied' : 'Copy'}</button>
@@ -236,7 +240,7 @@
 				</form>
 			</div>
 		{:else}
-			<p class="mb-6 text-sm text-fg-muted">Make a private link to every gift on {sharing.who} wish list. New gifts show up on it automatically. People in your circles can already see it.</p>
+			<p class="mb-6 text-sm text-fg-muted">Make one private link that shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. New gifts show up on it automatically. To share just one list, like Christmas, open it and tap Share there.</p>
 			<form method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
 				<input type="hidden" name="list" value={sharing.id} />
 				<button class="btn-teal w-full">Create link</button>

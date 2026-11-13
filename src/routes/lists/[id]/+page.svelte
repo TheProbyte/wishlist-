@@ -337,7 +337,7 @@
 
 <!-- Add a gift -->
 <form
-	class="mb-8 flex flex-col gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400 sm:flex-row sm:items-center"
+	class="paste-dock flex items-center gap-2 sm:mb-8 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400 {selecting ? 'max-sm:hidden' : ''}"
 	onsubmit={(e) => {
 		e.preventDefault();
 		importLink();
@@ -348,7 +348,7 @@
 		<span class="sr-only">Product link</span>
 		<input
 			class="w-full border-0 bg-transparent py-3 text-[15px] text-fg placeholder:text-fg-faint focus:ring-0 focus:outline-none"
-			placeholder="Paste a link from Amazon or any shop…"
+			placeholder="Paste a link to add a gift…"
 			bind:value={link}
 			onpaste={(e) => {
 				const text = e.clipboardData?.getData('text') ?? '';
@@ -359,14 +359,22 @@
 			}}
 		/>
 	</label>
-	<div class="flex gap-2">
+	<div class="flex shrink-0 gap-2">
 		{#if !isEverything && data.pickable.length}
-			<button type="button" class="btn-quiet flex-1 sm:flex-none" onclick={() => { picked = []; pickOpen = true; }}>From Everything</button>
+			<button type="button" class="btn-quiet hidden sm:inline-flex" onclick={() => { picked = []; pickOpen = true; }}>From Everything</button>
 		{/if}
-		<button type="button" class="btn-quiet flex-1 sm:flex-none" onclick={addManually}>Add by hand</button>
-		<button class="btn-primary flex-1 sm:flex-none" disabled={!link.trim()}>Add gift</button>
+		<button type="button" class="btn-quiet hidden sm:inline-flex" onclick={addManually}>Add by hand</button>
+		<button class="btn-primary" disabled={!link.trim()}>Add<span class="hidden sm:inline">&nbsp;gift</span></button>
 	</div>
 </form>
+
+<!-- Phones: the other ways to add sit here, since the paste bar is docked at the bottom. -->
+<div class="mb-6 flex gap-2 sm:hidden">
+	<button type="button" class="btn-ghost flex-1 text-sm" onclick={addManually}><Icon name="plus" size={16} />Add by hand</button>
+	{#if !isEverything && data.pickable.length}
+		<button type="button" class="btn-ghost flex-1 text-sm" onclick={() => { picked = []; pickOpen = true; }}><Icon name="gift" size={16} />From Everything</button>
+	{/if}
+</div>
 
 {#if items.length === 0}
 	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-16 text-center">

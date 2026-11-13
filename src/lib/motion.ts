@@ -25,16 +25,14 @@ export function setNavDirection(d: NavDirection) {
 
 export const TABS = [
 	{ href: '/', label: 'Lists', icon: 'gift' },
-	{ href: '/upcoming', label: 'Coming up', icon: 'calendar' },
 	{ href: '/people', label: 'People', icon: 'people' },
 	{ href: '/me', label: 'You', icon: 'user' }
 ] as const;
 
 export function tabIndex(path: string): number {
-	if (path === '/' || path.startsWith('/lists') || path.startsWith('/add')) return 0;
-	if (path.startsWith('/upcoming')) return 1;
-	if (/^\/(people|getting|circles|santa)/.test(path)) return 2;
-	if (path.startsWith('/me') || path.startsWith('/categories')) return 3;
+	if (path === '/' || /^\/(lists|add|upcoming)/.test(path)) return 0;
+	if (/^\/(people|getting|circles|santa)/.test(path)) return 1;
+	if (path.startsWith('/me') || path.startsWith('/categories')) return 2;
 	return -1;
 }
 
@@ -152,30 +150,29 @@ export function pageSwipe(node: HTMLElement, options: PageSwipeOptions) {
 				await go();
 				return;
 			}
-			place(0, 'transform 380ms var(--ease-spring), opacity 380ms ease');
+			place(0, 'transform 300ms var(--ease-spring), opacity 300ms ease');
 			return;
 		}
 
 		busy = true;
 		const w = width();
 		const out = dir === 'left' ? -w : w;
-		place(out, 'transform 190ms cubic-bezier(0.3, 0, 0.8, 0.4), opacity 190ms ease-in');
-		await new Promise((r) => setTimeout(r, 190));
+		place(out, 'transform 150ms cubic-bezier(0.3, 0, 0.8, 0.4), opacity 150ms ease-in');
+		el().style.opacity = '0'; // fully out, so a fast-arriving page never flashes mid-slide
 		setNavDirection('none');
-		try {
-			await go();
-		} finally {
-			// Bring the new page in from the other side.
-			const t = el();
-			place(-out * 0.35, null);
-			t.style.opacity = '0';
-			void t.offsetWidth;
-			place(0, 'transform 320ms var(--ease-out-soft), opacity 240ms ease-out');
-			setTimeout(() => {
-				t.style.transition = '';
-				busy = false;
-			}, 330);
-		}
+		// Start loading straight away, while the page slides out.
+		const arrived = Promise.resolve(go());
+		await Promise.all([arrived.catch(() => {}), new Promise((r) => setTimeout(r, 150))]);
+		// Bring the new page in from the other side.
+		const t = el();
+		place(-out * 0.25, null);
+		t.style.opacity = '0';
+		void t.offsetWidth;
+		place(0, 'transform 220ms var(--ease-out-soft), opacity 160ms ease-out');
+		setTimeout(() => {
+			t.style.transition = '';
+			busy = false;
+		}, 230);
 	};
 
 	node.addEventListener('touchstart', start, { passive: true });

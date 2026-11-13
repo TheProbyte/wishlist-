@@ -1,20 +1,18 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { ensureMaster, getKids, masterId, newId, newToken } from '#lib/server/db.ts';
 import { daysUntil, storedDate } from '#lib/format.ts';
-import { masterList, orderedLists } from '#lib/server/lists.ts';
+import { masterListEnsured, orderedLists } from '#lib/server/lists.ts';
 import { upcomingInCircles } from '#lib/server/people.ts';
 import { isPaper } from '#lib/papers.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { db, user } = locals;
-	await ensureMaster(db, user.id);
-	const [everything, lists, kids, friends] = await Promise.all([masterList(db, user.id), orderedLists(db, user.id), getKids(db, user.id), upcomingInCircles(db, user.id, 45)]);
+	const [everything, lists, kids, friends] = await Promise.all([masterListEnsured(db, user.id), orderedLists(db, user.id), getKids(db, user.id), upcomingInCircles(db, user.id, 45)]);
 
 	const kidSections = await Promise.all(
 		kids.map(async (kid) => {
-			await ensureMaster(db, user.id, kid.id);
-			const [master, kidLists] = await Promise.all([masterList(db, kid.id), orderedLists(db, user.id, kid.id)]);
+			const [master, kidLists] = await Promise.all([masterListEnsured(db, user.id, kid.id), orderedLists(db, user.id, kid.id)]);
 			return { kid: { id: kid.id, name: kid.name, birthday: kid.birthday }, everything: master!, lists: kidLists };
 		})
 	);
