@@ -116,12 +116,13 @@
 				<Icon name="gift" size={18} />Add to The Giver
 			</a>
 			<details class="mt-4 text-sm">
-				<summary class="cursor-pointer font-bold text-fg-muted hover:text-fg">On iPhone or iPad</summary>
-				<ol class="mt-2 list-decimal space-y-1.5 pl-5 text-fg-muted">
-					<li>Copy the bookmark code: <button class="font-bold text-mustard-400 hover:underline" onclick={copyCode}>{copiedCode ? 'Copied' : 'Copy code'}</button></li>
-					<li>In Safari, bookmark any page, then edit that bookmark: name it “Add to The Giver” and paste the code as its address.</li>
-					<li>On a product page, open your bookmarks and tap it.</li>
-				</ol>
+				<summary class="cursor-pointer font-bold text-fg-muted hover:text-fg">Dragging doesn’t work? (Zen, Firefox, iPhone)</summary>
+				<div class="mt-2 space-y-3 text-fg-muted">
+					<p><span class="font-bold text-fg">Zen or Firefox:</span> right-click the yellow button and choose <span class="font-bold text-fg">Bookmark Link…</span>. Then open it from your bookmarks (or press Ctrl+Shift+B to show the bookmarks bar).</p>
+					<p><span class="font-bold text-fg">Any browser:</span>
+						<button class="font-bold text-mustard-400 hover:underline" onclick={copyCode}>{copiedCode ? 'Copied!' : 'Copy the bookmark code'}</button>, make a new bookmark, name it “Add to The Giver” and paste the code as its address (URL).</p>
+					<p><span class="font-bold text-fg">iPhone or iPad:</span> copy the code above. In Safari, bookmark any page, then edit that bookmark: rename it and paste the code as its address. On a product page, open Bookmarks and tap it.</p>
+				</div>
 			</details>
 			<p class="mt-3 text-xs text-fg-faint">It reads the page in your own browser, so it works even when a shop blocks automatic lookups. On an Amazon wish list it brings in every item (scroll to the bottom first so they’ve all loaded).</p>
 		</div>

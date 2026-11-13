@@ -679,7 +679,7 @@ export async function importWithHint(hint: ImportHint, fetchGaps = true): Promis
 export function isAmazonWishlist(url: URL): boolean {
 	return (
 		isAmazon(url) &&
-		(/\/(hz\/wishlist|gp\/registry\/wishlist|registries\/gl\/guest-view|gp\/aw\/ls|wishlist)\b/i.test(url.pathname) || url.searchParams.has('lid'))
+		(/\/(hz\/wishlist|gp\/registry|registries|gp\/aw\/ls|wishlist)\b/i.test(url.pathname) || url.searchParams.has('lid'))
 	);
 }
 
@@ -729,7 +729,34 @@ export function parseAmazonWishlist(html: string, base: URL): ImportHint[] {
 			currency: amazonCurrency(base.hostname)
 		});
 	});
-	return out;
+	return out.length ? out : parseProductTiles(html, base);
+}
+
+/**
+ * Gift lists and registries don't use the classic wish list rows: read any product tiles
+ * instead, one per product (ASIN), from their links, pictures and prices.
+ */
+function parseProductTiles(html: string, base: URL): ImportHint[] {
+	const byAsin = new Map<string, ImportHint>();
+	for (const m of html.matchAll(/<a\b[^>]*href=["']([^"']*\/(?:dp|gp\/product)\/([A-Z0-9]{10})[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+		const asin = m[2].toUpperCase();
+		const attrs = parseAttrs(m[0].slice(0, m[0].indexOf('>') + 1));
+		const inner = m[3];
+		const alt = inner.match(/<img\b[^>]*\balt=["']([^"']+)["']/i)?.[1];
+		const img = inner.match(/<img\b[^>]*\bsrc=["'](https:[^"']+)["']/i)?.[1];
+		const name = [decode(attrs.title ?? ''), decode(attrs['aria-label'] ?? ''), text(inner), decode(alt ?? '')].map((t) => t.trim()).sort((a, b) => b.length - a.length)[0];
+		const hint = byAsin.get(asin) ?? { url: `https://${base.hostname}/dp/${asin}`, title: null, image_url: null, price: null, currency: amazonCurrency(base.hostname) };
+		if (name && name.length > (hint.title?.length ?? 0) && name.length < 300) hint.title = name;
+		if (img && !hint.image_url) hint.image_url = img.replace(/\._[^.]+_\./, '.');
+		// A price shown just after the product link belongs to it.
+		if (hint.price == null) {
+			const after = html.slice(m.index! + m[0].length, m.index! + m[0].length + 3000);
+			const price = after.match(/class=["']a-offscreen["'][^>]*>([^<]*\d[^<]*)</i);
+			if (price && !/\/dp\/[A-Z0-9]{10}/.test(after.slice(0, after.indexOf(price[0])))) hint.price = text(price[1]);
+		}
+		byAsin.set(asin, hint);
+	}
+	return [...byAsin.values()].filter((h) => h.title && !/^(see|shop|buy|add to|view|more)\b/i.test(h.title));
 }
 
 export interface WishlistImport {
@@ -743,6 +770,8 @@ export interface WishlistImport {
 export async function importAmazonWishlist(input: string): Promise<WishlistImport> {
 	const url = normaliseUrl(input);
 	if (!url) return { items: [], blocked: false };
+	// "owner-view" is the owner's own (signed-in) page; the public one is "guest-view".
+	url.pathname = url.pathname.replace('/registries/gl/owner-view/', '/registries/gl/guest-view/');
 	try {
 		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
 		const html = await readCapped(res);

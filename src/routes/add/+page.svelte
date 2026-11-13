@@ -120,7 +120,19 @@
 			<p class="text-fg-muted">Reading the shop page…</p>
 		</div>
 	{:else if phase === 'empty'}
-		<form method="GET" class="card p-5">
+		<form
+			method="GET"
+			class="card p-5"
+			onsubmit={(e) => {
+				// Handle it here: the page is already open, so it wouldn't reload by itself.
+				e.preventDefault();
+				const value = String(new FormData(e.currentTarget).get('url') ?? '').trim();
+				if (!value) return;
+				history.replaceState(null, '', `/add?url=${encodeURIComponent(value)}`);
+				notice = null;
+				load({ url: firstUrl(value) ?? value });
+			}}
+		>
 			{#if notice}<p class="mb-4 flex gap-2 text-sm font-medium text-rust-300"><Icon name="alert" size={18} />{notice}</p>{/if}
 			<label class="block">
 				<span class="label">Link to the gift, or to an Amazon wish list</span>
@@ -195,7 +207,7 @@
 				<p class="mt-2 text-fg-muted">{doneMessage}</p>
 				<div class="mt-6 flex flex-wrap justify-center gap-2">
 					<a href="/lists/{scope.master}" class="btn-primary">See the list</a>
-					<a href="/add" class="btn-ghost" onclick={() => (phase = 'empty')}>Add another</a>
+					<button class="btn-ghost" onclick={() => { history.replaceState(null, '', '/add'); notice = null; phase = 'empty'; }}>Add another</button>
 				</div>
 			</div>
 		</div>

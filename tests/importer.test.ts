@@ -142,3 +142,21 @@ test('Amazon wish list: works whatever order the link attributes come in', async
 	assert.equal(items[1].url, 'https://www.amazon.com/dp/B0CC2/');
 	assert.equal(items[1].price, '$149.99');
 });
+
+test('Amazon gift lists (registries): owner links count, tiles are read', async () => {
+	const { isAmazonWishlist, parseAmazonWishlist } = await import('../src/lib/server/importer.ts');
+	assert.equal(isAmazonWishlist(new URL('https://www.amazon.com/registries/gl/owner-view/3LMO0WXVVPO88')), true);
+	assert.equal(isAmazonWishlist(new URL('https://www.amazon.com/registries/gl/guest-view/3LMO0WXVVPO88')), true);
+	const html = `<div class="gl-items">
+<div class="tile"><a href="/dp/B08N5WRWNW?ref=gl" aria-label="Echo Dot (4th Gen) smart speaker"><img src="https://m.media-amazon.com/images/I/714._AC_SR200_.jpg" alt="Echo Dot"></a>
+<a href="/dp/B08N5WRWNW?ref=gl">Echo Dot (4th Gen) smart speaker</a><span class="a-price"><span class="a-offscreen">$49.99</span></span></div>
+<div class="tile"><a href="/dp/B07PGL2ZSL"><img src="https://m.media-amazon.com/images/I/81q._AC_SR200_.jpg" alt="Fire TV Stick 4K streaming device"></a><span class="a-offscreen">$39.99</span></div>
+<a href="/dp/B07PGL2ZSL">See more</a>
+</div>`;
+	const items = parseAmazonWishlist(html, new URL('https://www.amazon.com/registries/gl/guest-view/X'));
+	assert.equal(items.length, 2);
+	assert.deepEqual(items.map((i) => i.title), ['Echo Dot (4th Gen) smart speaker', 'Fire TV Stick 4K streaming device']);
+	assert.deepEqual(items.map((i) => i.price), ['$49.99', '$39.99']);
+	assert.equal(items[0].url, 'https://www.amazon.com/dp/B08N5WRWNW');
+	assert.equal(items[1].image_url, 'https://m.media-amazon.com/images/I/81q.jpg');
+});
