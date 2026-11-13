@@ -12,6 +12,15 @@
 	/** One of the three tabs; the shell around it is in routes/[[tab=tab]]. */
 	let { data, form, me = null }: { data: PeopleData; form: TabForm; me?: { id: string; name: string } | null } = $props();
 
+	// "Coming up" lists only what the person cards above don't already show (each card carries
+	// that person's next occasion), so nothing appears twice.
+	const key = (u: { personId: string; label: string; date: string; kid: string | null }) => `${u.personId}|${u.kid ?? ''}|${u.label}|${u.date}`;
+	const later = $derived.by(() => {
+		if (!data.authEnabled) return [];
+		const onCards = new Set(data.people.flatMap((p) => (p.next ? [key(p.next)] : [])));
+		return data.upcoming.filter((u) => !onCards.has(key(u)));
+	});
+
 	let newCircle = $state(false);
 	let newSanta = $state(false);
 	let copied = $state<string | null>(null);
@@ -76,11 +85,11 @@
 	</a>
 
 	<!-- Coming up for your people -->
-	{#if data.upcoming.length}
+	{#if later.length}
 		<section class="mb-10">
-			<h2 class="mb-3 text-lg font-bold">Coming up</h2>
+			<h2 class="mb-3 text-lg font-bold">Also coming up</h2>
 			<div class="space-y-2.5">
-				{#each data.upcoming.slice(0, 6) as u, i (u.personId + u.label + u.date)}
+				{#each later.slice(0, 6) as u, i (u.personId + u.label + u.date)}
 					<a href={u.listId ? `/people/${u.personId}?list=${u.listId}` : `/people/${u.personId}`} class="card rise flex items-center gap-3 p-3 pr-4 transition active:translate-y-0.5" style="--i: {i}">
 						<Avatar name={u.kid ?? u.name} src={u.kid ? null : u.avatar_url} size={44} />
 						<div class="min-w-0 flex-1">
