@@ -8,19 +8,29 @@
 		occasion,
 		ribbonAt = 68,
 		bow = true,
+		transitionName,
 		class: cls = '',
 		children
-	}: { wrap?: string | null; occasion?: string | null; ribbonAt?: number; bow?: boolean; class?: string; children?: Snippet } = $props();
+	}: {
+		wrap?: string | null;
+		occasion?: string | null;
+		ribbonAt?: number;
+		bow?: boolean;
+		/** Lets the browser morph this paper into the list page's paper strip when the list opens. */
+		transitionName?: string;
+		class?: string;
+		children?: Snippet;
+	} = $props();
 
 	const paper = $derived(paperFor(wrap, occasion));
 </script>
 
-<div class="relative overflow-hidden {cls}" style="background: {paper.background}">
+<div class="relative overflow-hidden {cls}" style="background: {paper.background};{transitionName ? ` view-transition-name: ${transitionName}` : ''}">
 	<div class="absolute inset-y-0 w-3.5" style="left: calc({ribbonAt}% - 7px); background: {paper.ribbon}"></div>
 	<div class="absolute inset-x-0 top-[42%] h-3.5" style="background: {paper.ribbon}"></div>
 	{#if bow}
 		<!-- A big, flat bow with a dark outline so it reads on any paper. -->
-		<svg class="absolute" style="left: calc({ribbonAt}% - 34px); top: calc(42% - 30px)" width="68" height="52" viewBox="0 0 68 52" aria-hidden="true">
+		<svg class="bow absolute" style="left: calc({ribbonAt}% - 34px); top: calc(42% - 30px)" width="68" height="52" viewBox="0 0 68 52" aria-hidden="true">
 			<g stroke="#2B1D14" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
 				<path d="M31 31l-11 18 7-1 3 5 6-18z" fill={paper.ribbon} />
 				<path d="M37 31l11 18-7-1-3 5-6-18z" fill={paper.ribbon} />

@@ -118,6 +118,10 @@
 		<input type="hidden" name="image_url" value={image} />
 		<input type="hidden" name="availability" value={draft?.availability ?? ''} />
 
+		{#if loading}
+			<!-- The three signature stripes, running while the shop's page is read. -->
+			<div class="stripes-run -mt-5 mb-5 h-1.5 rounded-full sm:-mt-5" role="progressbar" aria-label="Fetching the gift’s details"></div>
+		{/if}
 		{#if notice && !loading}
 			<div class="mb-5 flex gap-3 rounded-[var(--radius-control)] bg-rust-500/15 px-4 py-3 text-sm font-medium text-rust-300">
 				<Icon name="alert" size={18} class="mt-px" /><span>{notice}</span>

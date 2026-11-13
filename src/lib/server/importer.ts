@@ -286,8 +286,15 @@ function fillFromAmazon(r: ImportResult, html: string, base: URL) {
 	for (const m of html.matchAll(/id=["']inline-twister-row-(\w+?)_name["'][\s\S]{0,800}?class=["'][^"']*a-text-bold[^"']*["'][^>]*>([^<]+)</g))
 		add(m[1], m[2]);
 
-	if (/id=["']outOfStock["']|Currently unavailable\./i.test(html)) r.availability = 'out_of_stock';
-	else if (/id=["']add-to-cart-button["']/i.test(html)) r.availability = 'in_stock';
+	// Stock: Amazon pages carry hidden "outOfStock" templates and other sellers' "Currently
+	// unavailable" text even for items that are in stock, so a buy button wins, and only the
+	// main availability line can mark an item as sold out.
+	const canBuy = /id=["'](?:add-to-cart-button|buy-now-button)["']/i.test(html);
+	const availability = html.match(/<div[^>]*id=["']availability["'][^>]*>([\s\S]{0,1500}?)<\/div>/i);
+	const availabilityText = availability ? text(availability[1]) : '';
+	if (canBuy) r.availability = 'in_stock';
+	else if (/currently unavailable|out of stock|temporarily out/i.test(availabilityText)) r.availability = 'out_of_stock';
+	else if (/\bin stock\b|only \d+ left/i.test(availabilityText)) r.availability = 'in_stock';
 
 	const desc = html.match(/id=["']feature-bullets["'][\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i);
 	if (desc) {

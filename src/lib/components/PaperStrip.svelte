@@ -2,7 +2,7 @@
 	import { paperFor } from '#lib/papers.ts';
 
 	/** A short strip of the list's paper with a torn bottom edge, used at the top of list and share pages. */
-	let { wrap, occasion, class: cls = '' }: { wrap?: string | null; occasion?: string | null; class?: string } = $props();
+	let { wrap, occasion, transitionName, class: cls = '' }: { wrap?: string | null; occasion?: string | null; transitionName?: string; class?: string } = $props();
 	const paper = $derived(paperFor(wrap, occasion));
 
 	// Zig-zag tear along the bottom edge.
@@ -14,6 +14,6 @@
 	})();
 </script>
 
-<div class="relative h-20 overflow-hidden rounded-t-[var(--radius-card)] sm:h-24 {cls}" style="background: {paper.background}; clip-path: {tear}" aria-hidden="true">
+<div class="relative h-20 overflow-hidden rounded-t-[var(--radius-card)] sm:h-24 {cls}" style="background: {paper.background}; clip-path: {tear};{transitionName ? ` view-transition-name: ${transitionName}` : ''}" aria-hidden="true">
 	<div class="absolute inset-y-0 right-[14%] w-4" style="background: {paper.ribbon}"></div>
 </div>

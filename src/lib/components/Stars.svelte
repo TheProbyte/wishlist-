@@ -11,8 +11,12 @@
 	const interactive = $derived(Boolean(onchange || name));
 	const shown = $derived(hover || value);
 
+	// Bumped on every pick so the stars re-run their fill-and-pop animation.
+	let popped = $state(0);
+
 	function pick(n: number) {
 		value = value === n ? 0 : n;
+		popped++;
 		onchange?.(value);
 	}
 </script>
@@ -39,7 +43,9 @@
 					pick(n);
 				}}
 			>
-				{@render star(n <= shown)}
+				{#key popped}
+					<span class="block {popped && n <= value ? 'pop' : ''}" style="animation-delay: {(n - 1) * 45}ms">{@render star(n <= shown)}</span>
+				{/key}
 			</button>
 		{:else}
 			<span class="p-px">{@render star(n <= shown)}</span>

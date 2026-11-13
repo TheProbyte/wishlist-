@@ -147,3 +147,225 @@
 select.field {
 	@apply pr-9;
 }
+
+/* ------------------------------------------------------------------ motion (DESIGN.md §5) */
+
+/* One springy ease for the whole app. */
+@theme {
+	--ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+	--ease-out-soft: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Cards drop in with a small bounce, staggered by --i. */
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(16px) scale(0.97);
+	}
+}
+@utility rise {
+	animation: rise 420ms var(--ease-spring) both;
+	animation-delay: calc(min(var(--i, 0), 10) * 45ms);
+}
+
+/* Stars fill left to right; the chosen one pops. */
+@keyframes pop {
+	0% {
+		transform: scale(0.6);
+	}
+	60% {
+		transform: scale(1.3);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+@utility pop {
+	animation: pop 320ms var(--ease-spring) both;
+}
+
+/* A sticker slapped on. */
+@keyframes stamp {
+	0% {
+		opacity: 0;
+		transform: scale(1.8) rotate(-18deg);
+	}
+	70% {
+		opacity: 1;
+		transform: scale(0.94) rotate(-4deg);
+	}
+	100% {
+		transform: scale(1) rotate(-5deg);
+	}
+}
+@utility stamp {
+	animation: stamp 420ms var(--ease-spring) both;
+}
+
+/* The ribbon that wraps a gift once a giver claims it. */
+@keyframes ribbon-x {
+	from {
+		transform: scaleX(0);
+	}
+}
+@keyframes ribbon-y {
+	from {
+		transform: scaleY(0);
+	}
+}
+@utility ribbon-x {
+	transform-origin: left;
+	animation: ribbon-x 380ms var(--ease-out-soft) both;
+}
+@utility ribbon-y {
+	transform-origin: top;
+	animation: ribbon-y 380ms var(--ease-out-soft) 180ms both;
+}
+
+@keyframes confetti {
+	0% {
+		opacity: 1;
+		transform: translate(0, 0) rotate(0);
+	}
+	45% {
+		opacity: 1;
+		transform: translate(calc(var(--dx) * 0.75), var(--dy)) rotate(calc(var(--r) * 0.5));
+	}
+	100% {
+		opacity: 0;
+		transform: translate(var(--dx), calc(var(--dy) + 150px)) rotate(var(--r));
+	}
+}
+.confetti {
+	animation: confetti 1150ms cubic-bezier(0.2, 0.7, 0.4, 1) both;
+}
+
+/* Loading bar: the three signature stripes running. */
+@keyframes stripes-run {
+	to {
+		background-position: 72px 0;
+	}
+}
+@utility stripes-run {
+	background: repeating-linear-gradient(
+		90deg,
+		var(--color-mustard-400) 0 24px,
+		var(--color-rust-500) 24px 48px,
+		var(--color-teal-500) 48px 72px
+	);
+	background-size: 72px 100%;
+	animation: stripes-run 600ms linear infinite;
+}
+
+/* A present's bow wiggles when you point at it. */
+@keyframes wiggle {
+	0%,
+	100% {
+		transform: rotate(0);
+	}
+	25% {
+		transform: rotate(-9deg) scale(1.06);
+	}
+	60% {
+		transform: rotate(7deg) scale(1.04);
+	}
+}
+.group:hover .bow,
+.group:active .bow {
+	animation: wiggle 520ms var(--ease-spring);
+}
+
+/* Page changes slide in the direction of travel (view transitions). */
+@keyframes vt-out-left {
+	to {
+		opacity: 0;
+		transform: translateX(-24%);
+	}
+}
+@keyframes vt-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(24%);
+	}
+}
+@keyframes vt-out-right {
+	to {
+		opacity: 0;
+		transform: translateX(24%);
+	}
+}
+@keyframes vt-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-24%);
+	}
+}
+@keyframes vt-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+@keyframes vt-rise-in {
+	from {
+		opacity: 0;
+		transform: translateY(24px);
+	}
+}
+@keyframes vt-sink-out {
+	to {
+		opacity: 0;
+		transform: translateY(24px);
+	}
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 280ms;
+	animation-timing-function: var(--ease-out-soft);
+}
+::view-transition-group(*) {
+	animation-duration: 340ms;
+	animation-timing-function: var(--ease-out-soft);
+}
+html[data-nav='next']::view-transition-old(root) {
+	animation-name: vt-out-left;
+}
+html[data-nav='next']::view-transition-new(root) {
+	animation-name: vt-in-right;
+}
+html[data-nav='prev']::view-transition-old(root) {
+	animation-name: vt-out-right;
+}
+html[data-nav='prev']::view-transition-new(root) {
+	animation-name: vt-in-left;
+}
+html[data-nav='open']::view-transition-old(root) {
+	animation-name: vt-fade-out;
+	animation-duration: 180ms;
+}
+html[data-nav='open']::view-transition-new(root) {
+	animation-name: vt-rise-in;
+}
+html[data-nav='close']::view-transition-old(root) {
+	animation-name: vt-sink-out;
+}
+html[data-nav='close']::view-transition-new(root) {
+	animation-name: vt-fade-out;
+	animation-direction: reverse;
+}
+
+/* Less motion when the phone asks for it. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		animation-delay: 0ms !important;
+		transition-duration: 0.01ms !important;
+	}
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+}

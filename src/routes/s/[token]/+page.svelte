@@ -7,7 +7,8 @@
 	import Sticker from '#lib/components/Sticker.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
-	import { countdownLabel, formatDate, formatPrice, occasionMeta } from '#lib/format.ts';
+	import Confetti from '#lib/components/Confetti.svelte';
+	import { countdownLabel, formatDate, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -15,10 +16,15 @@
 	let hideTaken = $state(false);
 	let claimingId = $state<string | null>(null);
 	let nameOpen = $state(false);
+	// The gift just claimed, and a counter that launches its confetti.
+	let celebrating = $state<string | null>(null);
+	let fire = $state(0);
 	// svelte-ignore state_referenced_locally
 	let name = $state(data.giverName);
 
 	const meta = $derived(occasionMeta(data.list.occasion));
+	const nextDate = $derived(occasionDate(data.list.occasion, data.list.occasion_date));
+	const turning = $derived(milestone(data.list.occasion, data.list.occasion_date));
 	const catById = $derived(new Map(data.categories.map((c) => [c.id, c])));
 	const visible = $derived(hideTaken ? data.items.filter((i) => i.claimed < i.quantity || i.mine > 0) : data.items);
 	const claimingItem = $derived(data.items.find((i) => i.id === claimingId));
@@ -32,9 +38,9 @@
 	<div class="mt-6 text-center">
 		<p class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-bold text-fg-muted">
 			<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
-			{#if data.list.occasion_date}
-				<span class="text-cocoa-500">·</span><span>{formatDate(data.list.occasion_date)}</span>
-				<span class="text-rust-300">{countdownLabel(data.list.occasion_date)}</span>
+			{#if nextDate}
+				<span class="text-cocoa-500">·</span><span>{formatDate(nextDate)}</span>
+				<span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>
 			{/if}
 		</p>
 		<h1 class="display mt-2 text-[38px] leading-[1.08] sm:text-5xl">{data.list.name}</h1>
@@ -54,13 +60,24 @@
 </div>
 
 <div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-	{#each visible as item (item.id)}
+	{#each visible as item, i (item.id)}
 		{@const taken = item.claimed >= item.quantity && item.mine === 0}
 		{@const category = item.category_id ? catById.get(item.category_id) : undefined}
-		<article class="card relative flex flex-col overflow-hidden transition {taken ? 'opacity-50' : ''}">
-			<div class="p-2 pb-0"><ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" /></div>
+		{@const fresh = celebrating === item.id}
+		<article class="card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
+			<div class="relative p-2 pb-0">
+				<ProductImage src={item.image_url} alt={item.title} class="aspect-square w-full rounded-[12px]" />
+				{#if item.mine > 0}
+					<!-- Yours: wrapped in a teal ribbon. -->
+					<div class="pointer-events-none absolute inset-x-2 top-2 bottom-0 overflow-hidden rounded-[12px]" aria-hidden="true">
+						<div class="absolute inset-x-0 top-[46%] h-4 bg-teal-500 {fresh ? 'ribbon-x' : ''}"></div>
+						<div class="absolute inset-y-0 left-[62%] w-4 bg-teal-500 {fresh ? 'ribbon-y' : ''}"></div>
+					</div>
+				{/if}
+				{#if fresh}<Confetti {fire} />{/if}
+			</div>
 			{#if item.mine > 0}
-				<Sticker tone="teal" tilt={-5} class="absolute top-3.5 left-3.5">You’re getting this</Sticker>
+				<Sticker tone="teal" tilt={-5} class="absolute top-3.5 left-3.5 {fresh ? 'stamp' : ''}">You’re getting this</Sticker>
 			{:else if taken}
 				<Sticker tone="cocoa" tilt={-5} class="absolute top-3.5 left-3.5">Taken</Sticker>
 			{/if}
@@ -111,7 +128,11 @@
 		action="?/claim"
 		use:enhance={() => async ({ result, update }) => {
 			await update({ reset: false });
-			if (result.type === 'success') nameOpen = false;
+			if (result.type === 'success') {
+				nameOpen = false;
+				celebrating = claimingId;
+				fire++;
+			}
 		}}
 	>
 		<input type="hidden" name="id" value={claimingId} />

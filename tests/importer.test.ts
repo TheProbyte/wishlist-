@@ -24,6 +24,17 @@ test('Amazon page: title, price, big image, size and colour', () => {
 	assert.match(r.description ?? '', /100% Cotton/);
 });
 
+test('Amazon: hidden "unavailable" templates do not mean sold out', () => {
+	const r = parseProductPage(new URL('https://www.amazon.com/dp/B09NMBB5YL'), fixture('amazon-hidden-oos.html'));
+	assert.equal(r.availability, 'in_stock');
+	assert.equal(r.price_cents, 4999);
+});
+
+test('Amazon: really sold out', () => {
+	const r = parseProductPage(new URL('https://www.amazon.com/dp/B000000000'), fixture('amazon-oos.html'));
+	assert.equal(r.availability, 'out_of_stock');
+});
+
 test('Amazon bot wall: blocked, but still a usable title from the link', () => {
 	const url = new URL('https://www.amazon.co.uk/Sony-WH-1000XM5-Wireless-Cancelling-Headphones/dp/B09XS7JWHH');
 	const r = parseProductPage(url, fixture('amazon-captcha.html'));

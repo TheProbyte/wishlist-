@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance, deserialize } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { fly } from 'svelte/transition';
+	import { dur, setNavDirection, swipe } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
 	import ItemCard from '#lib/components/ItemCard.svelte';
@@ -10,7 +12,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
-	import { countdownLabel, formatDate, formatPrice, occasionMeta } from '#lib/format.ts';
+	import { countdownLabel, formatDate, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
@@ -46,6 +48,36 @@
 		return list;
 	});
 	const canReorder = $derived(sort === 'rank' && filter === 'all');
+	// Drag-to-rank is for mice. On touch screens dragging would swallow swipes, and the arrows do the job.
+	let finePointer = $state(false);
+	$effect(() => {
+		finePointer = matchMedia('(pointer: fine)').matches;
+	});
+
+	/* ------------------------------------------------ swiping */
+
+	// Categories are pages you can swipe through: All, then each category in use.
+	const pages = $derived(['all', ...usedCategories.map((c) => c.id)]);
+	let pageDir = $state(0);
+	function showCategory(id: string) {
+		const from = pages.indexOf(filter);
+		const to = pages.indexOf(id);
+		pageDir = to > from ? 1 : to < from ? -1 : 0;
+		filter = id;
+		// Keep the active chip in view as the row follows along.
+		requestAnimationFrame(() => document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }));
+	}
+	function stepCategory(delta: number) {
+		const next = pages[pages.indexOf(filter) + delta];
+		if (next) showCategory(next);
+	}
+
+	// Swipe the header (or use the arrows) to flip to the next or previous list.
+	function toList(id: string | null, direction: 'next' | 'prev') {
+		if (!id) return;
+		setNavDirection(direction);
+		goto(`/lists/${id}`);
+	}
 
 	const totals = $derived.by(() => {
 		const by = new Map<string, number>();
@@ -54,6 +86,8 @@
 	});
 
 	const meta = $derived(occasionMeta(data.list.occasion));
+	const nextDate = $derived(occasionDate(data.list.occasion, data.list.occasion_date));
+	const turning = $derived(milestone(data.list.occasion, data.list.occasion_date));
 	const shareUrl = $derived(data.list.share_token ? `${page.url.origin}/s/${data.list.share_token}` : null);
 
 	/* ------------------------------------------------ adding & editing */
@@ -186,21 +220,29 @@
 
 <svelte:head><title>{data.list.name} · The Giver</title></svelte:head>
 
-<a href="/" class="-mt-2 mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg">
-	<Icon name="chevron-left" size={18} />
-	All lists
-</a>
+<div class="-mt-2 mb-3 flex items-center justify-between">
+	<a href="/" class="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg">
+		<Icon name="chevron-left" size={18} />
+		All lists
+	</a>
+	{#if data.neighbours.prev || data.neighbours.next}
+		<div class="flex gap-1">
+			<button class="btn-quiet w-11 px-0" aria-label="Previous list" disabled={!data.neighbours.prev} onclick={() => toList(data.neighbours.prev, 'prev')}><Icon name="chevron-left" size={20} /></button>
+			<button class="btn-quiet w-11 px-0" aria-label="Next list" disabled={!data.neighbours.next} onclick={() => toList(data.neighbours.next, 'next')}><Icon name="chevron-right" size={20} /></button>
+		</div>
+	{/if}
+</div>
 
-<!-- Header: a strip of this list's wrapping paper, then the title on plain cocoa -->
-<section class="mb-6">
-	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} />
+<!-- Header: a strip of this list's wrapping paper, then the title on plain cocoa. Swipe it to change list. -->
+<section class="mb-6" use:swipe={{ left: () => toList(data.neighbours.next, 'next'), right: () => toList(data.neighbours.prev, 'prev') }}>
+	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} transitionName="paper-{data.list.id}" />
 	<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div class="min-w-0">
 			<p class="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-fg-muted">
 				<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
-				{#if data.list.occasion_date}
-					<span class="text-cocoa-500">·</span><span>{formatDate(data.list.occasion_date)}</span>
-					<span class="text-rust-300">{countdownLabel(data.list.occasion_date)}</span>
+				{#if nextDate}
+					<span class="text-cocoa-500">·</span><span>{formatDate(nextDate)}</span>
+					<span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>
 				{/if}
 			</p>
 			<h1 class="display text-[34px] leading-[1.08] break-words sm:text-[44px]">{data.list.name}</h1>
@@ -260,15 +302,15 @@
 {:else}
 	<!-- Toolbar -->
 	<div class="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
-			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>All <span class="opacity-70">{items.length}</span></button>
+		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" data-no-swipe>
+			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" data-chip="all" aria-pressed={filter === 'all'} onclick={() => showCategory('all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
-				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={filter === c.id} onclick={() => (filter = filter === c.id ? 'all' : c.id)}>
+				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" data-chip={c.id} aria-pressed={filter === c.id} onclick={() => showCategory(filter === c.id ? 'all' : c.id)}>
 					<Icon name={c.icon} size={15} />{c.name} <span class="opacity-70">{c.count}</span>
 				</button>
 			{/each}
 		</div>
-		<div class="flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1">
+		<div class="flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1" data-no-swipe>
 			{#each SORTS as s (s.value)}
 				<button
 					class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap transition {sort === s.value ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}"
@@ -282,13 +324,19 @@
 	{#if canReorder && items.length > 1}
 		<p class="-mt-3 mb-5 hidden text-xs text-fg-faint sm:block">Drag cards to rank them. Top-left is the one you want most.</p>
 	{/if}
+	{#if pages.length > 1}
+		<p class="-mt-3 mb-4 text-xs text-fg-faint sm:hidden">Swipe across your gifts to flip through categories.</p>
+	{/if}
 
-	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+	<div class="min-h-[50vh]" use:swipe={{ left: () => stepCategory(1), right: () => stepCategory(-1) }}>
+	{#key filter}
+	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" in:fly={{ x: pageDir * 56, duration: dur(pageDir ? 260 : 0), opacity: 0 }}>
 		{#each visible as item, i (item.id)}
 			<div
-				animate:flip={{ duration: 220 }}
-				class="transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
-				draggable={canReorder}
+				animate:flip={{ duration: dur(220) }}
+				class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
+				style="--i: {i}"
+				draggable={canReorder && finePointer}
 				role="listitem"
 				ondragstart={(e) => {
 					dragId = item.id;
@@ -310,9 +358,11 @@
 			</div>
 		{/each}
 	</div>
+	{/key}
 	{#if visible.length === 0}
 		<p class="py-16 text-center text-sm text-fg-faint">Nothing in this category yet.</p>
 	{/if}
+	</div>
 {/if}
 
 <ItemEditor bind:open={editorOpen} {draft} loading={importing} {notice} categories={data.categories} />

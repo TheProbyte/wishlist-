@@ -2,6 +2,8 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getCategories, getItems, getList, newId, newToken } from '#lib/server/db.ts';
 import { readItemForm } from '#lib/server/items.ts';
 import { isPaper } from '#lib/papers.ts';
+import { storedDate } from '#lib/format.ts';
+import { orderedLists } from '#lib/server/lists.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 async function ownList(locals: App.Locals, id: string) {
@@ -12,8 +14,15 @@ async function ownList(locals: App.Locals, id: string) {
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const list = await ownList(locals, params.id);
-	const [items, categories] = await Promise.all([getItems(locals.db, list.id), getCategories(locals.db, locals.user.id)]);
-	return { list, items, categories };
+	const [items, categories, all] = await Promise.all([
+		getItems(locals.db, list.id),
+		getCategories(locals.db, locals.user.id),
+		orderedLists(locals.db, locals.user.id)
+	]);
+	// Neighbours in the home page's order, for swiping between lists.
+	const at = all.findIndex((l) => l.id === list.id);
+	const neighbours = { prev: all[at - 1]?.id ?? null, next: all[at + 1]?.id ?? null };
+	return { list, items, categories, neighbours };
 };
 
 const touch = (db: D1Database, listId: string) => db.prepare('UPDATE lists SET updated_at = unixepoch() WHERE id = ?').bind(listId);
@@ -108,7 +117,7 @@ export const actions: Actions = {
 			.bind(
 				name.slice(0, 80),
 				String(form.get('occasion') ?? 'general'),
-				/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+				storedDate(String(form.get('occasion') ?? 'general'), date),
 				String(form.get('description') ?? '').trim().slice(0, 500) || null,
 				isPaper(String(form.get('wrap'))) ? String(form.get('wrap')) : list.wrap,
 				list.id

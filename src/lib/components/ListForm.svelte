@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import { OCCASIONS } from '#lib/format.ts';
+	import { OCCASIONS, dateRule, nextAnnual, formatDate, suggestedListName } from '#lib/format.ts';
 	import { PAPERS, defaultPaperId } from '#lib/papers.ts';
 	import type { Occasion } from '#lib/types.ts';
 
@@ -36,10 +36,10 @@
 		picked = o;
 		if (!touchedPaper) paper = defaultPaperId(o);
 		if (touchedName) return;
-		const year = new Date().getFullYear();
-		const label = OCCASIONS.find((x) => x.value === o)?.label ?? '';
-		listName = o === 'general' ? 'Wish list' : o === 'other' ? '' : `${label} ${year}`;
+		listName = suggestedListName(o);
 	}
+	const rule = $derived(dateRule(picked));
+	const dateLabel = $derived(picked === 'birthday' ? 'Your birthday' : picked === 'anniversary' ? 'Anniversary date' : 'Date');
 	// svelte-ignore state_referenced_locally
 	if (!name) pickOccasion(picked);
 </script>
@@ -57,16 +57,27 @@
 		</div>
 	</div>
 
-	<div class="grid gap-4 sm:grid-cols-[1fr_11rem]">
+	<label class="block">
+		<span class="label">Name</span>
+		<input class="field" name="name" required maxlength="80" placeholder="e.g. My birthday" bind:value={listName} oninput={() => (touchedName = true)} />
+	</label>
+
+	{#if rule === 'fixed'}
+		<p class="flex items-center gap-2.5 rounded-[var(--radius-control)] bg-cocoa-800 px-3.5 py-3 text-sm text-fg-muted">
+			<Icon name="calendar" size={18} class="text-rust-300" />
+			<span>Every year on <span class="font-bold text-fg">Dec 25</span>. Next one: {formatDate(nextAnnual(12, 25))}.</span>
+		</p>
+	{:else if rule !== 'none'}
 		<label class="block">
-			<span class="label">Name</span>
-			<input class="field" name="name" required maxlength="80" placeholder="e.g. Birthday 2027" bind:value={listName} oninput={() => (touchedName = true)} />
+			<span class="label">{dateLabel} {#if rule === 'once'}<span class="normal-case text-fg-faint">(optional)</span>{/if}</span>
+			<input class="field sm:max-w-56" type="date" name="occasion_date" value={date} required={rule === 'yearly'} />
+			{#if rule === 'yearly'}
+				<span class="mt-1.5 block text-xs text-fg-faint">
+					{picked === 'birthday' ? 'Your real birthday, with the year. Enter it once and it counts down to your next one every year.' : 'Enter it once. It counts down to the next one every year.'}
+				</span>
+			{/if}
 		</label>
-		<label class="block">
-			<span class="label">Date <span class="normal-case text-fg-faint">(optional)</span></span>
-			<input class="field" type="date" name="occasion_date" value={date} />
-		</label>
-	</div>
+	{/if}
 
 	<div>
 		<span class="label">Wrapping paper</span>
