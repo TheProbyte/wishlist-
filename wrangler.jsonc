@@ -9,6 +9,14 @@
 		"directory": ".svelte-kit/cloudflare"
 	},
 	"workers_dev": true,
+	// Keep variables added in the Cloudflare dashboard when deploying.
+	"keep_vars": true,
+	"vars": {
+		// Google sign-in. The client ID is public (Google shows it to everyone who signs in).
+		// GOOGLE_CLIENT_SECRET is NOT here: add it in Cloudflare as a Secret
+		// (Settings → Runtime variables and secrets → Add variable → Type: Secret).
+		"GOOGLE_CLIENT_ID": "669224290367-saf0u77k5i6ap23ajgke7m0q91vlcj9o.apps.googleusercontent.com"
+	},
 	"preview_urls": true,
 	"d1_databases": [
 		{

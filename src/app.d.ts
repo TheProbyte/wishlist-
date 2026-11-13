@@ -15,8 +15,7 @@ declare global {
 	}
 	namespace Cloudflare {
 		interface Env {
-			/** Worker secrets, set in the Cloudflare dashboard. */
-			GOOGLE_CLIENT_ID?: string;
+			/** A Worker secret, set in the Cloudflare dashboard (the client ID is in wrangler.jsonc). */
 			GOOGLE_CLIENT_SECRET?: string;
 		}
 	}
