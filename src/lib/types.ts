@@ -5,6 +5,25 @@ export interface User {
 	avatar_url: string | null;
 }
 
+/** Saved sizes, used to fill in a clothing gift's size. Every field is optional. */
+export interface Sizes {
+	top?: string;
+	bottom?: string;
+	dress?: string;
+	shoe?: string;
+	ring?: string;
+	hat?: string;
+}
+
+/** A child whose lists a parent keeps. */
+export interface Kid {
+	id: string;
+	parent_id: string;
+	name: string;
+	birthday: string | null;
+	sizes: Sizes;
+}
+
 export type Occasion = 'birthday' | 'christmas' | 'wedding' | 'baby' | 'anniversary' | 'general' | 'other';
 
 export interface List {
@@ -16,6 +35,10 @@ export interface List {
 	description: string | null;
 	share_token: string | null;
 	wrap: string | null;
+	/** 'master' is the Everything list: every gift its owner has. */
+	kind: 'master' | 'list';
+	/** Set when the list belongs to one of the owner's kids. */
+	kid_id: string | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -54,9 +77,13 @@ export interface Item {
 	quantity: number;
 	note: string | null;
 	last_checked: number | null;
+	prev_price_cents: number | null;
+	price_dropped_at: number | null;
 	created_at: number;
 	updated_at: number;
 	specifics: Specific[];
+	/** The occasion lists this gift is on (its Everything list not included). */
+	lists: string[];
 }
 
 /** What the importer hands back for a pasted link. Every field may be missing. */

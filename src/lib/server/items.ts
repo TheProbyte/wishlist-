@@ -17,6 +17,8 @@ export interface ItemInput {
 	description: string | null;
 	availability: string | null;
 	specifics: Specific[];
+	/** Occasion lists the gift should be on (validated by the caller). */
+	lists: string[];
 }
 
 const str = (form: FormData, key: string, max = 500): string | null => {
@@ -26,6 +28,8 @@ const str = (form: FormData, key: string, max = 500): string | null => {
 
 const httpUrl = (v: string | null): string | null => {
 	if (!v) return null;
+	// Photos people upload are served by this app.
+	if (/^\/img\/[\w-]+$/.test(v)) return v;
 	try {
 		const u = new URL(v);
 		return u.protocol === 'https:' || u.protocol === 'http:' ? u.toString() : null;
@@ -73,7 +77,8 @@ export function readItemForm(form: FormData): { item?: ItemInput; error?: string
 			note: str(form, 'note', 500),
 			description: str(form, 'description', 1000),
 			availability: availability && ['in_stock', 'out_of_stock', 'unknown'].includes(availability) ? availability : null,
-			specifics: specifics.slice(0, 20)
+			specifics: specifics.slice(0, 20),
+			lists: [...new Set(form.getAll('in_list').map(String).filter(Boolean))]
 		}
 	};
 }

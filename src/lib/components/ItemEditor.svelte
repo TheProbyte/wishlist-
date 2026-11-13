@@ -6,12 +6,15 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import Modal from './Modal.svelte';
 	import Stars from './Stars.svelte';
 	import ProductImage from './ProductImage.svelte';
 	import Icon from './Icon.svelte';
-	import { CURRENCIES, centsToInput } from '#lib/format.ts';
-	import type { Category } from '#lib/types.ts';
+	import { CURRENCIES, centsToInput, occasionMeta } from '#lib/format.ts';
+	import { sizeFor } from '#lib/sizes.ts';
+	import { uploadPhoto } from '#lib/upload.ts';
+	import type { Category, Sizes } from '#lib/types.ts';
 
 	let {
 		open = $bindable(false),
@@ -19,6 +22,10 @@
 		loading = false,
 		notice = null,
 		categories,
+		lists = [],
+		currentList = null,
+		sizes = {},
+		saveLabel,
 		onsaved
 	}: {
 		open?: boolean;
@@ -26,6 +33,13 @@
 		loading?: boolean;
 		notice?: string | null;
 		categories: Category[];
+		/** Occasion lists the gift can be put on. */
+		lists?: { id: string; name: string; occasion: string }[];
+		/** The occasion list being viewed, if any (new gifts go on it). */
+		currentList?: string | null;
+		/** Saved sizes, to fill in clothing sizes. */
+		sizes?: Sizes;
+		saveLabel?: string;
 		onsaved?: (id: string) => void;
 	} = $props();
 
@@ -47,6 +61,11 @@
 	let saving = $state(false);
 	let confirmDelete = $state(false);
 	let showImageUrl = $state(false);
+	let onLists = $state<string[]>([]);
+	let uploading = $state(false);
+	let duplicate = $state<{ id: string; title: string } | null>(null);
+	let allowDuplicate = $state(false);
+	let form = $state<HTMLFormElement>();
 
 	$effect.pre(() => {
 		const d = draft;
@@ -70,7 +89,49 @@
 		error = null;
 		confirmDelete = false;
 		showImageUrl = false;
+		duplicate = null;
+		allowDuplicate = false;
+		onLists = d.id ? [...(d.lists ?? [])] : currentList ? [currentList] : [];
 		if (!d.id) addSuggested(categoryId);
+	}
+
+	/** Fill an empty Size from the saved sizes, when the gift is clothing, shoes or a ring. */
+	function fillSize() {
+		const saved = sizeFor(categoryId, title, sizes);
+		const row = specs.find((s) => s.label.toLowerCase() === 'size');
+		if (saved && row && !row.value.trim()) row.value = saved;
+	}
+
+	/** The duplicate is already in Everything: just add it to the list being viewed. */
+	async function putExistingHere() {
+		if (!duplicate) return;
+		const fd = new FormData();
+		fd.set('id', duplicate.id);
+		await fetch('?/addExisting', { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		open = false;
+		await invalidateAll();
+	}
+
+	function toggleList(id: string) {
+		onLists = onLists.includes(id) ? onLists.filter((l) => l !== id) : [...onLists, id];
+	}
+
+	async function choosePhoto(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		uploading = true;
+		error = null;
+		try {
+			const url = await uploadPhoto(file);
+			image = url;
+			images = [url, ...images.filter((i) => i !== url)];
+		} catch (err) {
+			error = (err as Error).message;
+		} finally {
+			uploading = false;
+			input.value = '';
+		}
 	}
 
 	const category = $derived(categories.find((c) => c.id === categoryId));
@@ -89,6 +150,7 @@
 		specs = specs.filter((s) => s.value.trim());
 		categoryId = id;
 		addSuggested(id);
+		fillSize();
 	}
 </script>
 
@@ -97,6 +159,7 @@
 		id="item-form"
 		method="POST"
 		action="?/saveItem"
+		bind:this={form}
 		use:enhance={() => {
 			saving = true;
 			error = null;
@@ -106,6 +169,8 @@
 					open = false;
 					await update({ reset: false });
 					onsaved?.(String(result.data?.saved ?? ''));
+				} else if (result.type === 'failure' && result.data?.duplicate) {
+					duplicate = result.data.duplicate as { id: string; title: string };
 				} else if (result.type === 'failure') {
 					error = String(result.data?.error ?? 'Couldn’t save that.');
 				} else {
@@ -117,6 +182,8 @@
 		<input type="hidden" name="id" value={draft?.id ?? ''} />
 		<input type="hidden" name="image_url" value={image} />
 		<input type="hidden" name="availability" value={draft?.availability ?? ''} />
+		<input type="hidden" name="allow_duplicate" value={allowDuplicate ? '1' : ''} />
+		{#each onLists as l (l)}<input type="hidden" name="in_list" value={l} />{/each}
 
 		{#if loading}
 			<!-- The three signature stripes, running while the shop's page is read. -->
@@ -149,10 +216,14 @@
 						{/each}
 					</div>
 				{/if}
+				<label class="btn-ghost w-full cursor-pointer text-sm {uploading ? 'pointer-events-none opacity-60' : ''}">
+					<Icon name="camera" size={18} />{uploading ? 'Uploading…' : 'Use your own photo'}
+					<input type="file" accept="image/*" class="sr-only" onchange={choosePhoto} />
+				</label>
 				{#if showImageUrl}
 					<input class="field text-xs" placeholder="https://…/picture.jpg" bind:value={image} />
 				{:else}
-					<button type="button" class="text-xs text-fg-faint hover:text-mustard-300" onclick={() => (showImageUrl = true)}>Use a different picture link</button>
+					<button type="button" class="text-xs text-fg-faint hover:text-mustard-300" onclick={() => (showImageUrl = true)}>Or paste a picture link</button>
 				{/if}
 			</div>
 
@@ -163,7 +234,7 @@
 					{#if loading}
 						<div class="h-[4.5rem] animate-pulse rounded-xl bg-cocoa-800"></div>
 					{:else}
-						<textarea class="field min-h-[4.5rem] resize-none text-[15px] font-medium" name="title" required maxlength="200" placeholder="What is it?" bind:value={title}></textarea>
+						<textarea class="field min-h-[4.5rem] resize-none text-[15px] font-medium" name="title" required maxlength="200" placeholder="What is it?" bind:value={title} onblur={fillSize}></textarea>
 					{/if}
 				</label>
 
@@ -231,6 +302,19 @@
 					</div>
 				</div>
 
+				{#if lists.length}
+					<div>
+						<span class="label">On these lists <span class="normal-case text-fg-faint">(it’s always in Everything)</span></span>
+						<div class="flex flex-wrap gap-1.5">
+							{#each lists as l (l.id)}
+								<button type="button" class="chip {onLists.includes(l.id) ? 'chip-on' : 'hover:text-fg'}" aria-pressed={onLists.includes(l.id)} onclick={() => toggleList(l.id)}>
+									<Icon name={onLists.includes(l.id) ? 'check' : occasionMeta(l.occasion).icon} size={15} />{l.name}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
 				<div class="grid grid-cols-[1fr_auto] items-end gap-4">
 					<div>
 						<span class="label">How much do you want it?</span>
@@ -254,6 +338,18 @@
 					<textarea class="field mt-2 min-h-24 text-xs text-fg-muted" name="description" maxlength="1000" bind:value={description}></textarea>
 				</details>
 
+				{#if duplicate}
+					<div class="rounded-[var(--radius-control)] bg-mustard-400/15 p-4 text-sm">
+						<p class="flex gap-2 font-bold text-mustard-300"><Icon name="alert" size={18} />You already have this one</p>
+						<p class="mt-1 text-fg-muted">“{duplicate.title}” is already on your wish list.</p>
+						<div class="mt-3 flex flex-wrap gap-2">
+							{#if currentList}
+								<button type="button" class="btn-primary text-sm" onclick={putExistingHere}>Put that one on this list</button>
+							{/if}
+							<button type="button" class="btn-ghost text-sm" onclick={() => { allowDuplicate = true; duplicate = null; queueMicrotask(() => form?.requestSubmit()); }}>Add it again anyway</button>
+						</div>
+					</div>
+				{/if}
 				{#if error}<p class="text-sm font-bold text-rust-300">{error}</p>{/if}
 			</div>
 		</div>
@@ -263,20 +359,21 @@
 		<div class="flex items-center justify-between gap-2">
 			<div>
 				{#if !isNew}
-					<form method="POST" action="?/deleteItem" use:enhance={() => async ({ update }) => { open = false; await update(); }}>
+					<form method="POST" action="?/deleteItem" class="flex flex-wrap gap-1" use:enhance={() => async ({ update }) => { open = false; await update(); }}>
 						<input type="hidden" name="id" value={draft?.id} />
 						{#if confirmDelete}
-							<button class="btn-danger">Delete for good</button>
+							<button class="btn-danger" name="mode" value="everywhere">Delete everywhere</button>
 							<button type="button" class="btn-quiet" onclick={() => (confirmDelete = false)}>Keep</button>
 						{:else}
-							<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (confirmDelete = true)}>Delete</button>
+							{#if currentList}<button class="btn-quiet hover:text-rust-300" name="mode" value="list">Remove from list</button>{/if}
+							<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (confirmDelete = true)}>{currentList ? 'Delete everywhere' : 'Delete'}</button>
 						{/if}
 					</form>
 				{/if}
 			</div>
 			<div class="flex gap-2">
 				<button type="button" class="btn-quiet" onclick={() => (open = false)}>Cancel</button>
-				<button form="item-form" class="btn-primary" disabled={saving || loading}>{saving ? 'Saving…' : isNew ? 'Add to list' : 'Save'}</button>
+				<button form="item-form" class="btn-primary" disabled={saving || loading}>{saving ? 'Saving…' : isNew ? (saveLabel ?? 'Add gift') : 'Save'}</button>
 			</div>
 		</div>
 	{/snippet}

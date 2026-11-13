@@ -139,3 +139,16 @@ export function storedDate(occasion: string, input: string): string | null {
 	if (rule === 'fixed' || rule === 'none') return null;
 	return /^\d{4}-\d{2}-\d{2}$/.test(input) ? input : null;
 }
+
+/* ------------------------------------------------------------------ price drops */
+
+/** Whether to show a "price drop" sticker: it dropped in the last two weeks and is still lower. */
+export function hasPriceDrop(i: { price_cents: number | null; prev_price_cents?: number | null; price_dropped_at?: number | null }): boolean {
+	return (
+		i.prev_price_cents != null &&
+		i.price_cents != null &&
+		i.price_cents < i.prev_price_cents &&
+		!!i.price_dropped_at &&
+		Date.now() / 1000 - i.price_dropped_at < 14 * 86400
+	);
+}

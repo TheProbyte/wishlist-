@@ -3,7 +3,7 @@
 	import ProductImage from './ProductImage.svelte';
 	import Sticker from './Sticker.svelte';
 	import Icon from './Icon.svelte';
-	import { formatPrice } from '#lib/format.ts';
+	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
 	import type { Category, Item } from '#lib/types.ts';
 
 	let {
@@ -47,6 +47,8 @@
 
 	{#if item.availability === 'out_of_stock'}
 		<Sticker tone="rust" tilt={5} class="absolute top-3.5 right-3.5">Sold out</Sticker>
+	{:else if hasPriceDrop(item)}
+		<Sticker tone="mustard" tilt={5} class="absolute top-3.5 right-3.5">Price drop</Sticker>
 	{/if}
 
 	<div class="flex flex-1 flex-col gap-2.5 p-3.5">
@@ -85,7 +87,10 @@
 		{/if}
 
 		<div class="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-1">
-			<span class="text-lg font-bold tabular-nums">{formatPrice(item.price_cents, item.currency) || '—'}</span>
+			<span class="flex items-baseline gap-1.5">
+				<span class="text-lg font-bold tabular-nums">{formatPrice(item.price_cents, item.currency) || '—'}</span>
+				{#if hasPriceDrop(item)}<s class="text-xs text-fg-faint tabular-nums">{formatPrice(item.prev_price_cents, item.currency)}</s>{/if}
+			</span>
 			<Stars value={item.rating} size={16} onchange={onrate} />
 		</div>
 	</div>

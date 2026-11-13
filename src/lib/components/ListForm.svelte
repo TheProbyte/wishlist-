@@ -10,7 +10,8 @@
 		date = '',
 		wrap = null,
 		description,
-		showDescription = false
+		showDescription = false,
+		everything = false
 	}: {
 		name?: string;
 		occasion?: Occasion;
@@ -18,6 +19,8 @@
 		wrap?: string | null;
 		description?: string | null;
 		showDescription?: boolean;
+		/** The Everything list: only its paper and note can change. */
+		everything?: boolean;
 	} = $props();
 
 	// The form starts from the props and is then owned by the person typing.
@@ -45,6 +48,7 @@
 </script>
 
 <div class="space-y-6">
+	{#if !everything}
 	<div>
 		<span class="label">Occasion</span>
 		<input type="hidden" name="occasion" value={picked} />
@@ -77,6 +81,8 @@
 				</span>
 			{/if}
 		</label>
+	{/if}
+
 	{/if}
 
 	<div>

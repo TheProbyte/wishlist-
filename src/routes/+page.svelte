@@ -4,111 +4,176 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Present from '#lib/components/Present.svelte';
-	import GiftTag from '#lib/components/GiftTag.svelte';
+	import ListCard from '#lib/components/ListCard.svelte';
+	import EverythingCard from '#lib/components/EverythingCard.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import CountUp from '#lib/components/CountUp.svelte';
-	import { countdownLabel, daysUntil, formatDate, milestone, occasionMeta } from '#lib/format.ts';
+	import { countdownLabel, formatDate, milestone, daysUntil } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+
+	// New list: for you, or for one of your kids.
 	let creating = $state(false);
-	let sharingAll = $state(false);
+	let creatingFor = $state<string | null>(null);
+	let busy = $state(false);
+	function newList(kidId: string | null = null) {
+		creatingFor = kidId;
+		creating = true;
+	}
+
+	let addingKid = $state(false);
+
+	// Share an Everything list (yours, or a kid's).
+	let sharing = $state<{ id: string; token: string | null; who: string } | null>(null);
+	let shareOpen = $state(false);
 	let copied = $state(false);
-	const shareAllUrl = $derived(data.shareAllToken ? `${page.url.origin}/u/${data.shareAllToken}` : null);
-	async function copyShareAll() {
-		if (!shareAllUrl) return;
-		await navigator.clipboard.writeText(shareAllUrl);
+	const shareUrl = $derived(sharing?.token ? `${page.url.origin}/s/${sharing.token}` : null);
+	function openShare(id: string, token: string | null, who: string) {
+		sharing = { id, token, who };
+		shareOpen = true;
+	}
+	// Keep the open share sheet in step with fresh data after creating or stopping a link.
+	$effect(() => {
+		if (!sharing) return;
+		const all = [data.everything, ...data.kids.map((k) => k.everything)];
+		const fresh = all.find((e) => e.id === sharing!.id);
+		if (fresh && fresh.share_token !== sharing.token) sharing = { ...sharing, token: fresh.share_token };
+	});
+	async function copy() {
+		if (!shareUrl) return;
+		await navigator.clipboard.writeText(shareUrl);
 		copied = true;
 		setTimeout(() => (copied = false), 1800);
 	}
-	let busy = $state(false);
 
-	const next = $derived(data.lists.find((l) => l.id === data.nextId) ?? null);
+	const next = $derived(data.next);
+	const nextKid = $derived(data.kids.find((k) => k.lists.some((l) => l.id === data.nextId))?.kid.name ?? null);
 	const gifts = (n: number) => `${n} ${n === 1 ? 'gift' : 'gifts'}`;
 </script>
 
 <svelte:head><title>Your lists · The Giver</title></svelte:head>
 
-<section class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+<section class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
 	<div>
-		<p class="mb-1 text-[15px] font-bold text-mustard-400">{data.lists.length ? 'Hey again!' : 'Hey there!'}</p>
+		<p class="mb-1 text-[15px] font-bold text-mustard-400">Hey{data.everything.item_count ? ' again' : ''}{page.data.me?.name && page.data.me.name !== 'You' ? `, ${page.data.me.name.split(' ')[0]}` : ''}!</p>
 		<h1 class="display text-[40px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
 	</div>
-	{#if data.lists.length}
-		<div class="flex gap-2 self-start sm:self-auto">
-			<button class="btn-primary" onclick={() => (creating = true)}>
-				<Icon name="plus" size={18} />
-				New list
-			</button>
-			<button class="btn-teal" onclick={() => (sharingAll = true)}>
-				<Icon name={data.shareAllToken ? 'check' : 'share'} size={18} />
-				{data.shareAllToken ? 'Sharing all' : 'Share all'}
-			</button>
+	<div class="flex gap-2 self-start sm:self-auto">
+		<button class="btn-primary" onclick={() => newList()}>
+			<Icon name="plus" size={18} />
+			New list
+		</button>
+		<button class="btn-teal" onclick={() => openShare(data.everything.id, data.everything.share_token, 'your')}>
+			<Icon name={data.everything.share_token ? 'check' : 'share'} size={18} />
+			{data.everything.share_token ? 'Shared' : 'Share'}
+		</button>
+	</div>
+</section>
+
+<!-- Add a gift from anywhere: paste a link, pick where it goes next. -->
+<form method="GET" action="/add" class="mb-6 flex items-center gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400">
+	<label class="flex flex-1 items-center gap-3 px-3">
+		<Icon name="link" size={20} class="text-mustard-400" />
+		<span class="sr-only">Product link</span>
+		<input name="url" class="w-full border-0 bg-transparent py-3 text-[15px] text-fg placeholder:text-fg-faint focus:ring-0 focus:outline-none" placeholder="Paste a link to add a gift…" required />
+	</label>
+	<button class="btn-primary">Add</button>
+</form>
+
+<EverythingCard id={data.everything.id} count={data.everything.item_count} wrap={data.everything.wrap} />
+
+{#each data.reminders as r (r.id)}
+	<a href="/lists/{r.id}" class="rise mt-4 flex items-center gap-3 rounded-[var(--radius-card)] bg-rust-500/15 px-4 py-3 text-sm text-rust-300 transition hover:bg-rust-500/20">
+		<Icon name="calendar" size={20} />
+		<span class="flex-1">
+			<span class="font-bold">{r.kid ? `${r.kid}’s ${r.name}` : r.name}</span> is {r.days === 0 ? 'today' : r.days === 1 ? 'tomorrow' : `in ${r.days} days`} and
+			{r.count === 0 ? 'has no gifts yet' : `only has ${gifts(r.count)}`}. Add a few so people have choices.
+		</span>
+		<Icon name="chevron-right" size={18} />
+	</a>
+{/each}
+
+{#if data.friends.length}
+	<section class="mt-8">
+		<h2 class="mb-3 flex items-center justify-between text-lg font-bold">Coming up for your people <a href="/people" class="text-sm text-teal-300 hover:underline">See all</a></h2>
+		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" data-no-swipe>
+			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
+				<a href={f.listId ? `/people/${f.personId}?list=${f.listId}` : `/people/${f.personId}`} class="card rise flex w-56 shrink-0 items-center gap-3 p-3 transition active:translate-y-0.5" style="--i: {i}">
+					<Avatar name={f.name} src={f.avatar_url} size={44} />
+					<div class="min-w-0">
+						<p class="truncate text-sm font-bold">{f.kid ? f.kid : f.name.split(' ')[0]}</p>
+						<p class="truncate text-xs text-fg-muted">{f.label}</p>
+						<p class="text-xs font-bold text-rust-300">{countdownLabel(f.date)}</p>
+					</div>
+				</a>
+			{/each}
 		</div>
+	</section>
+{/if}
+
+{#if next}
+	{@const days = daysUntil(next.next_date) ?? 0}
+	{@const turning = milestone(next.occasion, next.occasion_date)}
+	<a href="/lists/{next.id}" class="card group rise mt-8 flex overflow-hidden transition active:translate-y-0.5">
+		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 rounded-l-[var(--radius-card)] sm:w-64" />
+		<div class="flex min-w-0 flex-1 items-center justify-between gap-3 py-4 pr-3.5 pl-4 sm:p-6">
+			<div class="min-w-0">
+				<p class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</p>
+				<h2 class="display mt-1 line-clamp-2 text-[22px] leading-tight break-words sm:text-3xl">{next.name}</h2>
+				<p class="mt-1 text-sm text-fg-muted">{gifts(next.item_count)} · {formatDate(next.next_date)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
+			</div>
+			<div class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-cocoa-950 text-center sm:h-24 sm:w-24">
+				<div>
+					<div class="display text-[28px] leading-none text-mustard-400 sm:text-4xl"><CountUp value={days} /></div>
+					<div class="text-[11px] font-bold text-fg-muted">{days === 1 ? 'day' : 'days'}</div>
+				</div>
+			</div>
+		</div>
+	</a>
+{/if}
+
+<section class="mt-9">
+	<div class="mb-3 flex items-baseline justify-between">
+		<h2 class="text-lg font-bold">Occasion lists</h2>
+		{#if data.lists.length}<button class="text-sm font-bold text-mustard-400 hover:underline" onclick={() => newList()}>+ New list</button>{/if}
+	</div>
+	{#if data.lists.length}
+		<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+			{#each data.lists as list, i (list.id)}<ListCard {list} index={i} />{/each}
+		</div>
+	{:else}
+		<p class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-5 py-6 text-sm text-fg-muted">
+			Optional. Everything works from one list, but you can also make one for a birthday or Christmas and pick which gifts go on it.
+			<button class="font-bold text-mustard-400 hover:underline" onclick={() => newList()}>Make one</button>
+		</p>
 	{/if}
 </section>
 
-{#if data.lists.length === 0}
-	<div class="card overflow-hidden">
-		<Present occasion="birthday" class="h-40 rounded-t-[var(--radius-card)]" />
-		<div class="px-6 py-10 text-center">
-			<h2 class="display text-2xl">Nothing wrapped yet</h2>
-			<p class="mx-auto mt-2 max-w-sm text-fg-muted">Start a list for a birthday, Christmas, or things you’d love someday.</p>
-			<button class="btn-primary mt-6" onclick={() => (creating = true)}>Make your first list</button>
+{#each data.kids as section (section.kid.id)}
+	<section class="mt-12">
+		<div class="mb-3 flex items-center justify-between gap-3">
+			<h2 class="display flex items-center gap-2.5 text-[28px]"><Avatar name={section.kid.name} size={36} />{section.kid.name}</h2>
+			<button class="btn-ghost px-3 text-sm" onclick={() => openShare(section.everything.id, section.everything.share_token, `${section.kid.name}’s`)}>
+				<Icon name={section.everything.share_token ? 'check' : 'share'} size={16} />{section.everything.share_token ? 'Shared' : 'Share'}
+			</button>
 		</div>
-	</div>
-{:else}
-	{#if next}
-		{@const days = daysUntil(next.next_date) ?? 0}
-		{@const turning = milestone(next.occasion, next.occasion_date)}
-		<a href="/lists/{next.id}" class="card group rise mb-9 flex overflow-hidden transition active:translate-y-0.5">
-			<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 rounded-l-[var(--radius-card)] sm:w-64" />
-			<div class="flex min-w-0 flex-1 items-center justify-between gap-3 py-4 pr-3.5 pl-4 sm:p-6">
-				<div class="min-w-0">
-					<p class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up</p>
-					<h2 class="display mt-1 line-clamp-2 text-[22px] leading-tight break-words sm:text-3xl">{next.name}</h2>
-					<p class="mt-1 text-sm text-fg-muted">{gifts(next.item_count)} · {formatDate(next.next_date)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
-				</div>
-				<div class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-cocoa-950 text-center sm:h-24 sm:w-24">
-					<div>
-						<div class="display text-[28px] leading-none text-mustard-400 sm:text-4xl"><CountUp value={days} /></div>
-						<div class="text-[11px] font-bold text-fg-muted">{days === 1 ? 'day' : 'days'}</div>
-					</div>
-				</div>
-			</div>
-		</a>
-	{/if}
+		<EverythingCard id={section.everything.id} count={section.everything.item_count} wrap={section.everything.wrap} title="{section.kid.name}’s wish list" subtitle="What {section.kid.name} would love, picked by you" compact />
+		<div class="mt-4 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+			{#each section.lists as list, i (list.id)}<ListCard {list} index={i} />{/each}
+			<button class="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 text-sm font-bold text-fg-muted transition hover:border-mustard-400 hover:text-mustard-400" onclick={() => newList(section.kid.id)}>
+				<Icon name="plus" size={22} />List for {section.kid.name}
+			</button>
+		</div>
+	</section>
+{/each}
 
-	<div class="mb-4 flex items-baseline justify-between">
-		<h2 class="text-lg font-bold">All lists</h2>
-	</div>
-	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-		{#each data.lists as list, i (list.id)}
-			{@const meta = occasionMeta(list.occasion)}
-			{@const days = daysUntil(list.next_date)}
-			<a href="/lists/{list.id}" class="card group rise flex flex-col overflow-hidden transition active:translate-y-0.5" style="--i: {i + 1}">
-				<Present wrap={list.wrap} occasion={list.occasion} transitionName="paper-{list.id}" class="aspect-[4/3] rounded-t-[var(--radius-card)]">
-					<GiftTag tilt={-6} class="absolute bottom-3 left-3">{gifts(list.item_count)}</GiftTag>
-				</Present>
-				<div class="flex flex-1 flex-col gap-0.5 px-3.5 pt-3 pb-3.5">
-					<h3 class="truncate text-[15px] font-bold">{list.name}</h3>
-					<p class="flex items-center gap-1.5 truncate text-[13px] text-fg-muted">
-						<Icon name={meta.icon} size={14} />
-						{#if list.next_date}
-							<span class={days != null && days >= 0 && days <= 60 ? 'font-bold text-rust-300' : ''}>
-								{days != null && days >= 0 && days <= 60 ? countdownLabel(list.next_date) : formatDate(list.next_date)}
-							</span>
-						{:else}
-							{meta.label}
-						{/if}
-					</p>
-				</div>
-			</a>
-		{/each}
-	</div>
-{/if}
+<button class="mt-12 flex w-full items-center justify-center gap-2 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-5 py-5 text-sm font-bold text-fg-muted transition hover:border-teal-300 hover:text-teal-300" onclick={() => (addingKid = true)}>
+	<Icon name="teddy" size={20} />Add a kid’s wish list
+</button>
 
-<Modal bind:open={creating} title="New list">
+<Modal bind:open={creating} title={creatingFor ? `New list for ${data.kids.find((k) => k.kid.id === creatingFor)?.kid.name}` : 'New list'}>
 	<form
 		id="new-list"
 		method="POST"
@@ -121,6 +186,7 @@
 			};
 		}}
 	>
+		<input type="hidden" name="kid_id" value={creatingFor ?? ''} />
 		<ListForm />
 		{#if form?.error}<p class="mt-4 text-sm font-bold text-rust-300">{form.error}</p>{/if}
 	</form>
@@ -132,23 +198,49 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={sharingAll} title="Share all your lists">
-	{#if shareAllUrl}
-		<p class="mb-4 text-sm text-fg-muted">One link to every list you have, now and later: birthdays, Christmas, the lot. Givers can flip through them and mark gifts as theirs.</p>
-		<div class="flex gap-2">
-			<input class="field font-mono text-xs" readonly value={shareAllUrl} onfocus={(e) => e.currentTarget.select()} />
-			<button class="btn-teal shrink-0" onclick={copyShareAll}>{copied ? 'Copied' : 'Copy'}</button>
+<Modal bind:open={addingKid} title="Add a kid’s wish list">
+	<form id="add-kid" method="POST" action="?/addKid" use:enhance class="space-y-5">
+		<p class="text-sm text-fg-muted">Keep a list for a child: you pick what goes on it, and it’s clearly labelled with their name when you share it.</p>
+		<label class="block">
+			<span class="label">Their name</span>
+			<input class="field" name="name" required maxlength="40" placeholder="e.g. Maya" />
+		</label>
+		<label class="block">
+			<span class="label">Birthday <span class="normal-case text-fg-faint">(optional)</span></span>
+			<input class="field sm:max-w-56" type="date" name="birthday" />
+			<span class="mt-1.5 block text-xs text-fg-faint">Adds a birthday list that counts down to their next birthday every year.</span>
+		</label>
+		{#if form?.kidError}<p class="text-sm font-bold text-rust-300">{form.kidError}</p>{/if}
+	</form>
+	{#snippet footer()}
+		<div class="flex justify-end gap-2">
+			<button type="button" class="btn-quiet" onclick={() => (addingKid = false)}>Cancel</button>
+			<button form="add-kid" class="btn-primary">Add</button>
 		</div>
-		<div class="mt-6 flex items-center justify-between">
-			<a href={shareAllUrl} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-teal-300 hover:underline">See what givers see <Icon name="external" size={15} /></a>
-			<form method="POST" action="?/unshareAll" use:enhance={() => async ({ update }) => { await update(); sharingAll = false; }}>
-				<button class="btn-quiet hover:text-rust-300">Stop sharing</button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={shareOpen} title="Share {sharing?.who ?? 'your'} wish list">
+	{#if sharing}
+		{#if shareUrl}
+			<p class="mb-4 text-sm text-fg-muted">One link to every gift on {sharing.who} wish list. Anyone with it can mark a gift as theirs, and it’s crossed off everywhere so nobody doubles up.</p>
+			<div class="flex gap-2">
+				<input class="field font-mono text-xs" readonly value={shareUrl} onfocus={(e) => e.currentTarget.select()} />
+				<button class="btn-teal shrink-0" onclick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+			</div>
+			<div class="mt-6 flex items-center justify-between">
+				<a href={shareUrl} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-teal-300 hover:underline">See what givers see <Icon name="external" size={15} /></a>
+				<form method="POST" action="?/unshareAll" use:enhance={() => async ({ update }) => { await update(); shareOpen = false; }}>
+					<input type="hidden" name="list" value={sharing.id} />
+					<button class="btn-quiet hover:text-rust-300">Stop sharing</button>
+				</form>
+			</div>
+		{:else}
+			<p class="mb-6 text-sm text-fg-muted">Make a private link to every gift on {sharing.who} wish list. New gifts show up on it automatically. People in your circles can already see it.</p>
+			<form method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
+				<input type="hidden" name="list" value={sharing.id} />
+				<button class="btn-teal w-full">Create link</button>
 			</form>
-		</div>
-	{:else}
-		<p class="mb-6 text-sm text-fg-muted">Make one private link that shows all your lists, so someone can see everything you’d love in one place. New lists show up on it automatically. Each list can still have its own link too.</p>
-		<form method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
-			<button class="btn-teal w-full">Create link to everything</button>
-		</form>
+		{/if}
 	{/if}
 </Modal>

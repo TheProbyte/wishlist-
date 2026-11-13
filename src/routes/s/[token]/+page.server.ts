@@ -1,27 +1,40 @@
 import { error } from '@sveltejs/kit';
-import { getCategories, getListByToken } from '#lib/server/db.ts';
-import { GIVER_COOKIE, NAME_COOKIE, claim, giverItems, unclaim } from '#lib/server/giving.ts';
+import { getCategories, getListByToken, masterOf, sizesFor, getKid } from '#lib/server/db.ts';
+import { GIVER_COOKIE, NAME_COOKIE, claim, giftInMaster, giverItems, isOwner, unclaim } from '#lib/server/giving.ts';
+import { refreshStale } from '#lib/server/tracking.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params, cookies }) => {
 	const list = await getListByToken(locals.db, params.token);
 	if (!list) error(404, 'This list isn’t shared any more.');
-	const [items, categories] = await Promise.all([giverItems(locals.db, list.id, cookies.get(GIVER_COOKIE) ?? null), getCategories(locals.db, list.owner_id)]);
+	const owner = isOwner(list, locals.viewer);
+	const [items, categories, sizes, kid, ownerRow] = await Promise.all([
+		giverItems(locals.db, list, { token: cookies.get(GIVER_COOKIE) ?? null, userId: locals.viewer?.id ?? null }, owner),
+		getCategories(locals.db, list.owner_id),
+		sizesFor(locals.db, list),
+		list.kid_id ? getKid(locals.db, list.kid_id) : null,
+		locals.db.prepare('SELECT name FROM users WHERE id = ?').bind(list.owner_id).first<{ name: string }>()
+	]);
+	refreshStale(locals.db, items);
+	const ownerName = ownerRow?.name && ownerRow.name !== 'You' ? ownerRow.name : null;
 	return {
-		list: { name: list.name, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description, wrap: list.wrap },
+		list: { name: list.name, kind: list.kind, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description, wrap: list.wrap },
+		// Whose list this is, for the heading ("Maya’s wish list").
+		person: kid ? kid.name : ownerName,
 		categories,
-		giverName: cookies.get(NAME_COOKIE) ?? '',
+		sizes,
+		isOwner: owner,
+		giverName: cookies.get(NAME_COOKIE) ?? locals.viewer?.name ?? '',
 		items
 	};
 };
 
-const inThisList = (db: D1Database, token: string) => (itemId: string) =>
-	db
-		.prepare('SELECT i.id, i.quantity FROM items i JOIN lists l ON l.id = i.list_id WHERE l.share_token = ? AND i.id = ?')
-		.bind(token, itemId)
-		.first<{ id: string; quantity: number }>();
+async function findFor(db: D1Database, token: string) {
+	const list = await getListByToken(db, token);
+	return list ? giftInMaster(db, masterOf(list)) : async () => null;
+}
 
 export const actions: Actions = {
-	claim: ({ request, locals, params, cookies }) => claim(locals.db, request, cookies, inThisList(locals.db, params.token)),
-	unclaim: ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, inThisList(locals.db, params.token))
+	claim: async ({ request, locals, params, cookies }) => claim(locals.db, request, cookies, locals.viewer, await findFor(locals.db, params.token)),
+	unclaim: async ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, locals.viewer, await findFor(locals.db, params.token))
 };

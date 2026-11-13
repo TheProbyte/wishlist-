@@ -1,14 +1,34 @@
 import { env } from 'cloudflare:workers';
-import { error } from '@sveltejs/kit';
+import { error, json, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
-import { resolveUser } from '#lib/server/auth.ts';
+import { SESSION_COOKIE, authEnabled, localUser, userFromSession } from '#lib/server/auth.ts';
 import { ensureSchema } from '#lib/server/schema.ts';
+
+/** Pages anyone can open: share links, sign-in, images, app files. */
+const PUBLIC = [/^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const db = env.DB;
 	if (!db) error(500, 'Database binding "DB" is missing. Check wrangler.jsonc.');
 	await ensureSchema(db);
 	event.locals.db = db;
-	event.locals.user = await resolveUser(db);
+	event.locals.authEnabled = authEnabled();
+
+	if (!event.locals.authEnabled) {
+		const user = await localUser(db);
+		event.locals.user = user;
+		event.locals.viewer = user;
+		return resolve(event);
+	}
+
+	const token = event.cookies.get(SESSION_COOKIE);
+	const user = token ? await userFromSession(db, token) : null;
+	event.locals.viewer = user;
+	if (user) {
+		event.locals.user = user;
+	} else if (!PUBLIC.some((re) => re.test(event.url.pathname))) {
+		if (event.url.pathname.startsWith('/api/')) return json({ error: 'Sign in first.' }, { status: 401 });
+		redirect(303, `/login?next=${encodeURIComponent(event.url.pathname + event.url.search)}`);
+	}
 	return resolve(event);
 };

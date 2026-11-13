@@ -9,6 +9,7 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Icon from '#lib/components/Icon.svelte';
+	import ProductImage from '#lib/components/ProductImage.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
@@ -86,6 +87,9 @@
 	});
 
 	const meta = $derived(occasionMeta(data.list.occasion));
+	const isEverything = $derived(data.list.kind === 'master');
+	// What to call this list in headings: the Everything list is named after its person.
+	const title = $derived(isEverything ? (data.kid ? `${data.kid.name}’s wish list` : 'Everything') : data.list.name);
 	const nextDate = $derived(occasionDate(data.list.occasion, data.list.occasion_date));
 	const turning = $derived(milestone(data.list.occasion, data.list.occasion_date));
 	const shareUrl = $derived(data.list.share_token ? `${page.url.origin}/s/${data.list.share_token}` : null);
@@ -206,6 +210,9 @@
 	/* ------------------------------------------------ list settings & sharing */
 
 	let settingsOpen = $state(false);
+	// Picking gifts from the Everything list onto this occasion list.
+	let pickOpen = $state(false);
+	let picked = $state<string[]>([]);
 	let shareOpen = $state(false);
 	let confirmDeleteList = $state(false);
 	let copied = $state(false);
@@ -218,7 +225,7 @@
 	}
 </script>
 
-<svelte:head><title>{data.list.name} · The Giver</title></svelte:head>
+<svelte:head><title>{title} · The Giver</title></svelte:head>
 
 <div class="-mt-2 mb-3 flex items-center justify-between">
 	<a href="/" class="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg">
@@ -252,13 +259,18 @@
 	<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div class="min-w-0">
 			<p class="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-fg-muted">
-				<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
-				{#if nextDate}
+				{#if data.kid}<span class="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs text-cream">{data.kid.name}</span>{/if}
+				{#if isEverything}
+					<span class="inline-flex items-center gap-1.5"><Icon name="gift" size={16} />Every gift{data.kid ? ` ${data.kid.name} would love` : ' you’d love'}, in one list</span>
+				{:else}
+					<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
+				{/if}
+				{#if nextDate && !isEverything}
 					<span class="text-cocoa-500">·</span><span>{formatDate(nextDate)}</span>
 					<span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>
 				{/if}
 			</p>
-			<h1 class="display text-[34px] leading-[1.08] break-words sm:text-[44px]">{data.list.name}</h1>
+			<h1 class="display text-[34px] leading-[1.08] break-words sm:text-[44px]">{title}</h1>
 			<div class="mt-3 flex flex-wrap gap-2">
 				<GiftTag>{items.length} {items.length === 1 ? 'gift' : 'gifts'}</GiftTag>
 				{#each totals as [cur, cents] (cur)}<GiftTag tone="mustard">{formatPrice(cents, cur)}</GiftTag>{/each}
@@ -301,6 +313,9 @@
 		/>
 	</label>
 	<div class="flex gap-2">
+		{#if !isEverything && data.pickable.length}
+			<button type="button" class="btn-quiet flex-1 sm:flex-none" onclick={() => { picked = []; pickOpen = true; }}>From Everything</button>
+		{/if}
 		<button type="button" class="btn-quiet flex-1 sm:flex-none" onclick={addManually}>Add by hand</button>
 		<button class="btn-primary flex-1 sm:flex-none" disabled={!link.trim()}>Add gift</button>
 	</div>
@@ -375,10 +390,20 @@
 	</SwipePages>
 {/if}
 
-<ItemEditor bind:open={editorOpen} {draft} loading={importing} {notice} categories={data.categories} />
+<ItemEditor
+	bind:open={editorOpen}
+	{draft}
+	loading={importing}
+	{notice}
+	categories={data.categories}
+	lists={data.lists}
+	currentList={isEverything ? null : data.list.id}
+	sizes={data.sizes}
+	saveLabel={isEverything ? 'Add gift' : 'Add to list'}
+/>
 
 <!-- List settings -->
-<Modal bind:open={settingsOpen} title="List settings">
+<Modal bind:open={settingsOpen} title={isEverything ? 'Wish list settings' : 'List settings'}>
 	<form
 		id="list-settings"
 		method="POST"
@@ -388,11 +413,12 @@
 			if (result.type === 'success') settingsOpen = false;
 		}}
 	>
-		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} wrap={data.list.wrap} description={data.list.description} showDescription />
+		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} wrap={data.list.wrap} description={data.list.description} showDescription everything={isEverything} />
 	</form>
+	{#if !isEverything}
 	<div class="mt-8 rounded-[var(--radius-card)] bg-rust-500/10 p-4">
 		<form method="POST" action="?/deleteList" use:enhance class="flex items-center justify-between gap-4">
-			<p class="text-sm text-fg-muted">Delete this list and every gift in it.</p>
+			<p class="text-sm text-fg-muted">Delete this list. Its gifts stay in your Everything list.</p>
 			{#if confirmDeleteList}
 				<button class="btn-danger shrink-0">Yes, delete</button>
 			{:else}
@@ -400,6 +426,7 @@
 			{/if}
 		</form>
 	</div>
+	{/if}
 	{#snippet footer()}
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn-quiet" onclick={() => (settingsOpen = false)}>Cancel</button>
@@ -428,4 +455,36 @@
 			<button class="btn-teal w-full">Create share link</button>
 		</form>
 	{/if}
+</Modal>
+
+<Modal bind:open={pickOpen} title="Add from your wish list">
+	<form
+		id="pick-form"
+		method="POST"
+		action="?/addExisting"
+		use:enhance={() => async ({ update, result }) => {
+			await update();
+			if (result.type === 'success') pickOpen = false;
+		}}
+	>
+		<p class="mb-4 text-sm text-fg-muted">Tap the gifts that belong on {data.list.name}. They stay in Everything too.</p>
+		<div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+			{#each data.pickable as g (g.id)}
+				{@const on = picked.includes(g.id)}
+				<label class="relative cursor-pointer overflow-hidden rounded-[14px] bg-cocoa-850 p-1.5 ring-3 transition {on ? 'ring-mustard-400' : 'ring-transparent'}">
+					<input type="checkbox" name="ids" value={g.id} class="sr-only" checked={on} onchange={() => (picked = on ? picked.filter((x) => x !== g.id) : [...picked, g.id])} />
+					<ProductImage src={g.image_url} alt="" class="aspect-square w-full rounded-[10px]" />
+					<span class="mt-1.5 line-clamp-2 block px-1 text-xs font-bold">{g.title}</span>
+					{#if g.price_cents != null}<span class="block px-1 pb-1 text-xs text-fg-muted">{formatPrice(g.price_cents, g.currency)}</span>{/if}
+					{#if on}<span class="absolute top-3 right-3 grid h-7 w-7 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="check" size={16} /></span>{/if}
+				</label>
+			{/each}
+		</div>
+	</form>
+	{#snippet footer()}
+		<div class="flex justify-end gap-2">
+			<button type="button" class="btn-quiet" onclick={() => (pickOpen = false)}>Cancel</button>
+			<button form="pick-form" class="btn-primary" disabled={!picked.length}>Add {picked.length || ''} {picked.length === 1 ? 'gift' : 'gifts'}</button>
+		</div>
+	{/snippet}
 </Modal>
