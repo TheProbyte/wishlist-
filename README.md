@@ -22,7 +22,7 @@ Until this is done the app runs as one shared account (everything works except P
 1. Go to [console.cloud.google.com](https://console.cloud.google.com), create a project (any name).
 2. **APIs & Services → OAuth consent screen:** choose *External*, app name “The Giver”, your email as support and developer contact. Save. Then **Publish app** (basic sign-in needs no review).
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID:** type *Web application*. Under **Authorized redirect URIs** add `https://YOUR-SITE/auth/callback` (your workers.dev address or own domain). Create, and keep the Client ID and Client secret.
-4. In Cloudflare: **Workers & Pages → wishlist → Settings → Variables and Secrets → Add**. Type *Secret*, name `GOOGLE_CLIENT_ID`, paste the ID. Add another: `GOOGLE_CLIENT_SECRET` with the secret. Save (Cloudflare redeploys by itself).
+4. In Cloudflare: **Workers & Pages → thegiver → Settings → Runtime variables and secrets → Add variable**. Type *Secret*, name `GOOGLE_CLIENT_ID`, paste the ID. Add another: `GOOGLE_CLIENT_SECRET` with the secret. Save (Cloudflare redeploys by itself).
 5. Open the site and sign in **first**: the first account to sign in takes over the lists you made before sign-in.
 
 ## Run it locally
@@ -41,7 +41,7 @@ One-time setup in the Cloudflare dashboard. After this, every push to GitHub reb
 1. Sign in at [dash.cloudflare.com](https://dash.cloudflare.com).
 2. **Workers & Pages → Create → Import a repository**, connect GitHub, and pick this repo.
 3. On the settings screen:
-   - **Project name:** `wishlist` (it must match `name` in `wrangler.jsonc`, currently `wishlist`)
+   - **Project name:** `thegiver` (it must match `name` in `wrangler.jsonc`, currently `thegiver`)
    - **Build command:** `npm run build`
    - **Deploy command:** `npm run deploy`
    - **Production branch:** the branch you want live
