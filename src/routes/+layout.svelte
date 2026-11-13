@@ -4,12 +4,13 @@
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { page } from '$app/state';
-	import { goto, onNavigate } from '$app/navigation';
-	import { TABS, navDirection, prefersReducedMotion, setNavDirection, swipe, tabIndex } from '#lib/motion.ts';
+	import { goto, onNavigate, preloadData } from '$app/navigation';
+	import { TABS, navDirection, pageSwipe, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
-	const shared = $derived(page.url.pathname.startsWith('/s/'));
+	// Pages givers see through a share link: no app navigation.
+	const shared = $derived(page.url.pathname.startsWith('/s/') || page.url.pathname.startsWith('/u/'));
 	const active = $derived(tabIndex(page.url.pathname));
 	const onTabRoot = $derived(TABS.some((t) => t.href === page.url.pathname));
 
@@ -17,7 +18,7 @@
 	onNavigate((nav) => {
 		// Always read the direction, so one set for a navigation that doesn't happen can't leak into the next.
 		const direction = navDirection(nav.from?.url.pathname ?? '', nav.to?.url.pathname ?? '');
-		if (!document.startViewTransition || prefersReducedMotion() || !nav.from || !nav.to) return;
+		if (direction === 'none' || !document.startViewTransition || prefersReducedMotion() || !nav.from || !nav.to) return;
 		if (nav.from.url.pathname === nav.to.url.pathname) return;
 		document.documentElement.dataset.nav = direction;
 		return new Promise((resolve) => {
@@ -28,12 +29,8 @@
 		});
 	});
 
-	// Swipe sideways between the three tabs.
-	function toTab(i: number) {
-		if (!onTabRoot || i < 0 || i >= TABS.length) return;
-		setNavDirection(i > active ? 'next' : 'prev');
-		goto(TABS[i].href);
-	}
+	// Swipe sideways between the three tabs. The page follows the finger (pageSwipe).
+	const tabHref = (i: number) => TABS[i]?.href;
 </script>
 
 <svelte:head>
@@ -63,7 +60,17 @@
 
 <main
 	class="mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 {shared ? 'pb-24' : 'pb-32 sm:pb-24'}"
-	use:swipe={{ left: () => toTab(active + 1), right: () => toTab(active - 1) }}
+	use:pageSwipe={{
+		enabled: onTabRoot,
+		canLeft: active < TABS.length - 1,
+		canRight: active > 0,
+		left: () => goto(tabHref(active + 1)!),
+		right: () => goto(tabHref(active - 1)!),
+		preload: (d) => {
+			const href = tabHref(d === 'left' ? active + 1 : active - 1);
+			if (href) preloadData(href);
+		}
+	}}
 >
 	{@render children()}
 </main>

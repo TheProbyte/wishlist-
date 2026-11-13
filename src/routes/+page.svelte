@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Present from '#lib/components/Present.svelte';
@@ -11,6 +12,15 @@
 
 	let { data, form }: PageProps = $props();
 	let creating = $state(false);
+	let sharingAll = $state(false);
+	let copied = $state(false);
+	const shareAllUrl = $derived(data.shareAllToken ? `${page.url.origin}/u/${data.shareAllToken}` : null);
+	async function copyShareAll() {
+		if (!shareAllUrl) return;
+		await navigator.clipboard.writeText(shareAllUrl);
+		copied = true;
+		setTimeout(() => (copied = false), 1800);
+	}
 	let busy = $state(false);
 
 	const next = $derived(data.lists.find((l) => l.id === data.nextId) ?? null);
@@ -25,16 +35,22 @@
 		<h1 class="display text-[40px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
 	</div>
 	{#if data.lists.length}
-		<button class="btn-primary self-start sm:self-auto" onclick={() => (creating = true)}>
-			<Icon name="plus" size={18} />
-			New list
-		</button>
+		<div class="flex gap-2 self-start sm:self-auto">
+			<button class="btn-primary" onclick={() => (creating = true)}>
+				<Icon name="plus" size={18} />
+				New list
+			</button>
+			<button class="btn-teal" onclick={() => (sharingAll = true)}>
+				<Icon name={data.shareAllToken ? 'check' : 'share'} size={18} />
+				{data.shareAllToken ? 'Sharing all' : 'Share all'}
+			</button>
+		</div>
 	{/if}
 </section>
 
 {#if data.lists.length === 0}
 	<div class="card overflow-hidden">
-		<Present occasion="birthday" class="h-40" />
+		<Present occasion="birthday" class="h-40 rounded-t-[var(--radius-card)]" />
 		<div class="px-6 py-10 text-center">
 			<h2 class="display text-2xl">Nothing wrapped yet</h2>
 			<p class="mx-auto mt-2 max-w-sm text-fg-muted">Start a list for a birthday, Christmas, or things you’d love someday.</p>
@@ -46,7 +62,7 @@
 		{@const days = daysUntil(next.next_date) ?? 0}
 		{@const turning = milestone(next.occasion, next.occasion_date)}
 		<a href="/lists/{next.id}" class="card group rise mb-9 flex overflow-hidden transition active:translate-y-0.5">
-			<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 sm:w-64" />
+			<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 rounded-l-[var(--radius-card)] sm:w-64" />
 			<div class="flex min-w-0 flex-1 items-center justify-between gap-3 py-4 pr-3.5 pl-4 sm:p-6">
 				<div class="min-w-0">
 					<p class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up</p>
@@ -71,7 +87,7 @@
 			{@const meta = occasionMeta(list.occasion)}
 			{@const days = daysUntil(list.next_date)}
 			<a href="/lists/{list.id}" class="card group rise flex flex-col overflow-hidden transition active:translate-y-0.5" style="--i: {i + 1}">
-				<Present wrap={list.wrap} occasion={list.occasion} transitionName="paper-{list.id}" class="aspect-[4/3]">
+				<Present wrap={list.wrap} occasion={list.occasion} transitionName="paper-{list.id}" class="aspect-[4/3] rounded-t-[var(--radius-card)]">
 					<GiftTag tilt={-6} class="absolute bottom-3 left-3">{gifts(list.item_count)}</GiftTag>
 				</Present>
 				<div class="flex flex-1 flex-col gap-0.5 px-3.5 pt-3 pb-3.5">
@@ -114,4 +130,25 @@
 			<button form="new-list" class="btn-primary" disabled={busy}>{busy ? 'Wrapping…' : 'Make list'}</button>
 		</div>
 	{/snippet}
+</Modal>
+
+<Modal bind:open={sharingAll} title="Share all your lists">
+	{#if shareAllUrl}
+		<p class="mb-4 text-sm text-fg-muted">One link to every list you have, now and later: birthdays, Christmas, the lot. Givers can flip through them and mark gifts as theirs.</p>
+		<div class="flex gap-2">
+			<input class="field font-mono text-xs" readonly value={shareAllUrl} onfocus={(e) => e.currentTarget.select()} />
+			<button class="btn-teal shrink-0" onclick={copyShareAll}>{copied ? 'Copied' : 'Copy'}</button>
+		</div>
+		<div class="mt-6 flex items-center justify-between">
+			<a href={shareAllUrl} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-teal-300 hover:underline">See what givers see <Icon name="external" size={15} /></a>
+			<form method="POST" action="?/unshareAll" use:enhance={() => async ({ update }) => { await update(); sharingAll = false; }}>
+				<button class="btn-quiet hover:text-rust-300">Stop sharing</button>
+			</form>
+		</div>
+	{:else}
+		<p class="mb-6 text-sm text-fg-muted">Make one private link that shows all your lists, so someone can see everything you’d love in one place. New lists show up on it automatically. Each list can still have its own link too.</p>
+		<form method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
+			<button class="btn-teal w-full">Create link to everything</button>
+		</form>
+	{/if}
 </Modal>

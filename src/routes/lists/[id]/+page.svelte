@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { enhance, deserialize } from '$app/forms';
-	import { goto, invalidateAll } from '$app/navigation';
-	import { fly } from 'svelte/transition';
-	import { dur, setNavDirection, swipe } from '#lib/motion.ts';
+	import { goto, invalidateAll, preloadData } from '$app/navigation';
+	import { dur, pageSwipe, setNavDirection } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
 	import ItemCard from '#lib/components/ItemCard.svelte';
@@ -12,6 +11,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
+	import SwipePages from '#lib/components/SwipePages.svelte';
 	import { countdownLabel, formatDate, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
 	import type { PageProps } from './$types';
@@ -38,16 +38,18 @@
 			.map((c) => ({ ...c, count: items.filter((i) => i.category_id === c.id).length }))
 			.filter((c) => c.count > 0)
 	);
-	const visible = $derived.by(() => {
-		let list = filter === 'all' ? items : items.filter((i) => (filter === 'none' ? !i.category_id : i.category_id === filter));
+	/** The gifts on one category page, in the chosen sort. */
+	function giftsFor(pageId: string): Item[] {
+		let list = pageId === 'all' ? items : items.filter((i) => i.category_id === pageId);
 		const byPrice = (i: Item) => i.price_cents ?? (sort === 'price_asc' ? Infinity : -Infinity);
 		if (sort === 'rating') list = [...list].sort((a, b) => b.rating - a.rating || a.rank - b.rank);
 		if (sort === 'price_asc') list = [...list].sort((a, b) => byPrice(a) - byPrice(b));
 		if (sort === 'price_desc') list = [...list].sort((a, b) => byPrice(b) - byPrice(a));
 		if (sort === 'newest') list = [...list].sort((a, b) => b.created_at - a.created_at);
 		return list;
-	});
+	}
 	const canReorder = $derived(sort === 'rank' && filter === 'all');
+	const rankable = (pageId: string) => sort === 'rank' && pageId === 'all';
 	// Drag-to-rank is for mice. On touch screens dragging would swallow swipes, and the arrows do the job.
 	let finePointer = $state(false);
 	$effect(() => {
@@ -56,27 +58,25 @@
 
 	/* ------------------------------------------------ swiping */
 
-	// Categories are pages you can swipe through: All, then each category in use.
+	// Categories are pages side by side in a native scroll-snap strip, so a swipe follows the finger
+	// exactly: All, then each category in use.
 	const pages = $derived(['all', ...usedCategories.map((c) => c.id)]);
-	let pageDir = $state(0);
 	function showCategory(id: string) {
-		const from = pages.indexOf(filter);
-		const to = pages.indexOf(id);
-		pageDir = to > from ? 1 : to < from ? -1 : 0;
 		filter = id;
-		// Keep the active chip in view as the row follows along.
-		requestAnimationFrame(() => document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }));
 	}
-	function stepCategory(delta: number) {
-		const next = pages[pages.indexOf(filter) + delta];
-		if (next) showCategory(next);
+	function followChip(id: string) {
+		document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: dur(1) ? 'smooth' : 'auto' });
 	}
 
 	// Swipe the header (or use the arrows) to flip to the next or previous list.
 	function toList(id: string | null, direction: 'next' | 'prev') {
 		if (!id) return;
 		setNavDirection(direction);
-		goto(`/lists/${id}`);
+		return goto(`/lists/${id}`);
+	}
+	function liveToList(id: string | null) {
+		if (!id) return;
+		return goto(`/lists/${id}`);
 	}
 
 	const totals = $derived.by(() => {
@@ -234,7 +234,20 @@
 </div>
 
 <!-- Header: a strip of this list's wrapping paper, then the title on plain cocoa. Swipe it to change list. -->
-<section class="mb-6" use:swipe={{ left: () => toList(data.neighbours.next, 'next'), right: () => toList(data.neighbours.prev, 'prev') }}>
+<section
+	class="mb-6"
+	use:pageSwipe={{
+		canLeft: !!data.neighbours.next,
+		canRight: !!data.neighbours.prev,
+		left: () => liveToList(data.neighbours.next),
+		right: () => liveToList(data.neighbours.prev),
+		preload: (d) => {
+			const id = d === 'left' ? data.neighbours.next : data.neighbours.prev;
+			if (id) preloadData(`/lists/${id}`);
+		},
+		target: () => document.querySelector('main')
+	}}
+>
 	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} transitionName="paper-{data.list.id}" />
 	<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div class="min-w-0">
@@ -328,15 +341,15 @@
 		<p class="-mt-3 mb-4 text-xs text-fg-faint sm:hidden">Swipe across your gifts to flip through categories.</p>
 	{/if}
 
-	<div class="min-h-[50vh]" use:swipe={{ left: () => stepCategory(1), right: () => stepCategory(-1) }}>
-	{#key filter}
-	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" in:fly={{ x: pageDir * 56, duration: dur(pageDir ? 260 : 0), opacity: 0 }}>
-		{#each visible as item, i (item.id)}
+	<SwipePages {pages} bind:active={filter} onchange={followChip}>
+	{#snippet page(pageId)}
+	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+		{#each giftsFor(pageId) as item, i (item.id)}
 			<div
 				animate:flip={{ duration: dur(220) }}
 				class="rise transition-opacity {dragId === item.id ? 'opacity-40' : ''}"
 				style="--i: {i}"
-				draggable={canReorder && finePointer}
+				draggable={rankable(pageId) && finePointer}
 				role="listitem"
 				ondragstart={(e) => {
 					dragId = item.id;
@@ -353,16 +366,13 @@
 					position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
 					onopen={() => edit(item)}
 					onrate={(r) => rate(item, r)}
-					onmove={canReorder ? (d) => move(item, d) : undefined}
+					onmove={rankable(pageId) ? (d) => move(item, d) : undefined}
 				/>
 			</div>
 		{/each}
 	</div>
-	{/key}
-	{#if visible.length === 0}
-		<p class="py-16 text-center text-sm text-fg-faint">Nothing in this category yet.</p>
-	{/if}
-	</div>
+	{/snippet}
+	</SwipePages>
 {/if}
 
 <ItemEditor bind:open={editorOpen} {draft} loading={importing} {notice} categories={data.categories} />
