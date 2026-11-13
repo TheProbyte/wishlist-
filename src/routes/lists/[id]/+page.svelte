@@ -7,6 +7,9 @@
 	import ItemEditor, { type Draft } from '#lib/components/ItemEditor.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import GiftTag from '#lib/components/GiftTag.svelte';
+	import PaperStrip from '#lib/components/PaperStrip.svelte';
 	import { countdownLabel, formatDate, formatPrice, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
 	import type { PageProps } from './$types';
@@ -183,48 +186,52 @@
 
 <svelte:head><title>{data.list.name} · The Giver</title></svelte:head>
 
-<a href="/" class="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-faint hover:text-fg">
-	<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-5-5 5-5" /></svg>
+<a href="/" class="-mt-2 mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg">
+	<Icon name="chevron-left" size={18} />
 	All lists
 </a>
 
-<!-- Header -->
-<section class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-	<div class="min-w-0">
-		<p class="mb-2 flex flex-wrap items-center gap-x-2 text-sm text-fg-muted">
-			<span>{meta.icon} {meta.label}</span>
-			{#if data.list.occasion_date}
-				<span class="text-ink-500">•</span><span>{formatDate(data.list.occasion_date)}</span>
-				<span class="rounded-full bg-gold-500/15 px-2 py-0.5 text-xs font-semibold text-gold-300">{countdownLabel(data.list.occasion_date)}</span>
-			{/if}
-		</p>
-		<h1 class="font-display text-3xl font-semibold tracking-tight break-words sm:text-4xl">{data.list.name}</h1>
-		<p class="mt-2 text-sm text-fg-faint">
-			{items.length}
-			{items.length === 1 ? 'gift' : 'gifts'}{#each totals as [cur, cents] (cur)}<span>&nbsp;· {formatPrice(cents, cur)}</span>{/each}
-		</p>
-	</div>
-	<div class="flex shrink-0 gap-2">
-		<button class="btn-ghost" onclick={() => (shareOpen = true)}>
-			<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V3M6 7l4-4 4 4M4 11v5a1 1 0 001 1h10a1 1 0 001-1v-5" /></svg>
-			{data.list.share_token ? 'Shared' : 'Share'}
-		</button>
-		<button class="btn-ghost px-3" aria-label="List settings" onclick={() => { confirmDeleteList = false; settingsOpen = true; }}>
-			<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><circle cx="4.5" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="15.5" cy="10" r="1.6" /></svg>
-		</button>
+<!-- Header: a strip of this list's wrapping paper, then the title on plain cocoa -->
+<section class="mb-6">
+	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} />
+	<div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+		<div class="min-w-0">
+			<p class="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-fg-muted">
+				<span class="inline-flex items-center gap-1.5"><Icon name={meta.icon} size={16} />{meta.label}</span>
+				{#if data.list.occasion_date}
+					<span class="text-cocoa-500">·</span><span>{formatDate(data.list.occasion_date)}</span>
+					<span class="text-rust-300">{countdownLabel(data.list.occasion_date)}</span>
+				{/if}
+			</p>
+			<h1 class="display text-[34px] leading-[1.08] break-words sm:text-[44px]">{data.list.name}</h1>
+			<div class="mt-3 flex flex-wrap gap-2">
+				<GiftTag>{items.length} {items.length === 1 ? 'gift' : 'gifts'}</GiftTag>
+				{#each totals as [cur, cents] (cur)}<GiftTag tone="mustard">{formatPrice(cents, cur)}</GiftTag>{/each}
+			</div>
+		</div>
+		<div class="flex shrink-0 gap-2">
+			<button class="btn-teal" onclick={() => (shareOpen = true)}>
+				<Icon name={data.list.share_token ? 'check' : 'share'} size={18} />
+				{data.list.share_token ? 'Shared' : 'Share'}
+			</button>
+			<button class="btn-ghost w-11 px-0" aria-label="List settings" onclick={() => { confirmDeleteList = false; settingsOpen = true; }}>
+				<Icon name="more" size={20} />
+			</button>
+		</div>
 	</div>
 </section>
 
 <!-- Add a gift -->
 <form
-	class="card mb-8 flex flex-col gap-2 p-2 sm:flex-row sm:items-center"
+	class="mb-8 flex flex-col gap-2 rounded-[var(--radius-card)] bg-cocoa-850 p-2 ring-2 ring-cocoa-700 focus-within:ring-mustard-400 sm:flex-row sm:items-center"
 	onsubmit={(e) => {
 		e.preventDefault();
 		importLink();
 	}}
 >
-	<div class="flex flex-1 items-center gap-3 px-3">
-		<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="shrink-0 text-gold-400"><path d="M8.5 11.5a3.5 3.5 0 005 0l3-3a3.5 3.5 0 00-5-5l-1 1M11.5 8.5a3.5 3.5 0 00-5 0l-3 3a3.5 3.5 0 005 5l1-1" /></svg>
+	<label class="flex flex-1 items-center gap-3 px-3">
+		<Icon name="link" size={20} class="text-mustard-400" />
+		<span class="sr-only">Product link</span>
 		<input
 			class="w-full border-0 bg-transparent py-3 text-[15px] text-fg placeholder:text-fg-faint focus:ring-0 focus:outline-none"
 			placeholder="Paste a link from Amazon or any shop…"
@@ -237,7 +244,7 @@
 				}
 			}}
 		/>
-	</div>
+	</label>
 	<div class="flex gap-2">
 		<button type="button" class="btn-quiet flex-1 sm:flex-none" onclick={addManually}>Add by hand</button>
 		<button class="btn-primary flex-1 sm:flex-none" disabled={!link.trim()}>Add gift</button>
@@ -245,30 +252,27 @@
 </form>
 
 {#if items.length === 0}
-	<div class="rounded-3xl border border-dashed border-ink-600 px-6 py-20 text-center">
-		<div class="mb-4 text-4xl">🛍️</div>
-		<h2 class="font-display text-xl font-semibold">Nothing here yet</h2>
+	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-16 text-center">
+		<div class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-cocoa-850 text-mustard-400"><Icon name="gift" size={30} /></div>
+		<h2 class="display text-2xl">Nothing wrapped yet</h2>
 		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">Copy a product link from any shop and paste it above. The picture, name and price come in by themselves.</p>
 	</div>
 {:else}
 	<!-- Toolbar -->
 	<div class="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-		<div class="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
-			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" onclick={() => (filter = 'all')}>All <span class="opacity-60">{items.length}</span></button>
+		<div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">
+			<button class="chip shrink-0 {filter === 'all' ? 'chip-on' : 'hover:text-fg'}" aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>All <span class="opacity-70">{items.length}</span></button>
 			{#each usedCategories as c (c.id)}
-				<button
-					class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}"
-					style={filter === c.id ? `border-color: ${c.color}80; background: ${c.color}1f; color: ${c.color}` : ''}
-					onclick={() => (filter = filter === c.id ? 'all' : c.id)}
-				>
-					{c.icon} {c.name} <span class="opacity-60">{c.count}</span>
+				<button class="chip shrink-0 {filter === c.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={filter === c.id} onclick={() => (filter = filter === c.id ? 'all' : c.id)}>
+					<Icon name={c.icon} size={15} />{c.name} <span class="opacity-70">{c.count}</span>
 				</button>
 			{/each}
 		</div>
-		<div class="flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-xl border border-ink-700/80 bg-ink-900/80 p-1">
+		<div class="flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-[var(--radius-control)] bg-sunken p-1">
 			{#each SORTS as s (s.value)}
 				<button
-					class="rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition {sort === s.value ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:text-fg'}"
+					class="min-h-9 rounded-[10px] px-3 text-[13px] font-bold whitespace-nowrap transition {sort === s.value ? 'bg-cocoa-700 text-fg' : 'text-fg-faint hover:text-fg'}"
+					aria-pressed={sort === s.value}
 					onclick={() => (sort = s.value)}>{s.label}</button
 				>
 			{/each}
@@ -276,7 +280,7 @@
 	</div>
 
 	{#if canReorder && items.length > 1}
-		<p class="-mt-3 mb-5 hidden text-xs text-fg-faint sm:block">Drag cards to rank them, top-left is the one you want most.</p>
+		<p class="-mt-3 mb-5 hidden text-xs text-fg-faint sm:block">Drag cards to rank them. Top-left is the one you want most.</p>
 	{/if}
 
 	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
@@ -307,7 +311,7 @@
 		{/each}
 	</div>
 	{#if visible.length === 0}
-		<p class="py-16 text-center text-sm text-fg-faint">No gifts in this category.</p>
+		<p class="py-16 text-center text-sm text-fg-faint">Nothing in this category yet.</p>
 	{/if}
 {/if}
 
@@ -324,15 +328,15 @@
 			if (result.type === 'success') settingsOpen = false;
 		}}
 	>
-		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} description={data.list.description} showDescription />
+		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} wrap={data.list.wrap} description={data.list.description} showDescription />
 	</form>
-	<div class="mt-8 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+	<div class="mt-8 rounded-[var(--radius-card)] bg-rust-500/10 p-4">
 		<form method="POST" action="?/deleteList" use:enhance class="flex items-center justify-between gap-4">
 			<p class="text-sm text-fg-muted">Delete this list and every gift in it.</p>
 			{#if confirmDeleteList}
 				<button class="btn-danger shrink-0">Yes, delete</button>
 			{:else}
-				<button type="button" class="btn-quiet shrink-0 hover:text-red-300" onclick={() => (confirmDeleteList = true)}>Delete list</button>
+				<button type="button" class="btn-quiet shrink-0 text-rust-300 hover:text-rust-300" onclick={() => (confirmDeleteList = true)}>Delete list</button>
 			{/if}
 		</form>
 	</div>
@@ -350,18 +354,18 @@
 		<p class="mb-4 text-sm text-fg-muted">Anyone with this link can see the list and mark a gift as theirs, so nobody buys the same thing twice.</p>
 		<div class="flex gap-2">
 			<input class="field font-mono text-xs" readonly value={shareUrl} onfocus={(e) => e.currentTarget.select()} />
-			<button class="btn-primary shrink-0" onclick={copyShare}>{copied ? 'Copied ✓' : 'Copy'}</button>
+			<button class="btn-teal shrink-0" onclick={copyShare}>{copied ? 'Copied' : 'Copy'}</button>
 		</div>
 		<div class="mt-6 flex items-center justify-between">
-			<a href={shareUrl} target="_blank" rel="noopener" class="text-sm text-gold-300 hover:underline">See what givers see ↗</a>
+			<a href={shareUrl} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-teal-300 hover:underline">See what givers see <Icon name="external" size={15} /></a>
 			<form method="POST" action="?/unshare" use:enhance={() => async ({ update }) => { await update(); shareOpen = false; }}>
-				<button class="btn-quiet hover:text-red-300">Stop sharing</button>
+				<button class="btn-quiet hover:text-rust-300">Stop sharing</button>
 			</form>
 		</div>
 	{:else}
 		<p class="mb-6 text-sm text-fg-muted">Create a private link to send to family and friends. They can mark gifts as theirs so nobody doubles up, and they don’t need an account.</p>
 		<form method="POST" action="?/share" use:enhance={() => async ({ update }) => update({ reset: false })}>
-			<button class="btn-primary w-full">Create share link</button>
+			<button class="btn-teal w-full">Create share link</button>
 		</form>
 	{/if}
 </Modal>

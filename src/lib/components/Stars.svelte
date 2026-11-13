@@ -48,7 +48,7 @@
 </div>
 
 {#snippet star(on: boolean)}
-	<svg width={size} height={size} viewBox="0 0 20 20" class={on ? 'text-gold-400' : 'text-ink-600'}>
+	<svg width={size} height={size} viewBox="0 0 20 20" class={on ? 'text-mustard-400' : 'text-cocoa-600'}>
 		<path
 			fill="currentColor"
 			d="M10 1.8l2.47 5.18 5.68.7-4.19 3.9 1.1 5.62L10 14.44l-5.06 2.76 1.1-5.62L1.85 7.68l5.68-.7z"

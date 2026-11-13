@@ -23,13 +23,13 @@ export function centsToInput(cents: number | null | undefined): string {
 }
 
 export const OCCASIONS: { value: Occasion; label: string; icon: string }[] = [
-	{ value: 'birthday', label: 'Birthday', icon: '🎂' },
-	{ value: 'christmas', label: 'Christmas', icon: '🎄' },
-	{ value: 'wedding', label: 'Wedding', icon: '💍' },
-	{ value: 'baby', label: 'Baby', icon: '🍼' },
-	{ value: 'anniversary', label: 'Anniversary', icon: '💐' },
-	{ value: 'general', label: 'Anytime', icon: '✨' },
-	{ value: 'other', label: 'Other', icon: '🎁' }
+	{ value: 'birthday', label: 'Birthday', icon: 'cake' },
+	{ value: 'christmas', label: 'Christmas', icon: 'tree' },
+	{ value: 'wedding', label: 'Wedding', icon: 'rings' },
+	{ value: 'baby', label: 'Baby', icon: 'bottle' },
+	{ value: 'anniversary', label: 'Anniversary', icon: 'tulip' },
+	{ value: 'general', label: 'Anytime', icon: 'sparkle' },
+	{ value: 'other', label: 'Other', icon: 'gift' }
 ];
 
 export function occasionMeta(o: string) {

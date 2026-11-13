@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getCategories, getItems, getList, newId, newToken } from '#lib/server/db.ts';
 import { readItemForm } from '#lib/server/items.ts';
+import { isPaper } from '#lib/papers.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 async function ownList(locals: App.Locals, id: string) {
@@ -103,8 +104,15 @@ export const actions: Actions = {
 		const date = String(form.get('occasion_date') ?? '').trim();
 		if (!name) return fail(400, { listError: 'Give your list a name.' });
 		await locals.db
-			.prepare('UPDATE lists SET name = ?, occasion = ?, occasion_date = ?, description = ?, updated_at = unixepoch() WHERE id = ?')
-			.bind(name.slice(0, 80), String(form.get('occasion') ?? 'general'), /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null, String(form.get('description') ?? '').trim().slice(0, 500) || null, list.id)
+			.prepare('UPDATE lists SET name = ?, occasion = ?, occasion_date = ?, description = ?, wrap = ?, updated_at = unixepoch() WHERE id = ?')
+			.bind(
+				name.slice(0, 80),
+				String(form.get('occasion') ?? 'general'),
+				/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+				String(form.get('description') ?? '').trim().slice(0, 500) || null,
+				isPaper(String(form.get('wrap'))) ? String(form.get('wrap')) : list.wrap,
+				list.id
+			)
 			.run();
 		return { listSaved: true };
 	},

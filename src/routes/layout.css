@@ -1,54 +1,64 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 
+/*
+ * The Giver, retro theme. See DESIGN.md.
+ * Every colour has one job:
+ *   cocoa   page and cards        cream  text, photo tiles
+ *   mustard the one action colour  rust   dates, countdowns, warnings
+ *   teal    sharing and givers
+ */
 @theme {
-	--font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-	--font-display: 'Fraunces', ui-serif, Georgia, serif;
+	--font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+	/* Shrikhand: page titles and big numbers only. */
+	--font-display: 'Shrikhand', 'DM Sans', ui-serif, Georgia, serif;
 
-	/* Surfaces, darkest to lightest */
-	--color-ink-950: #09090c;
-	--color-ink-900: #0f0f14;
-	--color-ink-850: #14141b;
-	--color-ink-800: #1a1a23;
-	--color-ink-700: #24242f;
-	--color-ink-600: #33333f;
-	--color-ink-500: #4a4a58;
+	--color-cocoa-950: #2b1d14; /* page */
+	--color-cocoa-900: #33231a; /* sheets, raised areas */
+	--color-cocoa-850: #3a2719; /* cards */
+	--color-cocoa-800: #44301f; /* chips, hover */
+	--color-cocoa-700: #533b28; /* borders */
+	--color-cocoa-600: #6a4c34; /* strong borders, empty stars */
+	--color-cocoa-500: #86664a;
+	--color-sunken: #241811; /* inputs */
+	--color-edge: #1a110b; /* the chunky bottom edge under cards and buttons */
 
-	/* Text */
-	--color-fg: #ededf2;
-	--color-fg-muted: #a3a3b2;
-	--color-fg-faint: #6d6d7c;
+	--color-fg: #f3e7cf;
+	--color-fg-muted: #c9b79a;
+	--color-fg-faint: #a08b70;
 
-	/* Accent: warm gold, with a rose partner for the ribbon gradient */
-	--color-gold-300: #f8d9a0;
-	--color-gold-400: #f3c374;
-	--color-gold-500: #eaa94a;
-	--color-gold-600: #c9862c;
-	--color-rose-400: #f2829b;
+	--color-cream: #f3e7cf;
+	--color-mustard-300: #f3c56a;
+	--color-mustard-400: #e8a83a;
+	--color-mustard-500: #e8a83a;
+	--color-mustard-600: #c58a26;
+	--color-mustard-700: #9c6a1c;
+	--color-rust-300: #ec9468; /* rust as text on cocoa */
+	--color-rust-500: #d2602d;
+	--color-rust-700: #9a4220;
+	--color-teal-300: #7cc2ba; /* teal as text on cocoa */
+	--color-teal-500: #3e8e87;
+	--color-teal-600: #2f6f69; /* teal buttons (cream text passes contrast) */
+	--color-teal-800: #1f4a46;
 
-	--radius-card: 1.125rem;
-	--shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
-	--shadow-pop: 0 1px 0 0 rgb(255 255 255 / 0.06) inset, 0 24px 64px -16px rgb(0 0 0 / 0.75);
+	--radius-card: 18px;
+	--radius-control: 14px;
 }
 
 @layer base {
 	html {
 		color-scheme: dark;
-		background: var(--color-ink-950);
+		background: var(--color-cocoa-950);
 	}
 	body {
-		@apply bg-ink-950 font-sans text-fg antialiased;
-		background-image:
-			radial-gradient(60rem 30rem at 85% -10%, rgb(234 169 74 / 0.07), transparent 60%),
-			radial-gradient(40rem 24rem at -10% 10%, rgb(242 130 155 / 0.05), transparent 60%);
-		background-attachment: fixed;
+		@apply bg-cocoa-950 font-sans text-fg antialiased;
 		min-height: 100dvh;
 	}
 	::selection {
-		background: rgb(234 169 74 / 0.35);
+		background: rgb(232 168 58 / 0.4);
 	}
 	:focus-visible {
-		outline: 2px solid var(--color-gold-400);
+		outline: 2px solid var(--color-mustard-400);
 		outline-offset: 2px;
 	}
 	input,
@@ -59,56 +69,81 @@
 }
 
 @utility field {
-	@apply block w-full rounded-xl border border-ink-600/70 bg-ink-900 px-3.5 py-2.5 text-sm text-fg placeholder:text-fg-faint shadow-none transition;
-	@apply focus:border-gold-500/70 focus:ring-2 focus:ring-gold-500/20 focus:outline-none;
+	@apply block w-full rounded-[var(--radius-control)] border-2 border-cocoa-700 bg-sunken px-3.5 py-2.5 text-[15px] text-fg placeholder:text-fg-faint shadow-none transition;
+	@apply focus:border-mustard-400 focus:ring-0 focus:outline-none;
 }
 
 @utility label {
-	@apply mb-1.5 block text-xs font-medium tracking-wide text-fg-muted uppercase;
+	@apply mb-1.5 block text-xs font-bold tracking-wide text-fg-muted uppercase;
 }
 
+/* Chunky press: a solid darker edge instead of a soft shadow, and the button sinks when pressed. */
 @utility btn {
-	@apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition select-none disabled:cursor-not-allowed disabled:opacity-50;
+	@apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 py-2.5 text-[15px] font-bold transition-[transform,box-shadow,background-color,color] duration-100 select-none disabled:cursor-not-allowed disabled:opacity-50;
+	box-shadow: 0 3px 0 0 var(--btn-edge, transparent);
+	&:active:not(:disabled) {
+		transform: translateY(2px);
+		box-shadow: 0 1px 0 0 var(--btn-edge, transparent);
+	}
 }
 
 @utility btn-primary {
-	@apply btn bg-gradient-to-b from-gold-400 to-gold-500 text-ink-950 shadow-[0_8px_24px_-8px_rgb(234_169_74/0.6)] hover:from-gold-300 hover:to-gold-400;
+	@apply btn bg-mustard-400 text-cocoa-950 hover:bg-mustard-300;
+	--btn-edge: var(--color-mustard-700);
+}
+
+@utility btn-teal {
+	@apply btn bg-teal-600 text-cream hover:bg-teal-500;
+	--btn-edge: var(--color-teal-800);
 }
 
 @utility btn-ghost {
-	@apply btn border border-ink-600/70 bg-ink-850/60 text-fg hover:border-ink-500 hover:bg-ink-800;
+	@apply btn bg-cocoa-800 text-fg hover:bg-cocoa-700;
+	--btn-edge: var(--color-edge);
 }
 
 @utility btn-quiet {
-	@apply btn px-3 text-fg-muted hover:bg-ink-800 hover:text-fg;
+	@apply btn px-3 font-medium text-fg-muted hover:bg-cocoa-800 hover:text-fg;
 }
 
 @utility btn-danger {
-	@apply btn border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20;
+	@apply btn bg-rust-500 text-cream hover:bg-rust-700;
+	--btn-edge: var(--color-rust-700);
 }
 
 @utility card {
-	@apply rounded-[var(--radius-card)] border border-ink-700/80 bg-ink-850/80 shadow-[var(--shadow-card)] backdrop-blur;
+	@apply rounded-[var(--radius-card)] bg-cocoa-850;
+	box-shadow: 0 3px 0 0 var(--color-edge);
 }
 
 @utility chip {
-	@apply inline-flex items-center gap-1.5 rounded-full border border-ink-600/70 bg-ink-800/70 px-3 py-1 text-xs font-medium text-fg-muted transition;
+	@apply inline-flex min-h-9 items-center gap-1.5 rounded-full bg-cocoa-800 px-3.5 py-1.5 text-[13px] font-bold text-fg-muted transition;
 }
 
 @utility chip-on {
-	@apply border-gold-500/50 bg-gold-500/15 text-gold-300;
+	@apply bg-mustard-400 text-cocoa-950;
 }
 
 @utility pill {
-	@apply inline-flex items-center gap-1 rounded-md bg-ink-700/70 px-2 py-0.5 text-[11px] font-medium text-fg-muted;
+	@apply inline-flex items-center gap-1 rounded-lg bg-cocoa-800 px-2 py-0.5 text-[11px] font-medium text-fg-muted;
 }
 
-@utility ribbon-text {
-	@apply bg-gradient-to-r from-gold-300 via-gold-400 to-rose-400 bg-clip-text text-transparent;
+@utility display {
+	font-family: var(--font-display);
+	font-weight: 400;
+	letter-spacing: 0.005em;
 }
 
-@layer components {
-	select.field {
-		@apply pr-9;
-	}
+/* The app's signature: three thin stripes. */
+@utility stripes {
+	background: linear-gradient(
+		to bottom,
+		var(--color-mustard-400) 0 33.4%,
+		var(--color-rust-500) 33.4% 66.7%,
+		var(--color-teal-500) 66.7% 100%
+	);
+}
+
+select.field {
+	@apply pr-9;
 }

@@ -2,88 +2,98 @@
 	import { enhance } from '$app/forms';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
+	import Present from '#lib/components/Present.svelte';
+	import GiftTag from '#lib/components/GiftTag.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 	import { countdownLabel, daysUntil, formatDate, occasionMeta } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	let creating = $state(false);
 	let busy = $state(false);
+
+	const next = $derived(data.lists.find((l) => l.id === data.nextId) ?? null);
+	const gifts = (n: number) => `${n} ${n === 1 ? 'gift' : 'gifts'}`;
 </script>
 
 <svelte:head><title>Your lists · The Giver</title></svelte:head>
 
-<section class="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+<section class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
 	<div>
-		<p class="mb-2 text-sm font-medium text-gold-400">Hi {data.lists.length ? 'again' : 'there'} 👋</p>
-		<h1 class="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
-			Your <span class="ribbon-text">wish lists</span>
-		</h1>
-		<p class="mt-3 max-w-md text-fg-muted">Paste a link from any shop and it fills itself in. Rank what you want most, and share it with the people buying.</p>
+		<p class="mb-1 text-[15px] font-bold text-mustard-400">{data.lists.length ? 'Hey again!' : 'Hey there!'}</p>
+		<h1 class="display text-[40px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
 	</div>
 	{#if data.lists.length}
 		<button class="btn-primary self-start sm:self-auto" onclick={() => (creating = true)}>
-			<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+			<Icon name="plus" size={18} />
 			New list
 		</button>
 	{/if}
 </section>
 
 {#if data.lists.length === 0}
-	<div class="card relative overflow-hidden px-6 py-16 text-center sm:px-12">
-		<div class="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-64 w-[36rem] rounded-full bg-gold-500/10 blur-3xl"></div>
-		<div class="relative">
-			<div class="mb-5 text-5xl">🎁</div>
-			<h2 class="font-display text-2xl font-semibold">Start your first list</h2>
-			<p class="mx-auto mt-2 max-w-sm text-fg-muted">A birthday, Christmas, or just things you’d love someday.</p>
-			<button class="btn-primary mt-7" onclick={() => (creating = true)}>Create a list</button>
+	<div class="card overflow-hidden">
+		<Present occasion="birthday" class="h-40" />
+		<div class="px-6 py-10 text-center">
+			<h2 class="display text-2xl">Nothing wrapped yet</h2>
+			<p class="mx-auto mt-2 max-w-sm text-fg-muted">Start a list for a birthday, Christmas, or things you’d love someday.</p>
+			<button class="btn-primary mt-6" onclick={() => (creating = true)}>Make your first list</button>
 		</div>
 	</div>
 {:else}
-	<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+	{#if next}
+		{@const days = daysUntil(next.occasion_date) ?? 0}
+		<a href="/lists/{next.id}" class="card mb-9 flex overflow-hidden transition active:translate-y-0.5">
+			<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 sm:w-64" />
+			<div class="flex min-w-0 flex-1 items-center justify-between gap-3 py-4 pr-3.5 pl-4 sm:p-6">
+				<div class="min-w-0">
+					<p class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up</p>
+					<h2 class="display mt-1 line-clamp-2 text-[22px] leading-tight break-words sm:text-3xl">{next.name}</h2>
+					<p class="mt-1 text-sm text-fg-muted">{gifts(next.item_count)} · {formatDate(next.occasion_date)}</p>
+				</div>
+				<div class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-cocoa-950 text-center sm:h-24 sm:w-24">
+					<div>
+						<div class="display text-[28px] leading-none text-mustard-400 sm:text-4xl">{days}</div>
+						<div class="text-[11px] font-bold text-fg-muted">{days === 1 ? 'day' : 'days'}</div>
+					</div>
+				</div>
+			</div>
+		</a>
+	{/if}
+
+	<div class="mb-4 flex items-baseline justify-between">
+		<h2 class="text-lg font-bold">All lists</h2>
+	</div>
+	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
 		{#each data.lists as list (list.id)}
 			{@const meta = occasionMeta(list.occasion)}
 			{@const days = daysUntil(list.occasion_date)}
-			<a
-				href="/lists/{list.id}"
-				class="card group flex flex-col overflow-hidden transition duration-300 hover:-translate-y-0.5 hover:border-ink-600"
-			>
-				<div class="relative grid aspect-[16/10] grid-cols-2 grid-rows-2 gap-px overflow-hidden bg-ink-800">
-					{#if list.covers.length === 0}
-						<div class="col-span-2 row-span-2 grid place-items-center bg-gradient-to-br from-ink-800 to-ink-850 text-5xl opacity-80">
-							{meta.icon}
-						</div>
-					{:else}
-						{#each list.covers as src, i (i)}
-							<div
-								class="bg-white {list.covers.length === 1 ? 'col-span-2 row-span-2' : ''} {list.covers.length === 2 ? 'row-span-2' : ''} {list
-									.covers.length === 3 && i === 0
-									? 'row-span-2'
-									: ''}"
-							>
-								<img {src} alt="" loading="lazy" referrerpolicy="no-referrer" class="h-full w-full object-contain p-2 transition duration-500 group-hover:scale-105" />
-							</div>
-						{/each}
-					{/if}
-					{#if days != null && days >= 0 && days <= 60}
-						<span class="absolute top-3 left-3 rounded-full bg-ink-950/85 px-2.5 py-1 text-xs font-semibold text-gold-300 backdrop-blur">
-							{countdownLabel(list.occasion_date)}
-						</span>
-					{/if}
-				</div>
-				<div class="flex flex-1 items-center justify-between gap-4 px-5 py-4">
-					<div class="min-w-0">
-						<h3 class="truncate font-semibold">{list.name}</h3>
-						<p class="mt-0.5 truncate text-sm text-fg-faint">
-							{meta.icon} {meta.label}{#if list.occasion_date}&nbsp;· {formatDate(list.occasion_date)}{/if}
-						</p>
-					</div>
-					<div class="shrink-0 text-right">
-						<div class="text-lg font-semibold tabular-nums">{list.item_count}</div>
-						<div class="text-[11px] tracking-wide text-fg-faint uppercase">{list.item_count === 1 ? 'gift' : 'gifts'}</div>
-					</div>
+			<a href="/lists/{list.id}" class="card group flex flex-col overflow-hidden transition active:translate-y-0.5">
+				<Present wrap={list.wrap} occasion={list.occasion} class="aspect-[4/3]">
+					<GiftTag tilt={-6} class="absolute bottom-3 left-3">{gifts(list.item_count)}</GiftTag>
+				</Present>
+				<div class="flex flex-1 flex-col gap-0.5 px-3.5 pt-3 pb-3.5">
+					<h3 class="truncate text-[15px] font-bold">{list.name}</h3>
+					<p class="flex items-center gap-1.5 truncate text-[13px] text-fg-muted">
+						<Icon name={meta.icon} size={14} />
+						{#if list.occasion_date}
+							<span class={days != null && days >= 0 && days <= 60 ? 'font-bold text-rust-300' : ''}>
+								{days != null && days >= 0 && days <= 60 ? countdownLabel(list.occasion_date) : formatDate(list.occasion_date)}
+							</span>
+						{:else}
+							{meta.label}
+						{/if}
+					</p>
 				</div>
 			</a>
 		{/each}
+		<button
+			class="flex min-h-40 flex-col items-center justify-center gap-2 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 text-fg-muted transition hover:border-mustard-400 hover:text-mustard-400"
+			onclick={() => (creating = true)}
+		>
+			<Icon name="plus" size={26} />
+			<span class="text-sm font-bold">New list</span>
+		</button>
 	</div>
 {/if}
 
@@ -101,12 +111,12 @@
 		}}
 	>
 		<ListForm />
-		{#if form?.error}<p class="mt-4 text-sm text-red-300">{form.error}</p>{/if}
+		{#if form?.error}<p class="mt-4 text-sm font-bold text-rust-300">{form.error}</p>{/if}
 	</form>
 	{#snippet footer()}
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn-quiet" onclick={() => (creating = false)}>Cancel</button>
-			<button form="new-list" class="btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create list'}</button>
+			<button form="new-list" class="btn-primary" disabled={busy}>{busy ? 'Wrapping…' : 'Make list'}</button>
 		</div>
 	{/snippet}
 </Modal>

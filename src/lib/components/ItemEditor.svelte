@@ -9,6 +9,7 @@
 	import Modal from './Modal.svelte';
 	import Stars from './Stars.svelte';
 	import ProductImage from './ProductImage.svelte';
+	import Icon from './Icon.svelte';
 	import { CURRENCIES, centsToInput } from '#lib/format.ts';
 	import type { Category } from '#lib/types.ts';
 
@@ -118,24 +119,24 @@
 		<input type="hidden" name="availability" value={draft?.availability ?? ''} />
 
 		{#if notice && !loading}
-			<div class="mb-5 flex gap-3 rounded-xl border border-gold-500/25 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">
-				<span>⚠︎</span><span>{notice}</span>
+			<div class="mb-5 flex gap-3 rounded-[var(--radius-control)] bg-rust-500/15 px-4 py-3 text-sm font-medium text-rust-300">
+				<Icon name="alert" size={18} class="mt-px" /><span>{notice}</span>
 			</div>
 		{/if}
 
 		<div class="grid gap-6 md:grid-cols-[15rem_1fr]">
 			<!-- Image -->
 			<div class="space-y-3">
-				<div class="relative overflow-hidden rounded-2xl">
+				<div class="relative overflow-hidden rounded-[var(--radius-card)]">
 					<ProductImage src={image} alt={title} class="aspect-square w-full" />
-					{#if loading}<div class="absolute inset-0 animate-pulse bg-ink-800"></div>{/if}
+					{#if loading}<div class="absolute inset-0 animate-pulse bg-cocoa-800"></div>{/if}
 				</div>
 				{#if images.length > 1}
 					<div class="grid grid-cols-4 gap-2">
 						{#each images.slice(0, 8) as src (src)}
 							<button
 								type="button"
-								class="overflow-hidden rounded-lg ring-2 transition {src === image ? 'ring-gold-400' : 'ring-transparent hover:ring-ink-500'}"
+								class="overflow-hidden rounded-lg ring-2 transition {src === image ? 'ring-mustard-400' : 'ring-transparent hover:ring-cocoa-500'}"
 								onclick={() => (image = src)}
 								aria-label="Use this picture"
 							>
@@ -147,7 +148,7 @@
 				{#if showImageUrl}
 					<input class="field text-xs" placeholder="https://…/picture.jpg" bind:value={image} />
 				{:else}
-					<button type="button" class="text-xs text-fg-faint hover:text-gold-300" onclick={() => (showImageUrl = true)}>Use a different picture link</button>
+					<button type="button" class="text-xs text-fg-faint hover:text-mustard-300" onclick={() => (showImageUrl = true)}>Use a different picture link</button>
 				{/if}
 			</div>
 
@@ -156,7 +157,7 @@
 				<label class="block">
 					<span class="label">Gift</span>
 					{#if loading}
-						<div class="h-[4.5rem] animate-pulse rounded-xl bg-ink-800"></div>
+						<div class="h-[4.5rem] animate-pulse rounded-xl bg-cocoa-800"></div>
 					{:else}
 						<textarea class="field min-h-[4.5rem] resize-none text-[15px] font-medium" name="title" required maxlength="200" placeholder="What is it?" bind:value={title}></textarea>
 					{/if}
@@ -192,17 +193,17 @@
 							<button
 								type="button"
 								class="chip {categoryId === c.id ? 'chip-on' : 'hover:text-fg'}"
-								style={categoryId === c.id ? `border-color: ${c.color}80; background: ${c.color}1f; color: ${c.color}` : ''}
+								aria-pressed={categoryId === c.id}
 								onclick={() => pickCategory(categoryId === c.id ? '' : c.id)}
 							>
-								<span>{c.icon}</span>{c.name}
+								<Icon name={c.icon} size={15} />{c.name}
 							</button>
 						{/each}
 					</div>
 				</div>
 
 				<!-- Specifics: size, colour, etc. -->
-				<div class="rounded-2xl border border-ink-700/80 bg-ink-850/60 p-4">
+				<div class="rounded-[var(--radius-card)] bg-cocoa-850 p-4">
 					<div class="mb-3 flex items-center justify-between">
 						<span class="text-sm font-medium">Details</span>
 						<span class="text-xs text-fg-faint">Size, colour, model… whatever matters</span>
@@ -210,10 +211,10 @@
 					<div class="space-y-2">
 						{#each specs as spec, i (i)}
 							<div class="grid grid-cols-[minmax(0,7.5rem)_1fr_auto] gap-2">
-								<input class="field py-2 text-xs font-medium text-fg-muted" name="spec_label" placeholder="Label" maxlength="40" bind:value={spec.label} />
+								<input class="field border-cocoa-800 bg-cocoa-800 py-2 text-xs font-bold text-fg-muted" name="spec_label" placeholder="Label" maxlength="40" bind:value={spec.label} />
 								<input class="field py-2" name="spec_value" placeholder={spec.label === 'Size' ? 'e.g. 32W × 30L, M' : spec.label === 'Colour' ? 'e.g. Dark indigo' : 'Value'} maxlength="120" bind:value={spec.value} />
 								<button type="button" class="btn-quiet px-2" aria-label="Remove {spec.label || 'detail'}" onclick={() => specs.splice(i, 1)}>
-									<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15" /></svg>
+									<Icon name="close" size={16} />
 								</button>
 							</div>
 						{/each}
@@ -222,7 +223,7 @@
 						{#each missingSuggestions as label (label)}
 							<button type="button" class="chip hover:text-fg" onclick={() => specs.push({ label, value: '' })}>+ {label}</button>
 						{/each}
-						<button type="button" class="chip border-dashed hover:text-fg" onclick={() => specs.push({ label: '', value: '' })}>+ Add detail</button>
+						<button type="button" class="chip bg-transparent ring-2 ring-cocoa-700 ring-inset hover:text-fg" onclick={() => specs.push({ label: '', value: '' })}>+ Add detail</button>
 					</div>
 				</div>
 
@@ -249,7 +250,7 @@
 					<textarea class="field mt-2 min-h-24 text-xs text-fg-muted" name="description" maxlength="1000" bind:value={description}></textarea>
 				</details>
 
-				{#if error}<p class="text-sm text-red-300">{error}</p>{/if}
+				{#if error}<p class="text-sm font-bold text-rust-300">{error}</p>{/if}
 			</div>
 		</div>
 	</form>
@@ -264,7 +265,7 @@
 							<button class="btn-danger">Delete for good</button>
 							<button type="button" class="btn-quiet" onclick={() => (confirmDelete = false)}>Keep</button>
 						{:else}
-							<button type="button" class="btn-quiet hover:text-red-300" onclick={() => (confirmDelete = true)}>Delete</button>
+							<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (confirmDelete = true)}>Delete</button>
 						{/if}
 					</form>
 				{/if}

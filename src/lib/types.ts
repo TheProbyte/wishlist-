@@ -15,6 +15,7 @@ export interface List {
 	occasion_date: string | null;
 	description: string | null;
 	share_token: string | null;
+	wrap: string | null;
 	created_at: number;
 	updated_at: number;
 }

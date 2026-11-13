@@ -20,27 +20,26 @@
 	<title>The Giver</title>
 </svelte:head>
 
-<header class="sticky top-0 z-40 border-b border-ink-800/80 bg-ink-950/75 backdrop-blur-xl">
+<header class="sticky top-0 z-40 bg-cocoa-950">
 	<div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
 		<a href={shared ? page.url.pathname : '/'} class="flex items-center gap-2.5">
 			<Logo />
-			<span class="font-display text-lg font-semibold tracking-tight">The Giver</span>
+			<span class="display text-[22px] text-fg">The Giver</span>
 		</a>
 		{#if !shared}
 			<nav class="flex items-center gap-1">
 				{#each nav as item (item.href)}
-					<a
-						href={item.href}
-						class="rounded-lg px-3 py-1.5 text-sm font-medium transition {isActive(item.href)
-							? 'bg-ink-800 text-fg'
-							: 'text-fg-muted hover:text-fg'}">{item.label}</a
-					>
+					<a href={item.href} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {isActive(item.href) ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
+						{item.label}
+						{#if isActive(item.href)}<span class="stripes absolute inset-x-3 bottom-1.5 h-[6px] rounded-full"></span>{/if}
+					</a>
 				{/each}
 			</nav>
 		{/if}
 	</div>
+	<div class="stripes h-[12px]" aria-hidden="true"></div>
 </header>
 
-<main class="mx-auto max-w-6xl px-4 pt-8 pb-24 sm:px-6 sm:pt-10">
+<main class="mx-auto max-w-6xl px-4 pt-7 pb-24 sm:px-6 sm:pt-10">
 	{@render children()}
 </main>

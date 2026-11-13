@@ -98,12 +98,14 @@ Built with the browser's native scroll snapping, so it feels like a real app and
 
 ## 8. Build order
 
-1. **Foundation:** swap the colour and type tokens site-wide, chunky buttons, new icon set, remove emoji. (The whole app changes look in one step.)
-2. **Wrapping paper:** the six papers, paper picker on lists, present cards on home, paper strip on list and share pages.
+1. ✅ **Foundation:** swap the colour and type tokens site-wide, chunky buttons, new icon set, remove emoji. (The whole app changes look in one step.)
+2. ✅ **Wrapping paper:** the six papers, paper picker on lists, present cards on home, paper strip on list and share pages.
 3. **Tags and stickers:** tag and sticker shapes, applied to counts, countdowns, ranks and statuses; empty-state drawings.
 4. **Swipe:** bottom tab bar, the "Coming up" page, swipeable category pages, swipe between lists, bottom-sheet editor.
 5. **Motion:** the animations in section 5, ending with the claim celebration.
 6. **Polish pass:** check every screen on a small phone and a desktop, contrast check, reduced-motion check.
+
+Steps 1–2 are live, plus the tag and sticker shapes from step 3 (counts, totals, prices, ranks, "Taken"). Still to do from step 3: empty-state drawings. The share-link preview image from §3 is not built yet.
 
 Each step leaves the live site in a finished-looking state, so it can go out as it is done.
 

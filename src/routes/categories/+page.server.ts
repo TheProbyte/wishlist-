@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { getCategories, newId } from '#lib/server/db.ts';
+import { isIcon } from '#lib/icons.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -23,8 +24,8 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');
 		const name = String(form.get('name') ?? '').trim().slice(0, 40);
-		const icon = String(form.get('icon') ?? '').trim().slice(0, 8) || '🎁';
-		const color = /^#[0-9a-f]{6}$/i.test(String(form.get('color'))) ? String(form.get('color')) : '#a1a1aa';
+		const icon = isIcon(String(form.get('icon'))) ? String(form.get('icon')) : 'gift';
+		const color = /^#[0-9a-f]{6}$/i.test(String(form.get('color'))) ? String(form.get('color')) : '#C9B79A';
 		const specs = JSON.stringify(readSpecs(form.get('specs')));
 		if (!name) return fail(400, { error: 'Name the category.' });
 

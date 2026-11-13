@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import Icon from './Icon.svelte';
 
 	let {
 		open = $bindable(false),
@@ -22,7 +23,7 @@
 		<button
 			type="button"
 			aria-label="Close"
-			class="absolute inset-0 cursor-default bg-black/70 backdrop-blur-sm"
+			class="absolute inset-0 cursor-default bg-[#120b07]/80"
 			transition:fade={{ duration: 150 }}
 			onclick={() => (open = false)}
 		></button>
@@ -30,16 +31,16 @@
 			role="dialog"
 			aria-modal="true"
 			aria-label={title}
-			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink-700 bg-ink-900 shadow-[var(--shadow-pop)] sm:rounded-3xl {wide
+			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-cocoa-900 shadow-[0_-3px_0_0_var(--color-cocoa-700)] sm:rounded-[24px] sm:shadow-[0_4px_0_0_var(--color-edge)] {wide
 				? 'sm:max-w-3xl'
 				: 'sm:max-w-lg'}"
 			transition:fly={{ y: 24, duration: 200 }}
 		>
 			{#if title}
-				<div class="flex items-center justify-between border-b border-ink-700/70 px-5 py-4 sm:px-6">
-					<h2 class="font-display text-lg font-semibold">{title}</h2>
-					<button type="button" class="btn-quiet -mr-2 px-2" aria-label="Close" onclick={() => (open = false)}>
-						<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15" /></svg>
+				<div class="flex items-center justify-between px-5 pt-5 pb-3 sm:px-6">
+					<h2 class="text-lg font-bold">{title}</h2>
+					<button type="button" class="btn-quiet -mr-2 w-11 px-0" aria-label="Close" onclick={() => (open = false)}>
+						<Icon name="close" size={20} />
 					</button>
 				</div>
 			{/if}
@@ -47,7 +48,7 @@
 				{@render children()}
 			</div>
 			{#if footer}
-				<div class="border-t border-ink-700/70 bg-ink-900/95 px-5 py-4 sm:px-6">
+				<div class="bg-cocoa-900 px-5 py-4 shadow-[0_-2px_0_0_var(--color-cocoa-800)] sm:px-6">
 					{@render footer()}
 				</div>
 			{/if}

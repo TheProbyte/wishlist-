@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ locals, params, cookies }) => {
 	const byItem = new Map(claims.results.map((c) => [c.item_id, c]));
 
 	return {
-		list: { name: list.name, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description },
+		list: { name: list.name, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description, wrap: list.wrap },
 		categories,
 		giverName: cookies.get(NAME_COOKIE) ?? '',
 		items: items.map((i) => ({ ...i, claimed: byItem.get(i.id)?.claimed ?? 0, mine: byItem.get(i.id)?.mine ?? 0 }))
