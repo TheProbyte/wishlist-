@@ -10,6 +10,7 @@
 	import { askForIdeas, looksThin } from '#lib/nudge.ts';
 	import { toast } from '#lib/undo.svelte.ts';
 	import { sway } from '#lib/sway.ts';
+	import { swingOnScroll } from '#lib/swing.ts';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -128,6 +129,7 @@
 					{/each}
 				</div>
 			{/if}
+			<div use:swingOnScroll>
 			{#each groups as g (g.title ?? 'all')}
 			{#if g.title}<h3 class="mt-6 mb-1 text-sm font-bold text-fg-faint first:mt-0">{g.title}</h3>{/if}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -137,7 +139,7 @@
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
-						<div data-lift use:sway class="relative origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2" style="--sway-delay: {i * 90}ms">
+						<div data-lift use:sway class="relative origin-top transition-[rotate] duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2" style="--sway-delay: {i * 90}ms; --k: {[1, -0.8, 0.9, -1.1, 0.75, -0.95][i % 6]}; transform: rotate(calc(var(--swing, 0) * var(--k) * 1deg))">
 						<!-- The tag's shadow: the same shape a little lower, as a plain layer. (A shadow filter over
 						     the whole tag is slow for iPhones to paint, and could leave a tag blank for a while.) -->
 						<span class="tag-shape absolute inset-0 translate-y-[3px] bg-[var(--color-edge)]" aria-hidden="true"></span>
@@ -159,6 +161,7 @@
 				{/each}
 			</div>
 			{/each}
+			</div>
 		{:else}
 			<div class="card p-5 text-center">
 				<EmptyArt kind="chairs" class="mx-auto mb-3" />

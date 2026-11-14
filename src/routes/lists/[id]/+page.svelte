@@ -11,7 +11,7 @@
 	import { cardIn, cardOut, dur, pageSwipe, prefersReducedMotion } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
-	import { fly } from 'svelte/transition';
+	import { fly, scale } from 'svelte/transition';
 	import ItemCard from '#lib/components/ItemCard.svelte';
 	import ItemEditor, { type Draft } from '#lib/components/ItemEditor.svelte';
 	import Modal from '#lib/components/Modal.svelte';
@@ -195,8 +195,8 @@
 
 	/* ------------------------------------------------ the mini header */
 
-	// Phones, deep in a long list: a slim bar under the app header with the list's name and a way
-	// back to the top. It shows once the list's own title has scrolled away.
+	// Deep in a long list: a round button floats in at the bottom to go back up to the top. It
+	// shows once the list's own title has scrolled away.
 	let titleEnd = $state<HTMLElement>();
 	let scrolledPast = $state(false);
 	$effect(() => {
@@ -683,17 +683,14 @@
 </section>
 
 {#if scrolledPast}
-	<!-- Phones: the list's name stays in sight while scrolling a long list; tap to go back up. -->
+	<!-- Scrolled a long way down: a round button to float back up to the top. -->
 	<button
-		class="fixed inset-x-0 top-[var(--header-h)] z-30 flex h-11 items-center gap-2 bg-cocoa-950/95 px-4 text-left shadow-[0_3px_0_0_var(--color-edge)] backdrop-blur-sm sm:hidden"
-		transition:fly={{ y: -44, duration: dur(200), opacity: 1 }}
+		class="peel-follow fixed right-4 bottom-[calc(9.25rem+env(safe-area-inset-bottom))] z-30 grid h-12 w-12 place-items-center rounded-full bg-cocoa-800 text-fg shadow-[0_3px_0_0_var(--color-edge),0_10px_24px_-8px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700 active:scale-95 sm:right-6 sm:bottom-6 {selecting || reordering ? 'hidden' : ''}"
+		transition:scale={{ start: 0.6, duration: dur(200) }}
 		onclick={toTop}
 		aria-label="Back to the top of {title}"
 	>
-		<span class="h-5 w-5 shrink-0 rounded-[6px] shadow-[inset_0_0_0_1.5px_rgb(0_0_0/0.2)]" style="background: {parcel.background}" aria-hidden="true"></span>
-		<span class="min-w-0 flex-1 truncate text-[15px] font-bold">{title}</span>
-		<span class="shrink-0 text-xs font-bold text-fg-faint">{items.length} {items.length === 1 ? 'gift' : 'gifts'}</span>
-		<Icon name="chevron-up" size={18} class="shrink-0 text-[var(--accent)]" />
+		<Icon name="chevron-up" size={22} class="text-[var(--accent)]" />
 	</button>
 {/if}
 
@@ -819,6 +816,12 @@
 		</div>
 		{/snippet}
 	</SwipePages>
+	<!-- The end of the list: the bottom half of the box (the top half is the strip up top). -->
+	<PaperStrip wrap={data.list.wrap} occasion={data.list.occasion} bottom height="h-16 sm:h-20" class="mt-8 mb-2">
+		<span class="absolute inset-0 flex items-end justify-center pb-2.5">
+			<span class="rounded-full bg-cocoa-950/85 px-3 py-1 text-xs font-bold text-fg shadow-[0_2px_0_0_var(--color-edge)]">That’s all {items.length} {items.length === 1 ? 'gift' : 'gifts'}</span>
+		</span>
+	</PaperStrip>
 	</div>
 	{#if panelOpen && viewing}
 		<!-- Wide screens: the gift beside the list, staying in view as the list scrolls. -->

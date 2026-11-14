@@ -7,7 +7,7 @@
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { navigating, page } from '$app/state';
-	import { afterNavigate, goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
 	import { edgeBack } from '#lib/edgeBack.ts';
 	import PullRibbon from '#lib/components/PullRibbon.svelte';
 	import PageSkeleton from '#lib/components/PageSkeleton.svelte';
@@ -41,7 +41,10 @@
 	// Page changes slide in the direction of travel, where the browser supports view transitions.
 	onNavigate((nav) => {
 		// Always read the direction, so one set for a navigation that doesn't happen can't leak into the next.
-		const direction = navDirection(nav.from?.url.pathname ?? '', nav.to?.url.pathname ?? '');
+		let direction = navDirection(nav.from?.url.pathname ?? '', nav.to?.url.pathname ?? '');
+		// Going back (the phone's own back gesture or button, too): the page slides away to the
+		// right like a swipe back, rather than just fading.
+		if (nav.type === 'popstate' && (nav.delta ?? -1) < 0 && direction === 'fade') direction = 'prev';
 		if (direction === 'none' || !document.startViewTransition || prefersReducedMotion() || !nav.from || !nav.to) return;
 		if (nav.from.url.pathname === nav.to.url.pathname) return;
 		document.documentElement.dataset.nav = direction;
@@ -150,7 +153,7 @@
 	// A list or person page that's slow to arrive gets cardboard stand-ins in its place.
 	let placeholder = $state<'list' | 'person' | 'rows' | null>(null);
 	// Pages made of rows (coming up, shopping list, circles, Secret Santa, the You pages…).
-	const ROWS = new Set(['/upcoming', '/getting', '/circles/[id]', '/santa/[id]', '/me/about', '/me/family', '/me/tools', '/me/look', '/categories']);
+	const ROWS = new Set(['/upcoming', '/getting', '/circles/[id]', '/santa/[id]', '/me/about', '/me/family', '/me/tools', '/categories']);
 	$effect(() => {
 		const to = navigating.to;
 		if (!to) {
@@ -159,12 +162,14 @@
 			return;
 		}
 		const id = to.route.id ?? '';
-		const kind = id === '/lists/[id]' ? 'list' : id === '/people/[id]' ? 'person' : ROWS.has(id) ? 'rows' : null;
+		// Going back never swaps in stand-ins: you've just seen that page, it should come straight back.
+		const back = navigating.type === 'popstate';
+		const kind = back ? null : id === '/lists/[id]' ? 'list' : id === '/people/[id]' ? 'person' : ROWS.has(id) ? 'rows' : null;
 		const t = setTimeout(() => (loading = true), 120);
 		const p = setTimeout(() => {
 			// Not while a present is opening: it covers the screen itself.
 			if (kind && !document.documentElement.hasAttribute('data-opening')) placeholder = kind;
-		}, 220);
+		}, 450);
 		return () => {
 			clearTimeout(t);
 			clearTimeout(p);
@@ -173,16 +178,52 @@
 
 	// Swipe back from the left edge on any page that isn't a tab. Goes back through the app's
 	// own history when there is some, otherwise up to the page this one belongs to.
-	let depth = 0;
+	//
+	// The trail of pages you came through (address and title) is kept for the whole visit, even
+	// across a refresh (pull to refresh reloads the page), so swiping back always lands on the
+	// page you were just on, and the swipe says which one.
+	type Step = { url: string; title: string };
+	const TRAIL = 'giver:trail';
+	let trail: Step[] = [];
+	let leaving = '';
 	let arrived: (() => void) | null = null;
+	const saveTrail = () => {
+		try {
+			sessionStorage.setItem(TRAIL, JSON.stringify(trail.slice(-40)));
+		} catch {
+			/* private mode: it just won't survive a refresh */
+		}
+	};
+	beforeNavigate(() => {
+		leaving = document.title.replace(/ · The Giver$/, '');
+	});
 	afterNavigate((nav) => {
-		if (nav.type === 'enter') depth = 0;
-		else if (nav.type === 'popstate') depth = Math.max(0, depth + (nav.delta ?? -1));
-		else depth++;
+		if (nav.type === 'enter') {
+			// A refresh (or coming back to the tab) keeps the trail; a fresh start doesn't.
+			const how = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
+			try {
+				trail = how === 'reload' || how === 'back_forward' ? (JSON.parse(sessionStorage.getItem(TRAIL) ?? '[]') as Step[]) : [];
+			} catch {
+				trail = [];
+			}
+		} else if (nav.type === 'popstate') {
+			const d = nav.delta ?? -1;
+			if (d < 0) trail = trail.slice(0, Math.max(0, trail.length + d));
+		} else if (nav.from && nav.from.url.href !== nav.to?.url.href) {
+			trail = [...trail, { url: nav.from.url.pathname + nav.from.url.search, title: leaving }];
+		}
+		saveTrail();
 		arrived?.();
 		arrived = null;
 		closeMenu();
 	});
+	/** What the page before this one was called, for the swipe's label. */
+	function backLabel() {
+		const prev = trail.at(-1);
+		if (!prev) return parentOf(page.url.pathname).label;
+		const tab = TABS.find((t) => t.href === prev.url);
+		return tab?.label ?? (prev.title || 'Back');
+	}
 	function parentOf(path: string): { href: string; label: string } {
 		if (/^\/(people\/|getting|circles|santa)/.test(path)) return { href: '/people', label: 'People' };
 		if (/^\/(categories|me\/)/.test(path)) return { href: '/me', label: 'You' };
@@ -191,9 +232,9 @@
 	onMount(() =>
 		edgeBack({
 			enabled: () => !onPager && !shared,
-			label: () => parentOf(page.url.pathname).label,
+			label: backLabel,
 			back: () => {
-				if (depth > 0) {
+				if (trail.length) {
 					const done = new Promise<void>((r) => (arrived = r));
 					history.back();
 					return done;
