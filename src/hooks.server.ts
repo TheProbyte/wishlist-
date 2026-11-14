@@ -3,6 +3,7 @@ import { error, json, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { SESSION_COOKIE, authEnabled, localUser, ownerMarks, rememberOwner, userFromSession } from '#lib/server/auth.ts';
 import { ensureSchema } from '#lib/server/schema.ts';
+import { dailyReminders, later } from '#lib/server/push.ts';
 import { isHighlight, resolveTheme, themeBackground } from '#lib/themes.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
@@ -46,6 +47,8 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	event.locals.viewer = user;
 	if (user) {
 		event.locals.user = user;
+		// Once a day, the first visit sets off the reminders (in the background).
+		later(dailyReminders(db));
 		// Devices signed in before owner markers existed get theirs now (once).
 		if (!ownerMarks(event.cookies).length) await rememberOwner(db, event.cookies, user.id, event.url.protocol === 'https:');
 	} else if (!PUBLIC.some((re) => re.test(event.url.pathname))) {

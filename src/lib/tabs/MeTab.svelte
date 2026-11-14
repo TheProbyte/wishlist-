@@ -3,6 +3,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import SizesCard from '#lib/components/SizesCard.svelte';
+	import RemindersSwitch from '#lib/components/RemindersSwitch.svelte';
 	import { countdownLabel, occasionDate } from '#lib/format.ts';
 	import type { TabForm } from './types.ts';
 	import type { MeData } from '#lib/server/tabs/me.ts';
@@ -59,7 +60,8 @@
 		<span class="min-w-0 flex-1"><span class="block font-bold">Add from anywhere</span><span class="block truncate text-sm text-fg-muted">Share menu, bookmark button, Amazon lists</span></span>
 		<Icon name="chevron-right" size={18} class="shrink-0" />
 	</a>
-	<a href="/categories" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 4">
+	{#if data.authEnabled}<div class="rise sm:col-span-2" style="--i: 4"><RemindersSwitch /></div>{/if}
+	<a href="/categories" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 5">
 		<span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cocoa-950 text-mustard-400"><Icon name="tag" size={22} /></span>
 		<span class="min-w-0 flex-1"><span class="block font-bold">Categories</span><span class="block truncate text-sm text-fg-muted">Your own, with the details to ask for</span></span>
 		<Icon name="chevron-right" size={18} class="shrink-0" />

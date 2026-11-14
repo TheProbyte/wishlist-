@@ -63,3 +63,38 @@ sw.addEventListener('fetch', (event) => {
 			})
 	);
 });
+
+/* Notifications: show what arrives, and open the right page when it's tapped. */
+sw.addEventListener('push', (event) => {
+	let note: { title?: string; body?: string; url?: string; tag?: string } = {};
+	try {
+		note = event.data?.json() ?? {};
+	} catch {
+		note = { body: event.data?.text() };
+	}
+	event.waitUntil(
+		sw.registration.showNotification(note.title ?? 'The Giver', {
+			body: note.body,
+			tag: note.tag,
+			icon: '/icons/icon-192.png',
+			badge: '/icons/icon-192.png',
+			data: { url: note.url ?? '/' }
+		})
+	);
+});
+
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const url = new URL((event.notification.data as { url?: string } | null)?.url ?? '/', location.origin).href;
+	event.waitUntil(
+		sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (wins) => {
+			// The app's already open: bring it forward and go there. Otherwise open it.
+			const win = wins.find((w) => new URL(w.url).origin === location.origin) as WindowClient | undefined;
+			if (win) {
+				await win.focus();
+				return win.navigate(url);
+			}
+			return sw.clients.openWindow(url);
+		})
+	);
+});

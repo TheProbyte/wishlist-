@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { drawNames, exchangeFor } from '#lib/server/santa.ts';
+import { later, notify } from '#lib/server/push.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -54,6 +55,16 @@ export const actions: Actions = {
 			...[...pairs].map(([giver, receiver]) => locals.db.prepare('UPDATE exchange_members SET recipient_id = ? WHERE exchange_id = ? AND user_id = ?').bind(receiver, x.id, giver)),
 			locals.db.prepare('UPDATE exchanges SET drawn_at = unixepoch() WHERE id = ?').bind(x.id)
 		]);
+		// Everyone else hears that it's time to open their slip.
+		later(
+			Promise.all(
+				results
+					.filter((r) => r.user_id !== locals.user.id)
+					.map((r) =>
+						notify(locals.db, r.user_id, { title: `Names are drawn for ${x.name}`, body: 'Open your slip to see who you’ve got. Shh!', url: `/santa/${x.id}`, tag: `santa-${x.id}` }, { kind: 'drawn', ref: `${x.id}|${Date.now()}` })
+					)
+			)
+		);
 		return { drawn: true };
 	},
 	remove: async ({ request, locals, params }) => {

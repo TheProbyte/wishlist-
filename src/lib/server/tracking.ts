@@ -1,5 +1,7 @@
 import { waitUntil } from 'cloudflare:workers';
 import { importProduct } from './importer';
+import { notify } from './push.ts';
+import { formatPrice } from '#lib/format.ts';
 import type { Item } from '#lib/types.ts';
 
 /**
@@ -40,4 +42,20 @@ async function refreshOne(db: D1Database, item: Pick<Item, 'id' | 'url' | 'price
 		);
 	}
 	if (statements.length) await db.batch(statements);
+	// A lower price on one of your own gifts: let you know (once per new price).
+	if (r.price_cents != null && item.price_cents != null && r.price_cents < item.price_cents) {
+		const own = await db.prepare('SELECT i.title, i.currency, l.owner_id, l.id AS list_id FROM items i JOIN lists l ON l.id = i.list_id WHERE i.id = ?').bind(item.id).first<{ title: string; currency: string | null; owner_id: string; list_id: string }>();
+		if (own)
+			await notify(
+				db,
+				own.owner_id,
+				{
+					title: `Price drop: ${own.title.length > 40 ? `${own.title.slice(0, 38)}…` : own.title}`,
+					body: `Now ${formatPrice(r.price_cents, own.currency)} (was ${formatPrice(item.price_cents, own.currency)}).`,
+					url: `/lists/${own.list_id}`,
+					tag: `drop-${item.id}`
+				},
+				{ kind: 'drop', ref: `${item.id}|${r.price_cents}` }
+			);
+	}
 }

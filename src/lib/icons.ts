@@ -6,6 +6,7 @@ export const ICONS = {
 	gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M12 8v13M12 8C10.5 4.5 6.5 4 6.5 6.25S10 8 12 8zM12 8c1.5-3.5 5.5-4 5.5-1.75S14 8 12 8z"/>',
 	link: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>',
 	plus: '<path d="M12 5v14M5 12h14"/>',
+	bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.94 1.94 0 0 0 3.4 0"/>',
 	close: '<path d="M6 6l12 12M18 6L6 18"/>',
 	'chevron-left': '<path d="M15 6l-6 6 6 6"/>',
 	'chevron-right': '<path d="M9 6l6 6-6 6"/>',
