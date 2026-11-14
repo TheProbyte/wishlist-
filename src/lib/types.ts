@@ -102,4 +102,6 @@ export interface ImportResult {
 	specifics: Specific[];
 	category_id: string | null;
 	error?: string;
+	/** You already have this gift (same product): which one, and whose Everything it's in. */
+	duplicate?: { id: string; title: string; master: string } | null;
 }

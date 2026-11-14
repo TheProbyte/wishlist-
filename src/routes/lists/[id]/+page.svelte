@@ -23,11 +23,14 @@
 	import PasteBar from '#lib/components/PasteBar.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
 	import { holdDrag } from '#lib/holdDrag.ts';
+	import { swipeRow } from '#lib/swipeRow.ts';
 	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
+	import { undoable, isHidden } from '#lib/undo.svelte.ts';
 	import { untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { firstTime, getPref, setPref } from '#lib/prefs.ts';
-	import { countdownLabel, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
+	import { paperFor, defaultPaperId } from '#lib/papers.ts';
+	import { countdownLabel, formatPrice, giftKey, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
@@ -45,7 +48,15 @@
 	let sort = $state<Sort>('rank');
 	let filter = $state<string>('all');
 	// Writable derived: follows the server data, but can be reordered locally while dragging.
-	let items = $derived(data.items);
+	let all = $derived(data.items);
+	// What's on screen: everything except gifts waiting to be deleted (or taken off this list),
+	// which Undo can still bring back.
+	const items = $derived(all.filter((i) => !isHidden(`gift:${i.id}`) && !isHidden(`off:${data.list.id}:${i.id}`)));
+	/** A new order for the gifts on screen (anything hidden keeps its place at the end). */
+	function setOrder(next: Item[]) {
+		const ids = new Set(next.map((i) => i.id));
+		all = [...next, ...all.filter((i) => !ids.has(i.id))];
+	}
 
 	const catById = $derived(new Map(data.categories.map((c) => [c.id, c])));
 	const usedCategories = $derived(
@@ -53,9 +64,38 @@
 			.map((c) => ({ ...c, count: items.filter((i) => i.category_id === c.id).length }))
 			.filter((c) => c.count > 0)
 	);
+	const totals = $derived.by(() => {
+		const by = new Map<string, number>();
+		for (const i of items) if (i.price_cents != null) by.set(i.currency ?? 'USD', (by.get(i.currency ?? 'USD') ?? 0) + i.price_cents * i.quantity);
+		return [...by.entries()].sort((a, b) => b[1] - a[1]);
+	});
+
+	/* Price bands: how the gifts spread across prices, so you can see whether givers have cheap
+	   and pricey choices. Tap a band to see just those. (In the list's main currency.) */
+	const BANDS = [
+		{ id: 'b1', max: 2500, tone: 'bg-teal-500' },
+		{ id: 'b2', max: 5000, tone: 'bg-mustard-400' },
+		{ id: 'b3', max: 10000, tone: 'bg-rust-500' },
+		{ id: 'b4', max: Infinity, tone: 'bg-cream' }
+	] as const;
+	let band = $state<string | null>(null);
+	const bandOf = (cents: number) => BANDS.find((b) => cents < b.max)!.id;
+	const mainCurrency = $derived(totals[0]?.[0] ?? 'USD');
+	const bands = $derived.by(() => {
+		const priced = items.filter((i) => i.price_cents != null && (i.currency ?? 'USD') === mainCurrency);
+		if (priced.length < 3) return null;
+		return BANDS.map((b, k) => {
+			const n = priced.filter((i) => bandOf(i.price_cents!) === b.id).length;
+			const lo = k ? BANDS[k - 1].max : 0;
+			const label = b.max === Infinity ? `${formatPrice(lo, mainCurrency)}+` : k === 0 ? `Under ${formatPrice(b.max, mainCurrency)}` : `${formatPrice(lo, mainCurrency)}–${formatPrice(b.max, mainCurrency)}`;
+			return { ...b, n, share: n / priced.length, label: label.replace(/\.00/g, '') };
+		});
+	});
+	const inBand = (i: Item) => !band || (i.price_cents != null && (i.currency ?? 'USD') === mainCurrency && bandOf(i.price_cents) === band);
+
 	/** The gifts on one category page, in the chosen sort. */
 	function giftsFor(pageId: string): Item[] {
-		let list = pageId === 'all' ? items : items.filter((i) => i.category_id === pageId);
+		let list = (pageId === 'all' ? items : items.filter((i) => i.category_id === pageId)).filter(inBand);
 		const byPrice = (i: Item) => i.price_cents ?? (sort === 'price_asc' ? Infinity : -Infinity);
 		if (sort === 'rating') list = [...list].sort((a, b) => b.rating - a.rating || a.rank - b.rank);
 		if (sort === 'price_asc') list = [...list].sort((a, b) => byPrice(a) - byPrice(b));
@@ -86,6 +126,13 @@
 	// Remembered per list, on this device.
 	$effect(() => {
 		view = getPref(`view:${data.list.id}`) === 'row' ? 'row' : 'grid';
+		const saved = getPref(`sort:${data.list.id}`);
+		sort = SORTS.some((x) => x.value === saved) ? (saved as Sort) : 'rank';
+		band = null;
+	});
+	// ...and the sort is remembered for this list too.
+	$effect(() => {
+		setPref(`sort:${data.list.id}`, sort);
 	});
 	// Switching view morphs: each gift and its photo glide from the old layout to the new one
 	// (where the browser can; elsewhere it simply switches).
@@ -131,11 +178,6 @@
 		return goto(`/lists/${id}`);
 	}
 
-	const totals = $derived.by(() => {
-		const by = new Map<string, number>();
-		for (const i of items) if (i.price_cents != null) by.set(i.currency ?? 'USD', (by.get(i.currency ?? 'USD') ?? 0) + i.price_cents * i.quantity);
-		return [...by.entries()].sort((a, b) => b[1] - a[1]);
-	});
 
 	const meta = $derived(occasionMeta(data.list.occasion));
 	const isEverything = $derived(data.list.kind === 'master');
@@ -144,6 +186,51 @@
 	const nextDate = $derived(occasionDate(data.list.occasion, data.list.occasion_date));
 	const turning = $derived(milestone(data.list.occasion, data.list.occasion_date));
 	const shareUrl = $derived(data.list.share_token ? `${page.url.origin}/s/${data.list.share_token}` : null);
+
+	// Swiping rows sideways is for fingers.
+	let swipeable = $state(false);
+	$effect(() => {
+		swipeable = matchMedia('(pointer: coarse)').matches;
+	});
+
+	/* ------------------------------------------------ the mini header */
+
+	// Phones, deep in a long list: a slim bar under the app header with the list's name and a way
+	// back to the top. It shows once the list's own title has scrolled away.
+	let titleEnd = $state<HTMLElement>();
+	let scrolledPast = $state(false);
+	$effect(() => {
+		const el = titleEnd;
+		if (!el) return;
+		const header = document.querySelector('header');
+		const io = new IntersectionObserver(([e]) => (scrolledPast = !e.isIntersecting && e.boundingClientRect.top < innerHeight / 2), {
+			rootMargin: `-${header?.getBoundingClientRect().bottom ?? 76}px 0px 0px 0px`
+		});
+		io.observe(el);
+		return () => io.disconnect();
+	});
+	const toTop = () => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+
+	/* ------------------------------------------------ new gifts arrive wrapped */
+
+	// A gift you've just added arrives as a little parcel in this list's paper, which unwraps.
+	let unwrapping = $state<string[]>([]);
+	let knownIds: Set<string> | null = null;
+	let knownList = '';
+	$effect(() => {
+		const ids = items.map((i) => i.id);
+		if (knownList !== data.list.id || !knownIds) {
+			knownList = data.list.id;
+			knownIds = new Set(ids);
+			return;
+		}
+		const fresh = ids.filter((id) => !knownIds!.has(id));
+		knownIds = new Set(ids);
+		if (!fresh.length || prefersReducedMotion() || fresh.length > 6) return;
+		unwrapping = [...unwrapping, ...fresh];
+		setTimeout(() => (unwrapping = unwrapping.filter((id) => !fresh.includes(id))), 1300);
+	});
+	const parcel = $derived(paperFor(data.list.wrap ?? defaultPaperId(data.list.occasion)));
 
 	/* ------------------------------------------------ adding & editing */
 
@@ -155,9 +242,55 @@
 	let importSeq = 0;
 	let plusOpen = $state(false);
 
+	/* Already have it? Checked straight away against the gifts this page has (no waiting on the
+	   shop), then again by the server once the link's real address is known. */
+	function alreadyHave(found: { id?: string; key?: string | null }): boolean {
+		const match = (u: string | null | undefined) => !!found.key && giftKey(u) === found.key;
+		const here = items.find((i) => i.id === found.id || match(i.url));
+		if (here) {
+			editorOpen = false;
+			importing = false;
+			link = '';
+			note('Already on this list');
+			showGift(here.id);
+			return true;
+		}
+		const inEverything = data.pickable.find((g) => g.id === found.id || match(g.url));
+		if (inEverything) {
+			editorOpen = false;
+			importing = false;
+			link = '';
+			addHere(inEverything.id, inEverything.title);
+			return true;
+		}
+		return false;
+	}
+	/** It's in Everything but not on this list: put it on (that's all you wanted). */
+	async function addHere(id: string, title: string) {
+		const fd = new FormData();
+		fd.append('ids', id);
+		const res = await fetch(`/lists/${data.list.id}?/addExisting`, { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		const ok = deserialize(await res.text()).type === 'success';
+		note(ok ? `Already in Everything, so “${short(title)}” is on this list now` : 'Couldn’t add it. Try again.', 3200);
+		if (ok) await invalidateAll();
+		if (ok) showGift(id);
+	}
+	/** Bring a gift into view and give it a little wiggle. */
+	async function showGift(id: string) {
+		filter = 'all';
+		await tick();
+		const el = document.querySelector<HTMLElement>(`[data-page="all"] [data-gift="${CSS.escape(id)}"]`);
+		if (!el) return;
+		el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+		el.classList.remove('nudge');
+		void el.offsetWidth;
+		el.classList.add('nudge');
+	}
+
 	async function importLink(raw = link) {
 		const value = raw.trim();
 		if (!value) return;
+		if (alreadyHave({ key: giftKey(value.match(/https?:\/\/\S+/)?.[0] ?? value) })) return;
 		const seq = ++importSeq;
 		let host = '';
 		try {
@@ -180,6 +313,7 @@
 				link = '';
 				return void goto(`/add?url=${encodeURIComponent(value)}`);
 			}
+			if (r.duplicate && alreadyHave({ id: r.duplicate.id, key: giftKey(r.url) })) return;
 			draft = {
 				url: r.url ?? value,
 				title: r.title ?? '',
@@ -193,7 +327,9 @@
 				category_id: r.category_id,
 				specifics: r.specifics ?? []
 			};
-			notice = r.error ?? (!r.ok ? 'Couldn’t read everything from that page. Fill in what’s missing.' : null);
+			notice = r.duplicate
+				? `You already have this one on another wish list (“${short(r.duplicate.title)}”). Add it here too if you like.`
+				: (r.error ?? (!r.ok ? 'Couldn’t read everything from that page. Fill in what’s missing.' : null));
 		} catch {
 			if (seq !== importSeq) return;
 			draft = { url: value, title: '' };
@@ -259,7 +395,7 @@
 	}
 
 	async function rate(item: Item, rating: number) {
-		items = items.map((i) => (i.id === item.id ? { ...i, rating } : i));
+		all = all.map((i) => (i.id === item.id ? { ...i, rating } : i));
 		await post('rate', { id: item.id, rating: String(rating) });
 	}
 
@@ -274,7 +410,7 @@
 		if (to < 0 || to >= items.length) return;
 		const next = [...items];
 		[next[from], next[to]] = [next[to], next[from]];
-		items = next;
+		setOrder(next);
 		saveOrder();
 	}
 
@@ -284,7 +420,7 @@
 		if (from < 0 || to < 0 || from === to) return;
 		const next = [...items];
 		next.splice(to, 0, next.splice(from, 1)[0]);
-		items = next;
+		setOrder(next);
 	}
 
 
@@ -323,7 +459,6 @@
 	let selected = $state<string[]>([]);
 	let listSheet = $state(false);
 	let categorySheet = $state(false);
-	let deleteSheet = $state(false);
 	let bulkBusy = $state(false);
 	let bulkNote = $state<string | null>(null);
 	const isSelected = (id: string) => selected.includes(id);
@@ -339,20 +474,62 @@
 	function stopSelecting() {
 		selecting = false;
 		selected = [];
-		listSheet = categorySheet = deleteSheet = false;
+		listSheet = categorySheet = false;
 	}
 	const onThisPage = $derived(giftsFor(filter).map((i) => i.id));
 	const allOnPageSelected = $derived(onThisPage.length > 0 && onThisPage.every((id) => selected.includes(id)));
 
+	const short = (t: string) => (t.length > 28 ? `${t.slice(0, 26).trimEnd()}…` : t);
+	/** Delete gifts, or take them off this list: gone from the screen now, with Undo for a few
+	 *  seconds before the server is told. */
+	function dropGifts(ids: string[], op: 'delete' | 'remove') {
+		if (!ids.length) return;
+		const listId = data.list.id;
+		const first = items.find((i) => i.id === ids[0])?.title ?? 'gift';
+		if (viewingId && ids.includes(viewingId)) {
+			viewingId = null;
+			viewSheet = false;
+		}
+		stopSelecting();
+		undoable({
+			message: `${op === 'delete' ? 'Deleted' : 'Taken off'} ${ids.length === 1 ? `“${short(first)}”` : `${ids.length} gifts`}`,
+			requests: [{ url: `/lists/${listId}?/bulk`, body: { op, ids } }],
+			keys: ids.map((id) => (op === 'delete' ? `gift:${id}` : `off:${listId}:${id}`)),
+			revert: () => {},
+			done: (ok) => {
+				if (ok) invalidateAll();
+				else note('Couldn’t do that, so it’s back.');
+			}
+		});
+	}
+	/** Delete this list: back to the shelf at once, with Undo; its gifts stay in Everything. */
+	function deleteThisList() {
+		const id = data.list.id;
+		moreOpen = settingsOpen = false;
+		undoable({
+			message: `Deleted “${short(data.list.name)}”`,
+			requests: [{ url: `/lists/${id}?/deleteList`, body: {} }],
+			keys: [`list:${id}`],
+			revert: () => {},
+			done: (ok) => ok && invalidateAll()
+		});
+		goto('/');
+	}
+	function note(text: string, ms = 2600) {
+		bulkNote = text;
+		setTimeout(() => (bulkNote = null), ms);
+	}
+
 	async function bulk(op: string, extra: Record<string, string> = {}) {
+		if (op === 'delete' || op === 'remove') return dropGifts([...selected], op);
 		bulkBusy = true;
 		// Act first: what's leaving this list leaves now, a new category shows now.
 		const ids = new Set(selected);
-		const leaves = op === 'delete' || op === 'remove' || (op === 'move' && !isEverything);
-		const before = items;
-		if (leaves) items = items.filter((i) => !ids.has(i.id));
-		if (op === 'category') items = items.map((i) => (ids.has(i.id) ? { ...i, category_id: extra.category || null } : i));
-		if (leaves || op === 'category') listSheet = categorySheet = deleteSheet = false;
+		const leaves = op === 'move' && !isEverything;
+		const before = all;
+		if (leaves) all = all.filter((i) => !ids.has(i.id));
+		if (op === 'category') all = all.map((i) => (ids.has(i.id) ? { ...i, category_id: extra.category || null } : i));
+		if (leaves || op === 'category') listSheet = categorySheet = false;
 		const fd = new FormData();
 		fd.set('op', op);
 		for (const id of selected) fd.append('ids', id);
@@ -363,16 +540,13 @@
 		if (result.type === 'success') {
 			const n = selected.length;
 			const target = data.lists.find((l) => l.id === extra.target)?.name;
-			bulkNote =
-				op === 'delete' ? `Deleted ${n}` : op === 'remove' ? `Removed ${n} from this list` : op === 'category' ? `Updated ${n}` : `${op === 'move' ? 'Moved' : 'Added'} ${n} to ${target}`;
+			note(op === 'category' ? `Updated ${n}` : `${op === 'move' ? 'Moved' : 'Added'} ${n} to ${target}`, 2400);
 			stopSelecting();
-			setTimeout(() => (bulkNote = null), 2400);
 			// The screen already shows the result; this just fetches the server's copy behind it.
 			invalidateAll();
 		} else {
-			items = before;
-			bulkNote = result.type === 'failure' ? String(result.data?.error ?? 'Couldn’t do that.') : 'Couldn’t do that. Try again.';
-			setTimeout(() => (bulkNote = null), 3000);
+			all = before;
+			note(result.type === 'failure' ? String(result.data?.error ?? 'Couldn’t do that.') : 'Couldn’t do that. Try again.', 3000);
 		}
 	}
 	/* A gift's own menu: right-click it (with a finger, holding a gift drags it instead). */
@@ -389,19 +563,14 @@
 				'divider' as const,
 				...(first ? [] : [{ label: 'Move to the top', icon: 'chevron-up', run: () => moveToTop(item) }]),
 				{ label: 'Select', icon: 'check-box', run: () => startSelecting(item.id) },
-				...(isEverything ? [] : [{ label: 'Take off this list', icon: 'close', run: () => one('remove', item) }]),
-				{ label: 'Delete gift', icon: 'close', danger: true, confirm: 'Click again to delete', run: () => one('delete', item) }
+				...(isEverything ? [] : [{ label: 'Take off this list', icon: 'close', run: () => dropGifts([item.id], 'remove') }]),
+				{ label: 'Delete gift', icon: 'close', danger: true, run: () => dropGifts([item.id], 'delete') }
 			]
 		};
 	}
 	function moveToTop(item: Item) {
-		items = [item, ...items.filter((i) => i.id !== item.id)];
+		setOrder([item, ...items.filter((i) => i.id !== item.id)]);
 		saveOrder();
-	}
-	async function one(op: string, item: Item) {
-		selected = [item.id];
-		await bulk(op);
-		if (!selecting) selected = [];
 	}
 
 	// Arriving from a list's menu on the shelf: open its settings or sharing straight away.
@@ -410,7 +579,6 @@
 		if (!want) return;
 		untrack(() => {
 			if (want === 'settings') {
-				confirmDeleteList = false;
 				settingsOpen = true;
 			} else if (want === 'share') shareOpen = true;
 			const url = new URL(location.href);
@@ -423,7 +591,6 @@
 	let pickOpen = $state(false);
 	let picked = $state<string[]>([]);
 	let shareOpen = $state(false);
-	let confirmDeleteList = $state(false);
 	let copied = $state(false);
 	const canPick = $derived(!isEverything && data.pickable.length > 0);
 	function openPick() {
@@ -468,7 +635,7 @@
 			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 {data.list.share_token ? 'text-teal-300' : 'text-fg'}" aria-label={data.list.share_token ? 'Shared: see the link' : 'Share with givers'} onclick={() => (shareOpen = true)}>
 				<Icon name="share" size={19} />
 			</button>
-			<button class="hidden h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 sm:grid {items.length === 0 ? 'max-sm:grid' : ''}" aria-label="More" onclick={() => { confirmDeleteList = false; moreOpen = true; }}>
+			<button class="hidden h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 sm:grid {items.length === 0 ? 'max-sm:grid' : ''}" aria-label="More" onclick={() => { moreOpen = true; }}>
 				<Icon name="more" size={20} />
 			</button>
 		</div>
@@ -481,7 +648,47 @@
 		{#each totals as [cur, cents] (cur)}<span class="text-cocoa-500">·</span><span class="text-mustard-400 tabular-nums">{formatPrice(cents, cur)}</span>{/each}
 		{#if nextDate && !isEverything}<span class="text-cocoa-500">·</span><span class="text-rust-300">{countdownLabel(nextDate)}{#if turning}&nbsp;· {turning}{/if}</span>{/if}
 	</p>
+	{#if bands}
+		<!-- How the prices spread: a slim bar, one colour per price band. Tap one to see just those. -->
+		<div class="mt-3 max-w-xl" bind:this={titleEnd}>
+			<div class="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-cocoa-850" aria-hidden="true">
+				{#each bands as b (b.id)}
+					{#if b.n}<span class="{b.tone} transition-opacity duration-200 {band && band !== b.id ? 'opacity-25' : ''}" style="flex: {b.share} 1 0"></span>{/if}
+				{/each}
+			</div>
+			<div class="no-scrollbar -mx-1 mt-1.5 flex gap-1 overflow-x-auto px-1" data-no-swipe>
+				{#each bands as b (b.id)}
+					{#if b.n}
+						<button
+							class="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold transition {band === b.id ? 'bg-cocoa-800 text-fg ring-2 ring-cocoa-600' : 'text-fg-muted hover:text-fg'}"
+							aria-pressed={band === b.id}
+							onclick={() => (band = band === b.id ? null : b.id)}
+						>
+							<span class="h-2 w-2 rounded-full {b.tone}"></span>{b.label}<span class="opacity-60">{b.n}</span>{#if band === b.id}<Icon name="close" size={12} />{/if}
+						</button>
+					{/if}
+				{/each}
+			</div>
+		</div>
+	{:else}
+		<div bind:this={titleEnd}></div>
+	{/if}
 </section>
+
+{#if scrolledPast}
+	<!-- Phones: the list's name stays in sight while scrolling a long list; tap to go back up. -->
+	<button
+		class="fixed inset-x-0 top-[var(--header-h)] z-30 flex h-11 items-center gap-2 bg-cocoa-950/95 px-4 text-left shadow-[0_3px_0_0_var(--color-edge)] backdrop-blur-sm sm:hidden"
+		transition:fly={{ y: -44, duration: dur(200), opacity: 1 }}
+		onclick={toTop}
+		aria-label="Back to the top of {title}"
+	>
+		<span class="h-5 w-5 shrink-0 rounded-[6px] shadow-[inset_0_0_0_1.5px_rgb(0_0_0/0.2)]" style="background: {parcel.background}" aria-hidden="true"></span>
+		<span class="min-w-0 flex-1 truncate text-[15px] font-bold">{title}</span>
+		<span class="shrink-0 text-xs font-bold text-fg-faint">{items.length} {items.length === 1 ? 'gift' : 'gifts'}</span>
+		<Icon name="chevron-up" size={18} class="shrink-0 text-[var(--accent)]" />
+	</button>
+{/if}
 
 <!-- Add a gift: at the top of the list. (The bottom, in thumb reach, is for sorting and filtering.) -->
 <PasteBar bind:value={link} onsubmit={importLink} onpastelink={importLink} onplus={() => (plusOpen = true)} class="mb-4 sm:mb-6" />
@@ -537,7 +744,7 @@
 		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg" aria-label={view === 'grid' ? 'Show as a list' : 'Show as photos'} disabled={reordering} onclick={toggleView}>
 			<Icon name={view === 'grid' ? 'rows' : 'grid'} size={17} />
 		</button>
-		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg sm:hidden" aria-label="More" onclick={() => { confirmDeleteList = false; moreOpen = true; }}>
+		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg sm:hidden" aria-label="More" onclick={() => { moreOpen = true; }}>
 			<Icon name="more" size={18} />
 		</button>
 	</div>
@@ -554,11 +761,19 @@
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
 					out:cardOut={{ on: animateChanges() }}
-					class="{i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''} {panelOpen && viewingId === item.id ? 'viewing' : ''}"
+					class="relative {i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''} {panelOpen && viewingId === item.id ? 'viewing' : ''}"
 					style="--i: {i}"
 					role="listitem"
 					data-gift={item.id}
 					use:contextMenu={{ spec: () => giftMenu(item), touch: false }}
+					use:swipeRow={{
+						enabled: swipeable && layout === 'row' && !selecting && !reordering,
+						onleft: () => dropGifts([item.id], 'delete'),
+						onright: items[0]?.id === item.id ? undefined : () => {
+							moveToTop(item);
+							note('Moved to the top');
+						}
+					}}
 					use:holdDrag={{
 						id: item.id,
 						enabled: !selecting,
@@ -568,6 +783,19 @@
 						ondrop: saveOrder
 					}}
 				>
+					{#if swipeable && layout === 'row'}
+						<!-- Under the row, what a swipe will do: right moves it to the top, left deletes it. -->
+						<span class="swipe-under pointer-events-none absolute inset-0 flex items-center justify-between rounded-[var(--radius-card)] px-5 text-sm font-bold" aria-hidden="true">
+							<span class="swipe-top flex items-center gap-1.5 text-cocoa-950"><Icon name="chevron-up" size={18} />Top</span>
+							<span class="swipe-del flex items-center gap-1.5 text-cream">Delete<Icon name="close" size={18} /></span>
+						</span>
+					{/if}
+					{#if unwrapping.includes(item.id)}
+						<!-- The parcel: this list's paper and a ribbon over the new card, then it opens. -->
+						<span class="parcel pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[var(--radius-card)]" style="--paper: {parcel.background}; --ribbon: {parcel.ribbon}" aria-hidden="true">
+							<span class="parcel-half parcel-l"></span><span class="parcel-half parcel-r"></span>
+						</span>
+					{/if}
 					<ItemCard
 						{item}
 						{layout}
@@ -649,23 +877,16 @@
 				<span><span class="block font-bold">Reorder</span><span class="text-sm text-fg-muted">Put the ones you want most at the top.</span></span>
 			</button>
 		{/if}
-		<button class="card flex w-full items-center gap-3 p-3.5 text-left" onclick={() => { moreOpen = false; confirmDeleteList = false; settingsOpen = true; }}>
+		<button class="card flex w-full items-center gap-3 p-3.5 text-left" onclick={() => { moreOpen = false; settingsOpen = true; }}>
 			<span class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-800 text-mustard-400"><Icon name={isEverything ? 'gift' : meta.icon} size={20} /></span>
 			<span><span class="block font-bold">{isEverything ? 'Wish list settings' : 'List settings'}</span><span class="text-sm text-fg-muted">{isEverything ? 'Name and wrapping paper.' : 'Name, date and wrapping paper.'}</span></span>
 		</button>
 	</div>
 	{#if !isEverything}
-		<form method="POST" action="?/deleteList" use:enhance class="mt-6 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-rust-500/10 p-3.5 pl-4">
-			<p class="text-sm text-fg-muted">{confirmDeleteList ? `Delete ${data.list.name}? Its gifts stay in Everything.` : 'Done with this list?'}</p>
-			{#if confirmDeleteList}
-				<div class="flex shrink-0 gap-1.5">
-					<button type="button" class="btn-quiet px-3 text-sm" onclick={() => (confirmDeleteList = false)}>Keep</button>
-					<button class="btn-danger px-3 text-sm">Delete</button>
-				</div>
-			{:else}
-				<button type="button" class="btn-quiet shrink-0 px-3 text-sm text-rust-300 hover:text-rust-300" onclick={() => (confirmDeleteList = true)}>Delete list</button>
-			{/if}
-		</form>
+		<div class="mt-6 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-rust-500/10 p-3.5 pl-4">
+			<p class="text-sm text-fg-muted">Done with this list? Its gifts stay in Everything.</p>
+			<button type="button" class="btn-quiet shrink-0 px-3 text-sm text-rust-300 hover:text-rust-300" onclick={deleteThisList}>Delete list</button>
+		</div>
 	{/if}
 </Modal>
 
@@ -705,7 +926,7 @@
 	currentList={isEverything ? null : data.list.id}
 	sizes={data.sizes}
 	saveLabel={isEverything ? 'Add gift' : 'Add to list'}
-	ongone={(id) => (items = items.filter((i) => i.id !== id))}
+	ondrop={(id, mode) => dropGifts([id], mode === 'list' ? 'remove' : 'delete')}
 	onfail={(m) => {
 		bulkNote = m;
 		setTimeout(() => (bulkNote = null), 3000);
@@ -727,14 +948,10 @@
 	</form>
 	{#if !isEverything}
 	<div class="mt-8 rounded-[var(--radius-card)] bg-rust-500/10 p-4">
-		<form method="POST" action="?/deleteList" use:enhance class="flex items-center justify-between gap-4">
+		<div class="flex items-center justify-between gap-4">
 			<p class="text-sm text-fg-muted">Delete this list. Its gifts stay in your Everything list.</p>
-			{#if confirmDeleteList}
-				<button class="btn-danger shrink-0">Yes, delete</button>
-			{:else}
-				<button type="button" class="btn-quiet shrink-0 text-rust-300 hover:text-rust-300" onclick={() => (confirmDeleteList = true)}>Delete list</button>
-			{/if}
-		</form>
+			<button type="button" class="btn-quiet shrink-0 text-rust-300 hover:text-rust-300" onclick={deleteThisList}>Delete list</button>
+		</div>
 	</div>
 	{/if}
 	{#snippet footer()}
@@ -815,7 +1032,7 @@
 			{#if !isEverything}
 				<button class="btn-ghost min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => bulk('remove')}>Remove</button>
 			{/if}
-			<button class="btn-danger min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => (deleteSheet = true)}>Delete</button>
+			<button class="btn-danger min-h-10 px-2.5 text-sm" disabled={!selected.length || bulkBusy} onclick={() => dropGifts([...selected], 'delete')}>Delete</button>
 		</div>
 	</div>
 {/if}
@@ -855,12 +1072,4 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={deleteSheet} title="Delete {selected.length} {selected.length === 1 ? 'gift' : 'gifts'}?">
-	<p class="text-sm text-fg-muted">They’ll be gone from Everything and every list they’re on.{#if !isEverything} To just take them off {data.list.name}, use Remove instead.{/if}</p>
-	{#snippet footer()}
-		<div class="flex justify-end gap-2">
-			<button class="btn-quiet" onclick={() => (deleteSheet = false)}>Keep them</button>
-			<button class="btn-danger" disabled={bulkBusy} onclick={() => bulk('delete')}>{bulkBusy ? 'Deleting…' : 'Delete'}</button>
-		</div>
-	{/snippet}
-</Modal>
+

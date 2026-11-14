@@ -170,3 +170,20 @@ export function withKid(kid: string | null | undefined, label: string): string {
 	if (!kid || label.toLowerCase().startsWith(kid.toLowerCase())) return label;
 	return `${kid}’s ${label}`;
 }
+
+/**
+ * What makes two links the same gift: the shop and the product, ignoring tracking bits. Amazon
+ * links come in many shapes for one product, so they're matched on the product code (ASIN).
+ */
+export function giftKey(raw: string | null | undefined): string | null {
+	if (!raw) return null;
+	try {
+		const u = new URL(raw.trim());
+		const host = u.hostname.replace(/^(www|m|smile)\./, '').toLowerCase();
+		const asin = u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|exec\/obidos\/asin)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+		if (/(^|\.)amazon\./.test(host) && asin) return `amazon:${asin[1].toUpperCase()}`;
+		return `${host}${decodeURIComponent(u.pathname).replace(/\/+$/, '')}`.toLowerCase();
+	} catch {
+		return null;
+	}
+}

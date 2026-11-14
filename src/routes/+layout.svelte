@@ -12,6 +12,7 @@
 	import PullRibbon from '#lib/components/PullRibbon.svelte';
 	import PageSkeleton from '#lib/components/PageSkeleton.svelte';
 	import ContextMenu from '#lib/components/ContextMenu.svelte';
+	import UndoStrip from '#lib/components/UndoStrip.svelte';
 	import { contextMenu, closeMenu, type MenuSpec } from '#lib/menu.svelte.ts';
 	import { getPref } from '#lib/prefs.ts';
 	import { onMount } from 'svelte';
@@ -264,3 +265,4 @@
 {/if}
 
 <ContextMenu />
+<UndoStrip />

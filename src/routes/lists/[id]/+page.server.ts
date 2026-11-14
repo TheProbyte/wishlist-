@@ -27,9 +27,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		// For an occasion list: the Everything list, to pick more gifts from.
 		list.kind === 'list'
 			? locals.db
-					.prepare('SELECT id, title, image_url, price_cents, currency FROM items WHERE list_id = ? ORDER BY rank, created_at')
+					.prepare('SELECT id, title, image_url, price_cents, currency, url FROM items WHERE list_id = ? ORDER BY rank, created_at')
 					.bind(masterOf(list))
-					.all<{ id: string; title: string; image_url: string | null; price_cents: number | null; currency: string | null }>()
+					.all<{ id: string; title: string; image_url: string | null; price_cents: number | null; currency: string | null; url: string | null }>()
 			: null
 	]);
 	refreshStale(locals.db, items);

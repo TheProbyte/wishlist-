@@ -1,6 +1,25 @@
 import { json } from '@sveltejs/kit';
 import { importAmazonWishlist, importProduct, importWithHint, isAmazonWishlist, normaliseUrl, resolveShortLink, type ImportHint } from '#lib/server/importer.ts';
+import { giftKey } from '#lib/format.ts';
 import type { RequestHandler } from './$types';
+
+/**
+ * Already have it? Looks through every gift you (and your kids) keep for the same product, so
+ * pasting a link twice says so instead of adding a second copy.
+ */
+async function findDuplicate(locals: App.Locals, ...urls: (string | null | undefined)[]) {
+	const keys = new Set(urls.map(giftKey).filter((k): k is string => !!k));
+	if (!keys.size || !locals.user) return null;
+	const { results } = await locals.db
+		.prepare(
+			`SELECT i.id, i.title, i.url, i.list_id AS master FROM items i JOIN lists l ON l.id = i.list_id
+			 WHERE l.owner_id = ? AND l.kind = 'master' AND i.url IS NOT NULL`
+		)
+		.bind(locals.user.id)
+		.all<{ id: string; title: string; url: string; master: string }>();
+	const hit = results.find((r) => keys.has(giftKey(r.url) ?? ''));
+	return hit ? { id: hit.id, title: hit.title, master: hit.master } : null;
+}
 
 /**
  * Read a gift (or a whole Amazon wish list) from a link.
@@ -8,7 +27,7 @@ import type { RequestHandler } from './$types';
  *   { url, hint }           - details the bookmark button already read; fetch only for gaps
  *   { items: [hint, ...] }  - a wish list the bookmark button read
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = (await request.json().catch(() => ({}))) as { url?: unknown; hint?: ImportHint; items?: ImportHint[] };
 
 	if (Array.isArray(body.items)) {
@@ -33,6 +52,11 @@ export const POST: RequestHandler = async ({ request }) => {
 				: `Couldn’t find any gifts on that list (Amazon sent ${saw}). If it’s set to Public, Amazon is probably hiding it from servers. ${bookmark}`
 		});
 	}
-	if (body.hint) return json({ kind: 'gift', ...(await importWithHint({ ...body.hint, url: raw })) });
-	return json({ kind: 'gift', ...(await importProduct(raw)) });
+	// The duplicate check runs alongside reading the shop's page, so it adds no wait.
+	const [gift, early] = await Promise.all([
+		body.hint ? importWithHint({ ...body.hint, url: raw }) : importProduct(raw),
+		findDuplicate(locals, raw).catch(() => null)
+	]);
+	const duplicate = early ?? (gift.url && gift.url !== raw ? await findDuplicate(locals, gift.url).catch(() => null) : null);
+	return json({ kind: 'gift', ...gift, duplicate });
 };

@@ -6,6 +6,7 @@
 	import { PAPERS } from '#lib/papers.ts';
 	import { shell } from '#lib/shell.svelte.ts';
 	import type { MenuItem } from '#lib/menu.svelte.ts';
+	import { undoable, isHidden } from '#lib/undo.svelte.ts';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Present from '#lib/components/Present.svelte';
@@ -66,7 +67,6 @@
 	/* A list's own menu on the shelf (hold it, or right-click): paper, sharing, settings, delete.
 	   What you pick shows straight away; the server catches up behind. */
 	let wraps = $state<Record<string, string>>({});
-	let gone = $state<string[]>([]);
 	const swatches = PAPERS.map((p) => ({ id: p.id, name: p.name, background: p.background }));
 	async function act(listId: string, action: string, body: Record<string, string> = {}) {
 		const fd = new FormData();
@@ -84,23 +84,28 @@
 			else delete wraps[id];
 		}
 	}
-	async function removeList(id: string) {
-		gone = [...gone, id];
-		if (!(await act(id, 'deleteList'))) gone = gone.filter((x) => x !== id);
+	function removeList(id: string, name: string) {
+		undoable({
+			message: `Deleted “${name.length > 28 ? `${name.slice(0, 26).trimEnd()}…` : name}”`,
+			requests: [{ url: `/lists/${id}?/deleteList`, body: {} }],
+			keys: [`list:${id}`],
+			revert: () => {},
+			done: (ok) => ok && invalidateAll()
+		});
 	}
-	function listMenu(id: string, wrap: string | null, share: (() => void) | null = null): () => MenuItem[] {
+	function listMenu(id: string, wrap: string | null, share: (() => void) | null = null, name = ''): () => MenuItem[] {
 		const everything = !!share;
 		return () => [
 			{ papers: swatches, current: wraps[id] ?? wrap, pick: (w: string) => setWrap(id, w) },
 			'divider',
 			{ label: everything ? 'Share all' : 'Share', icon: 'share', run: share ?? (() => goto(`/lists/${id}?open=share`)) },
 			{ label: everything ? 'Wish list settings' : 'Name, date & more', icon: 'tag', href: `/lists/${id}?open=settings` },
-			...(everything ? [] : [{ label: 'Delete list', icon: 'close', danger: true, confirm: 'Tap again to delete', run: () => removeList(id) }])
+			...(everything ? [] : [{ label: 'Delete list', icon: 'close', danger: true, run: () => removeList(id, name) }])
 		];
 	}
 	const wrapOf = (id: string, wrap: string | null) => wraps[id] ?? wrap;
 
-	const next = $derived(data.next);
+	const next = $derived(data.next && !isHidden(`list:${data.next.id}`) ? data.next : null);
 	const nextKid = $derived(data.kids.find((k) => k.lists.some((l) => l.id === data.nextId))?.kid.name ?? null);
 	const gifts = (n: number) => `${n} ${n === 1 ? 'gift' : 'gifts'}`;
 
@@ -175,8 +180,8 @@
 			transitionName="paper-{data.everything.id}"
 			big
 		/>
-		{#each data.lists.filter((l) => !gone.includes(l.id)) as list, i (list.id)}
-			<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+		{#each data.lists.filter((l) => !isHidden(`list:${l.id}`)) as list, i (list.id)}
+			<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 		{:else}
 			<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists yet</p>
 		{/each}
@@ -206,8 +211,8 @@
 				transitionName="paper-{section.everything.id}"
 				big
 			/>
-			{#each section.lists.filter((l) => !gone.includes(l.id)) as list, i (list.id)}
-				<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+			{#each section.lists.filter((l) => !isHidden(`list:${l.id}`)) as list, i (list.id)}
+				<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 			{:else}
 				<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists for {section.kid.name} yet</p>
 			{/each}

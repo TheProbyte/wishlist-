@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { occasionDate, milestone, nextAnnual, storedDate, withKid } from '../src/lib/format.ts';
+import { occasionDate, milestone, nextAnnual, storedDate, withKid, giftKey } from '../src/lib/format.ts';
 
 const at = (s: string) => {
 	const [y, m, d] = s.split('-').map(Number);
@@ -50,4 +50,14 @@ test('withKid names a child once', () => {
 	assert.equal(withKid('kya', 'Kya’s birthday'), 'Kya’s birthday');
 	assert.equal(withKid('Kya', 'Christmas'), 'Kya’s Christmas');
 	assert.equal(withKid(null, 'Birthday'), 'Birthday');
+});
+
+test('giftKey matches the same product however it was linked', () => {
+	const a = giftKey('https://www.amazon.com/Some-Long-Name/dp/B07XJ8C8F5/ref=sr_1_3?keywords=x');
+	assert.equal(a, 'amazon:B07XJ8C8F5');
+	assert.equal(giftKey('https://amazon.com/gp/product/B07XJ8C8F5'), a);
+	assert.equal(giftKey('https://www.amazon.com/dp/b07xj8c8f5?th=1'), a);
+	assert.equal(giftKey('https://shop.example.com/products/mug/?utm_source=x'), giftKey('https://shop.example.com/products/mug'));
+	assert.notEqual(giftKey('https://shop.example.com/products/mug'), giftKey('https://shop.example.com/products/plate'));
+	assert.equal(giftKey('not a link'), null);
 });

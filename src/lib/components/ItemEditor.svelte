@@ -28,7 +28,7 @@
 		saveLabel,
 		extra = {},
 		onsaved,
-		ongone,
+		ondrop,
 		onfail
 	}: {
 		open?: boolean;
@@ -46,8 +46,8 @@
 		/** Extra form fields to send with the gift (e.g. who it's for). */
 		extra?: Record<string, string>;
 		onsaved?: (id: string) => void;
-		/** Delete/remove: the page takes the gift off screen straight away... */
-		ongone?: (id: string) => void;
+		/** Delete it, or take it off this list: the page does it (with Undo). */
+		ondrop?: (id: string, mode: 'list' | 'everywhere') => void;
 		/** ...and is told if the server said no (the page has already been refreshed back). */
 		onfail?: (message: string) => void;
 	} = $props();
@@ -67,8 +67,12 @@
 	let description = $state('');
 	let specs = $state<Specific[]>([]);
 	let error = $state<string | null>(null);
+	function drop(mode: 'list' | 'everywhere') {
+		const id = draft?.id;
+		open = false;
+		if (id) ondrop?.(id, mode);
+	}
 	let saving = $state(false);
-	let confirmDelete = $state(false);
 	let showImageUrl = $state(false);
 	let onLists = $state<string[]>([]);
 	let uploading = $state(false);
@@ -96,7 +100,6 @@
 		description = d.description ?? '';
 		specs = (d.specifics ?? []).map((s) => ({ ...s }));
 		error = null;
-		confirmDelete = false;
 		showImageUrl = false;
 		duplicate = null;
 		allowDuplicate = false;
@@ -369,28 +372,11 @@
 		<div class="flex items-center justify-between gap-2">
 			<div>
 				{#if !isNew}
-					<form method="POST" action="?/deleteItem" class="flex flex-wrap gap-1" use:enhance={() => {
-						// Act first: the gift leaves the screen now; the server catches up behind it.
-						const id = draft?.id;
-						open = false;
-						if (id) ongone?.(id);
-						return async ({ result, update }) => {
-							await update();
-							if (result.type !== 'success' && result.type !== 'redirect') {
-								await invalidateAll();
-								onfail?.('Couldn’t remove that gift. It’s back.');
-							}
-						};
-					}}>
-						<input type="hidden" name="id" value={draft?.id} />
-						{#if confirmDelete}
-							<button class="btn-danger" name="mode" value="everywhere">Delete everywhere</button>
-							<button type="button" class="btn-quiet" onclick={() => (confirmDelete = false)}>Keep</button>
-						{:else}
-							{#if currentList}<button class="btn-quiet hover:text-rust-300" name="mode" value="list">Remove from list</button>{/if}
-							<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (confirmDelete = true)}>{currentList ? 'Delete everywhere' : 'Delete'}</button>
-						{/if}
-					</form>
+					<!-- No "are you sure?": it goes at once, and the strip at the bottom offers Undo. -->
+					<div class="flex flex-wrap gap-1">
+						{#if currentList}<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => drop('list')}>Remove from list</button>{/if}
+						<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => drop('everywhere')}>{currentList ? 'Delete everywhere' : 'Delete'}</button>
+					</div>
 				{:else}
 					<!-- Changing your mind about a new gift: one clear way out. -->
 					<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (open = false)}><Icon name="close" size={18} />Don’t add</button>
