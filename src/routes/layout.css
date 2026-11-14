@@ -650,3 +650,47 @@ html {
 		background: var(--color-cocoa-950);
 	}
 }
+
+/* Opening a list unwraps it: the present's paper tears away from the top down as it grows
+   into the list's header strip. */
+@keyframes vt-tear-away {
+	from {
+		clip-path: polygon(0.0% 0%, 12.5% 0%, 25.0% 0%, 37.5% 0%, 50.0% 0%, 62.5% 0%, 75.0% 0%, 87.5% 0%, 100.0% 0%, 100% 100%, 0% 100%);
+	}
+	to {
+		clip-path: polygon(0.0% 100%, 12.5% 88%, 25.0% 100%, 37.5% 88%, 50.0% 100%, 62.5% 88%, 75.0% 100%, 87.5% 88%, 100.0% 100%, 100% 100%, 0% 100%);
+	}
+}
+html[data-nav='open']::view-transition-old(*.paper) {
+	animation: vt-tear-away 300ms cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+html[data-nav='open']::view-transition-new(*.paper) {
+	animation: vt-fade-out 220ms var(--ease-out-soft) reverse both;
+}
+
+/* Claiming a gift wraps it: paper closes over the photo from both sides, then lifts away to
+   show the ribbon. */
+@keyframes wrap-up {
+	0% {
+		clip-path: inset(0 50% 0 50%);
+		opacity: 1;
+	}
+	35%,
+	70% {
+		clip-path: inset(0 0 0 0);
+		opacity: 1;
+	}
+	100% {
+		clip-path: inset(0 0 0 0);
+		opacity: 0;
+	}
+}
+.wrap-up {
+	animation: wrap-up 950ms var(--ease-out-soft) both;
+}
+
+/* A gift tag: corners clipped off the top, like a luggage tag. */
+@utility tag-shape {
+	border-radius: 0 0 var(--radius-card) var(--radius-card);
+	clip-path: polygon(22% 0, 78% 0, 100% 18%, 100% 100%, 0 100%, 0 18%);
+}

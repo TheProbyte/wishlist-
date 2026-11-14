@@ -20,6 +20,6 @@
 	})();
 </script>
 
-<div class="relative overflow-hidden rounded-t-[var(--radius-card)] {height} {cls}" style="background: {paper.background}; clip-path: {tear};{transitionName ? ` view-transition-name: ${transitionName}` : ''}" aria-hidden="true">
+<div class="relative overflow-hidden rounded-t-[var(--radius-card)] {height} {cls}" style="background: {paper.background}; clip-path: {tear};{transitionName ? ` view-transition-name: ${transitionName}; view-transition-class: paper` : ''}" aria-hidden="true">
 	<div class="absolute inset-y-0 right-[14%] w-4" style="background: {paper.ribbon}"></div>
 </div>

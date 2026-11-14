@@ -7,6 +7,7 @@
 	import Sticker from './Sticker.svelte';
 	import Confetti from './Confetti.svelte';
 	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
+	import { paperFor } from '#lib/papers.ts';
 	import type { Category, Item } from '#lib/types.ts';
 
 	type GiverItem = Item & { claimed: number; mine: number };
@@ -59,8 +60,9 @@
 				{#if item.mine > 0}
 					<!-- Yours: wrapped in a teal ribbon. -->
 					<div class="pointer-events-none absolute inset-x-2 top-2 bottom-0 overflow-hidden rounded-[12px]" aria-hidden="true">
-						<div class="absolute inset-x-0 top-[46%] h-4 bg-teal-500 {fresh ? 'ribbon-x' : ''}"></div>
-						<div class="absolute inset-y-0 left-[62%] w-4 bg-teal-500 {fresh ? 'ribbon-y' : ''}"></div>
+						<div class="absolute inset-x-0 top-[46%] h-4 bg-teal-500 {fresh ? 'ribbon-x' : ''}" style={fresh ? 'animation-delay: 620ms' : ''}></div>
+						<div class="absolute inset-y-0 left-[62%] w-4 bg-teal-500 {fresh ? 'ribbon-y' : ''}" style={fresh ? 'animation-delay: 800ms' : ''}></div>
+						{#if fresh}<div class="wrap-up paper-grain absolute inset-0" style="background: {paperFor(null, 'general').background}"></div>{/if}
 					</div>
 				{/if}
 				{#if fresh}<Confetti {fire} />{/if}

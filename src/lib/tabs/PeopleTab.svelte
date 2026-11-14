@@ -49,16 +49,23 @@
 		{#if data.people.length}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 				{#each data.people as person, i (person.id)}
-					<a href="/people/{person.id}" class="card rise flex flex-col items-center gap-2 p-4 pt-5 text-center transition active:translate-y-0.5" style="--i: {i}">
-						<Avatar name={person.name} src={person.avatar_url} size={64} />
-						<span class="w-full truncate text-[17px] font-bold">{person.name.split(' ')[0]}</span>
-						<span class="-mt-1.5 w-full truncate text-xs text-fg-faint">{person.circles.join(' · ')}</span>
-						{#if person.next}
-							<span class="pill bg-rust-500/20 text-rust-300">{person.next.kid ? `${person.next.kid}’s ` : ''}{person.next.label} {countdownLabel(person.next.date)}</span>
-						{/if}
-						<span class="mt-auto inline-flex items-center gap-1 pt-1 text-sm font-bold text-teal-300">
-							{person.gift_count ? `${person.gift_count} ${person.gift_count === 1 ? 'gift' : 'gifts'}` : 'Wish lists'}<Icon name="chevron-right" size={16} />
-						</span>
+					<!-- Each person is a gift tag on a string: "To: Sam". -->
+					<a href="/people/{person.id}" class="group rise relative block pt-5 drop-shadow-[0_3px_0_var(--color-edge)] transition active:translate-y-0.5" style="--i: {i}">
+						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
+							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+						</svg>
+						<div class="tag-shape paper-grain relative flex flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
+							<span class="absolute top-3 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-cocoa-950 ring-3 ring-[var(--accent)]/60"></span>
+							<Avatar name={person.name} src={person.avatar_url} size={58} />
+							<span class="w-full truncate"><span class="mr-1 text-xs font-bold text-fg-faint">To:</span><span class="display text-[20px]">{person.name.split(' ')[0]}</span></span>
+							<span class="-mt-1 w-full truncate text-xs text-fg-faint">{person.circles.join(' · ')}</span>
+							{#if person.next}
+								<span class="pill bg-rust-500/20 text-rust-300">{person.next.kid ? `${person.next.kid}’s ` : ''}{person.next.label} {countdownLabel(person.next.date)}</span>
+							{/if}
+							<span class="mt-auto inline-flex items-center gap-1 pt-1 text-sm font-bold text-[var(--accent-text)]">
+								{person.gift_count ? `${person.gift_count} ${person.gift_count === 1 ? 'gift' : 'gifts'}` : 'Wish lists'}<Icon name="chevron-right" size={16} />
+							</span>
+						</div>
 					</a>
 				{/each}
 			</div>

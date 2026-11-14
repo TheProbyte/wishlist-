@@ -25,7 +25,7 @@
 	const paper = $derived(paperFor(wrap, occasion));
 </script>
 
-<div class="relative overflow-hidden {cls}" style="background: {paper.background};{transitionName ? ` view-transition-name: ${transitionName}` : ''}">
+<div class="relative overflow-hidden {cls}" style="background: {paper.background};{transitionName ? ` view-transition-name: ${transitionName}; view-transition-class: paper` : ''}">
 	<div class="absolute inset-y-0 w-3.5" style="left: calc({ribbonAt}% - 7px); background: {paper.ribbon}"></div>
 	<div class="absolute inset-x-0 top-[42%] h-3.5" style="background: {paper.ribbon}"></div>
 	{#if bow}
