@@ -980,3 +980,96 @@ html[data-nav='morph']::view-transition-group(*) {
 		filter: drop-shadow(0 0 5px rgb(255 220 150 / 0.8));
 	}
 }
+
+/* App themes (You → Look & feel): the page, card and text colours, swapped as a set. */
+:root[data-theme='midnight'] {
+	--color-cocoa-950: #141a2b;
+	--color-cocoa-900: #1a2236;
+	--color-cocoa-850: #1f2840;
+	--color-cocoa-800: #27324d;
+	--color-cocoa-700: #34405e;
+	--color-cocoa-600: #47557a;
+	--color-cocoa-500: #66749a;
+	--color-sunken: #10141f;
+	--color-edge: #0a0d16;
+	--color-fg: #eef0f6;
+	--color-fg-muted: #b9c0d4;
+	--color-fg-faint: #8d96b0;
+}
+:root[data-theme='forest'] {
+	--color-cocoa-950: #14211a;
+	--color-cocoa-900: #1a2920;
+	--color-cocoa-850: #1f3026;
+	--color-cocoa-800: #273b2f;
+	--color-cocoa-700: #334a3c;
+	--color-cocoa-600: #46624f;
+	--color-cocoa-500: #5f7d68;
+	--color-sunken: #101a14;
+	--color-edge: #0a120d;
+	--color-fg: #eef3e6;
+	--color-fg-muted: #bccab5;
+	--color-fg-faint: #8fa38a;
+}
+:root[data-theme='plum'] {
+	--color-cocoa-950: #231623;
+	--color-cocoa-900: #2c1c2c;
+	--color-cocoa-850: #332033;
+	--color-cocoa-800: #3e283e;
+	--color-cocoa-700: #4e344d;
+	--color-cocoa-600: #664765;
+	--color-cocoa-500: #846583;
+	--color-sunken: #1c111c;
+	--color-edge: #120a12;
+	--color-fg: #f6eaf1;
+	--color-fg-muted: #cdb9c6;
+	--color-fg-faint: #a48d9c;
+}
+:root[data-theme='charcoal'] {
+	--color-cocoa-950: #18181a;
+	--color-cocoa-900: #1e1e21;
+	--color-cocoa-850: #232326;
+	--color-cocoa-800: #2c2c30;
+	--color-cocoa-700: #3a3a3f;
+	--color-cocoa-600: #505056;
+	--color-cocoa-500: #6c6c73;
+	--color-sunken: #121214;
+	--color-edge: #0b0b0c;
+	--color-fg: #f1efeb;
+	--color-fg-muted: #c4c0b8;
+	--color-fg-faint: #96928b;
+}
+:root[data-theme='berry'] {
+	--color-cocoa-950: #2a1215;
+	--color-cocoa-900: #33171b;
+	--color-cocoa-850: #3b1b20;
+	--color-cocoa-800: #472128;
+	--color-cocoa-700: #592b33;
+	--color-cocoa-600: #733c46;
+	--color-cocoa-500: #915a64;
+	--color-sunken: #200d10;
+	--color-edge: #150809;
+	--color-fg: #f8ebe6;
+	--color-fg-muted: #d6bcb5;
+	--color-fg-faint: #ac918a;
+}
+/* A chosen highlight colour wins over the per-tab one. */
+:root[data-highlight='mustard'] {
+	--accent: var(--color-mustard-400) !important;
+	--accent-text: var(--color-mustard-400) !important;
+}
+:root[data-highlight='teal'] {
+	--accent: var(--color-teal-300) !important;
+	--accent-text: var(--color-teal-300) !important;
+}
+:root[data-highlight='rust'] {
+	--accent: var(--color-rust-300) !important;
+	--accent-text: var(--color-rust-300) !important;
+}
+:root[data-highlight='pink'] {
+	--accent: #ef8f9b !important;
+	--accent-text: #ef8f9b !important;
+}
+:root[data-highlight='cream'] {
+	--accent: var(--color-cream) !important;
+	--accent-text: var(--color-cream) !important;
+}

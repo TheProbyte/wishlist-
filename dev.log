@@ -1,0 +1,75 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+5:28:37 PM [vite] (ssr) connected.
+
+  VITE v8.3.8  ready in 3356 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 POST /lists/mst_local?/saveItem
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=11
+200 POST /lists/mst_local?/saveItem
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=11
+200 GET /me/look
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 POST /me/look?/saveTheme
+200 POST /me/look?/saveTheme
+200 GET /
+200 GET /
+200 GET /
+200 GET /
+200 GET /
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 GET /
+200 GET /lists/lst_4z060c5e3j4f6q1249/__data.json?x-sveltekit-invalidated=01
+5:29:42 PM [vite] (client) [console.warn] [sveltekit] replace_state_deprecated
+`replaceState(...)` is deprecated. Use `goto(url, { state, shallow: true, replace: true })` instead.
+https://svelte.dev/e/kit/replace_state_deprecated
+200 GET /me/__data.json?x-sveltekit-invalidated=01
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=01
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 GET /people
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 POST /lists/mst_local?/reorder
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=11
+200 GET /lists/mst_local
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 POST /lists/mst_local?/saveItem
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=11
+200 GET /me/__data.json?x-sveltekit-invalidated=01
+200 POST /lists/mst_local?/deleteItem
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=11
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 GET /lists/mst_local/__data.json?x-sveltekit-invalidated=01
+200 GET /
+200 GET /lists/lst_5k5c310x1t5v5r5117/__data.json?x-sveltekit-invalidated=01
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+304 GET /
+200 GET /add/__data.json?manual=1&x-sveltekit-invalidated=01
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+200 POST /?/create
+200 GET /lists/lst_6f0j634s08643n6m5s/__data.json?x-sveltekit-invalidated=11
+200 POST /lists/lst_6f0j634s08643n6m5s?/deleteList
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=11
+200 GET /
+200 GET /add/__data.json?manual=1&x-sveltekit-invalidated=01
+200 GET /lists/mst_local
+200 GET /img/img_1t0m142k4b0l3p074p
+200 GET /__data.json?x-sveltekit-trailing-slash=1&x-sveltekit-invalidated=01
+5:30:34 PM [vite] (client) hmr update /src/routes/layout.css
+5:30:34 PM [vite] (ssr) page reload worker-configuration.d.ts
+5:30:39 PM [vite] (client) page reload .svelte-kit/generated/dev/app-manifest.js

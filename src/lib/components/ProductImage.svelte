@@ -22,17 +22,16 @@
 	}: { src: string | null | undefined; alt?: string; size?: number; icon?: string | null; seed?: string; class?: string } = $props();
 
 	const url = $derived(size ? thumb(src, Math.min(1500, Math.round(size * 2))) : src);
-	let failed = $state(false);
-	let loaded = $state(false);
+	// Which address has loaded (or failed). Tied to the address, not reset by re-renders: saving a
+	// gift re-renders its card with the same photo, which must stay shown.
+	let loadedUrl = $state<string | null>(null);
+	let failedUrl = $state<string | null>(null);
+	const loaded = $derived(!!url && loadedUrl === url);
+	const failed = $derived(!!url && failedUrl === url);
 	let img = $state<HTMLImageElement>();
-	$effect(() => {
-		void src;
-		failed = false;
-		loaded = false;
-	});
 	// Already in the cache: no lift, just there.
 	$effect(() => {
-		if (img?.complete && img.naturalWidth) loaded = true;
+		if (img && url && img.complete && img.naturalWidth) loadedUrl = url;
 	});
 
 	function hash(s: string) {
@@ -54,8 +53,8 @@
 			decoding="async"
 			referrerpolicy="no-referrer"
 			class="h-full w-full object-contain p-3 mix-blend-multiply transition-[opacity,transform] duration-500 ease-[var(--ease-out-soft)] {loaded ? 'opacity-100' : 'scale-[0.97] opacity-0'}"
-			onload={() => (loaded = true)}
-			onerror={() => (failed = true)}
+			onload={() => (loadedUrl = url ?? null)}
+			onerror={() => (failedUrl = url ?? null)}
 		/>
 		{#if !loaded}
 			<!-- Tissue paper over the photo until it arrives; it lifts away as the photo loads. -->

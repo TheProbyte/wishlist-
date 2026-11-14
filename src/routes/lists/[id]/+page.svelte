@@ -569,8 +569,8 @@
 	</div>
 {/if}
 
-<!-- Phones: one gift, as a sheet that opens part-way (drag up for the rest). -->
-<Modal bind:open={viewSheet} expandable>
+<!-- Phones: one gift, as a sheet showing all of it. -->
+<Modal bind:open={viewSheet}>
 	{#snippet header()}<div class="h-2"></div>{/snippet}
 	{#if viewing}
 		<div class="-mt-2">

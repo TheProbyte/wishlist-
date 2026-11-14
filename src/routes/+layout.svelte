@@ -102,7 +102,7 @@
 	});
 	function parentOf(path: string): { href: string; label: string } {
 		if (/^\/(people\/|getting|circles|santa)/.test(path)) return { href: '/people', label: 'People' };
-		if (/^\/categories/.test(path)) return { href: '/me', label: 'You' };
+		if (/^\/(categories|me\/)/.test(path)) return { href: '/me', label: 'You' };
 		return { href: '/', label: 'Lists' };
 	}
 	onMount(() =>

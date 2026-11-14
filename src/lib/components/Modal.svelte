@@ -180,18 +180,17 @@
 		};
 	}
 
-	// Phones: when the keyboard comes up, sit the sheet on top of it (so Save stays in sight)
-	// and keep it no taller than the space that's left.
-	let keyboard = $state(0);
-	let room = $state<number | null>(null);
+	// Phones: while the keyboard is up, the sheet lives exactly in the part of the screen you can
+	// see (above the keyboard), so it doesn't jump as the phone scrolls, and Save stays in sight.
+	// The field you're typing in is kept in view, never under the keyboard.
+	let view = $state<{ top: number; height: number } | null>(null);
 	$effect(() => {
 		const vv = window.visualViewport;
 		if (!open || !vv) return;
 		// Only writes (never reads) the state, so this effect can't re-trigger itself.
 		const update = () => {
-			const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
-			keyboard = kb;
-			room = kb > 0 ? vv.height : null;
+			const keyboard = innerHeight - vv.height - vv.offsetTop;
+			view = keyboard > 80 ? { top: Math.round(vv.offsetTop), height: Math.round(vv.height) } : null;
 		};
 		update();
 		vv.addEventListener('resize', update);
@@ -199,23 +198,29 @@
 		return () => {
 			vv.removeEventListener('resize', update);
 			vv.removeEventListener('scroll', update);
-			untrack(() => {
-				keyboard = 0;
-				room = null;
-			});
+			untrack(() => (view = null));
 		};
 	});
+	function keepInView(e: FocusEvent) {
+		const el = e.target as HTMLElement;
+		if (!el.matches?.('input, textarea, select')) return;
+		// After the keyboard has finished coming up.
+		setTimeout(() => el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' }), 320);
+	}
 
 	// How tall the sheet may be: part-way for an expandable one until it's opened up.
 	const maxHeight = $derived(
-		room ? `${room * 0.94}px` : expandable && !expanded ? `calc(64dvh + ${lift}px)` : '92dvh'
+		view ? `${view.height * 0.96}px` : expandable && !expanded ? `calc(64dvh + ${lift}px)` : '92dvh'
 	);
 </script>
 
 <svelte:window {onkeydown} />
 
 {#if open}
-	<div class="fixed inset-x-0 top-0 z-50 flex items-end justify-center sm:items-center sm:p-6" style="bottom: {keyboard}px">
+	<div
+		class="fixed inset-x-0 top-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
+		style={view ? `top: ${view.top}px; height: ${view.height}px` : 'bottom: 0'}
+	>
 		<button
 			type="button"
 			aria-label="Close"
@@ -226,13 +231,14 @@
 		></button>
 		<div
 			bind:this={sheet}
+			onfocusin={keepInView}
 			role="dialog"
 			aria-modal="true"
 			aria-label={title}
 			class="relative flex w-full flex-col overflow-hidden overscroll-contain rounded-t-[28px] bg-cocoa-900 shadow-[0_-3px_0_0_var(--color-cocoa-700)] sm:max-h-[92dvh]! sm:rounded-[24px] sm:shadow-[0_4px_0_0_var(--color-edge)] {wide
 				? 'sm:max-w-3xl'
 				: 'sm:max-w-lg'} {dragging ? '' : 'transition-[transform,max-height] duration-300 ease-[var(--ease-out-soft)]'}"
-			style="transform: translateY({dragY}px); max-height: min({maxHeight}, calc(100dvh - 3rem))"
+			style="transform: translateY({dragY}px); max-height: {view ? maxHeight : `min(${maxHeight}, calc(100dvh - 3rem))`}"
 			in:sheetIn
 			out:sheetOut
 		>

@@ -15,7 +15,7 @@
 
 {#if st}
 	<span
-		class="grid shrink-0 -rotate-6 place-items-center rounded-full shadow-[0_2px_0_0_var(--color-edge)]"
+		class="relative grid shrink-0 -rotate-6 place-items-center rounded-full shadow-[0_2px_0_0_var(--color-edge)]"
 		style="width: {size}px; height: {size}px; background: {st.bg}; color: {st.fg}; box-shadow: 0 0 0 {Math.max(2, size * 0.06)}px var(--color-cream), 0 {Math.max(2, size * 0.06) + 2}px 0 0 var(--color-edge)"
 		role="img"
 		aria-label={name}
@@ -23,7 +23,7 @@
 		<Icon name={st.icon} size={Math.round(size * 0.52)} />
 	</span>
 {:else if src && !failed}
-	<img {src} alt="" width={size} height={size} referrerpolicy="no-referrer" class="shrink-0 rounded-full object-cover shadow-[0_2px_0_0_var(--color-edge)]" style="width: {size}px; height: {size}px" onerror={() => (failed = true)} />
+	<img {src} alt="" width={size} height={size} referrerpolicy="no-referrer" class="relative shrink-0 rounded-full object-cover shadow-[0_2px_0_0_var(--color-edge)]" style="width: {size}px; height: {size}px" onerror={() => (failed = true)} />
 {:else}
-	<span class="display grid shrink-0 place-items-center rounded-full text-cocoa-950 shadow-[0_2px_0_0_var(--color-edge)]" style="width: {size}px; height: {size}px; background: {color}; font-size: {size * 0.45}px" aria-hidden="true">{name.trim().charAt(0).toUpperCase()}</span>
+	<span class="display relative grid shrink-0 place-items-center rounded-full text-cocoa-950 shadow-[0_2px_0_0_var(--color-edge)]" style="width: {size}px; height: {size}px; background: {color}; font-size: {size * 0.45}px" aria-hidden="true">{name.trim().charAt(0).toUpperCase()}</span>
 {/if}

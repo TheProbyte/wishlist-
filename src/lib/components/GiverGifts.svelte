@@ -112,8 +112,8 @@
 </div>
 
 
-<!-- One gift, in full. Opens part-way; drag it up to see everything. -->
-<Modal bind:open={detailOpen} expandable>
+<!-- One gift, in full. -->
+<Modal bind:open={detailOpen}>
 	{#snippet header()}
 		<div class="flex items-center justify-between px-5 pt-2 sm:px-6 sm:pt-4">
 			<span class="text-xs font-bold tracking-wider text-fg-faint uppercase">Gift</span>
