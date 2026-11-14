@@ -10,6 +10,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let confirmDelete = $state(false);
 
 	const invite = $derived(`${page.url.origin}/santa/join/${data.exchange.invite_token}`);
 	let copied = $state(false);
@@ -110,8 +111,22 @@
 	</section>
 {/if}
 
-{#if form?.error}<p class="mb-6 text-center text-sm font-bold text-rust-300">{form.error}</p>{/if}
-
-<form method="POST" action="?/leave" use:enhance class="text-center">
-	<button class="btn-quiet text-sm hover:text-rust-300">{data.isOrganiser ? 'Cancel this Secret Santa' : 'Leave'}</button>
-</form>
+{#if data.isOrganiser}
+	<!-- Delete, any time, with one confirm. -->
+	<form method="POST" action="?/delete" use:enhance class="mt-4 rounded-[var(--radius-card)] bg-rust-500/10 p-4 text-center">
+		{#if confirmDelete}
+			<p class="mb-3 text-sm text-fg-muted">Delete {data.exchange.name} for everyone?{#if data.exchange.drawn}&nbsp;Everyone’s match is lost too.{/if}</p>
+			<div class="flex justify-center gap-2">
+				<button type="button" class="btn-quiet text-sm" onclick={() => (confirmDelete = false)}>Keep it</button>
+				<button class="btn-danger text-sm">Delete Secret Santa</button>
+			</div>
+		{:else}
+			<button type="button" class="btn-quiet text-sm text-rust-300 hover:text-rust-300" onclick={() => (confirmDelete = true)}>Delete this Secret Santa</button>
+		{/if}
+	</form>
+{:else}
+	<form method="POST" action="?/leave" use:enhance class="text-center">
+		<button class="btn-quiet text-sm hover:text-rust-300" disabled={data.exchange.drawn}>{data.exchange.drawn ? 'Names are drawn, so you’re in' : 'Leave'}</button>
+	</form>
+{/if}
+{#if form?.error}<p class="mt-3 text-center text-sm font-bold text-rust-300">{form.error}</p>{/if}

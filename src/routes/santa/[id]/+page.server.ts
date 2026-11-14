@@ -51,9 +51,18 @@ export const actions: Actions = {
 	leave: async ({ locals, params }) => {
 		const x = await exchangeFor(locals.db, params.id, locals.user.id);
 		if (!x) error(404, 'Not found');
-		if (x.drawn_at) return fail(400, { error: 'Names are already drawn, so ask the organiser to redraw first.' });
-		if (x.owner_id === locals.user.id) await locals.db.prepare('DELETE FROM exchanges WHERE id = ?').bind(x.id).run();
-		else await locals.db.prepare('DELETE FROM exchange_members WHERE exchange_id = ? AND user_id = ?').bind(x.id, locals.user.id).run();
+		if (x.owner_id === locals.user.id) return fail(400, { error: 'You’re the organiser: delete it instead.' });
+		if (x.drawn_at) return fail(400, { error: 'Names are already drawn, so leaving would leave someone without a giver. Ask the organiser to reopen it first.' });
+		await locals.db.prepare('DELETE FROM exchange_members WHERE exchange_id = ? AND user_id = ?').bind(x.id, locals.user.id).run();
+		redirect(303, '/people');
+	},
+	/** The organiser can delete it at any time, drawn or not: everyone's match goes with it. */
+	delete: async ({ locals, params }) => {
+		const x = await organiser(locals, params.id);
+		await locals.db.batch([
+			locals.db.prepare('DELETE FROM exchange_members WHERE exchange_id = ?').bind(x.id),
+			locals.db.prepare('DELETE FROM exchanges WHERE id = ?').bind(x.id)
+		]);
 		redirect(303, '/people');
 	},
 	reopen: async ({ locals, params }) => {

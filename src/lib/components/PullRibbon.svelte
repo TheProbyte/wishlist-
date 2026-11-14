@@ -92,19 +92,26 @@
 	<div class="ribbon-tail w-[18px] flex-1 {refreshing ? 'ribbon-run' : ''}"></div>
 	<!-- The bow on the end: grows as you pull, ties itself at the line. -->
 	<svg
-		class="-mt-2 shrink-0 transition-transform duration-200 ease-[var(--ease-spring)] {refreshing ? 'bow-busy' : ''}"
+		class="-mt-[18px] shrink-0 transition-transform duration-200 ease-[var(--ease-spring)] {refreshing ? 'bow-busy' : ''}"
 		style="transform: scale({dist ? Math.min(1, 0.35 + (dist / READY) * 0.65) * (ready ? 1.12 : 1) : 0}) rotate({ready ? 0 : (1 - dist / READY) * -24}deg); opacity: {dist ? 1 : 0}"
-		width="52"
-		height="40"
-		viewBox="0 0 68 52"
+		width="72"
+		height="64"
+		viewBox="0 0 72 64"
 		aria-hidden="true"
 	>
-		<g stroke="#2B1D14" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
-			<path d="M31 31l-11 18 7-1 3 5 6-18z" fill="#d2602d" />
-			<path d="M37 31l11 18-7-1-3 5-6-18z" fill="#d2602d" />
-			<path d="M34 30C26 12 6 5 5 18c-1 12 17 14 29 12z" fill="#e8a83a" />
-			<path d="M34 30C42 12 62 5 63 18c1 12-17 14-29 12z" fill="#e8a83a" />
-			<rect x="27" y="23" width="14" height="14" rx="5" fill="#3e8e87" />
+		<!-- A ribbon bow: two round, upright loops (with a hole through each), a knot as wide as the
+		     ribbon, and two tails as wide as the ribbon with notched ends. -->
+		<g stroke="#2B1D14" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+			<path d="M30 30 L17 59 L23 55.5 L27 61 L40 32 Z" fill="#d2602d" />
+			<path d="M42 30 L55 59 L49 55.5 L45 61 L32 32 Z" fill="#d2602d" />
+			<path d="M33 25 C29 13 21 3 12 5 C3 7 2 20 10 25.5 C16 29.5 26 29 33 28 Z" fill="#e8a83a" />
+			<path d="M39 25 C43 13 51 3 60 5 C69 7 70 20 62 25.5 C56 29.5 46 29 39 28 Z" fill="#e8a83a" />
 		</g>
+		<path d="M28 23 C25 16 19 10.5 14.5 11.5 C10 12.5 10.5 19 15 22 C18.5 24.3 23 24.3 28 24 Z" fill="#2B1D14" opacity="0.5" />
+		<path d="M44 23 C47 16 53 10.5 57.5 11.5 C62 12.5 61.5 19 57 22 C53.5 24.3 49 24.3 44 24 Z" fill="#2B1D14" opacity="0.5" />
+		<path d="M6 13 C8 6.5 15 5 21 8" fill="none" stroke="#f3c56a" stroke-width="2" stroke-linecap="round" />
+		<path d="M66 13 C64 6.5 57 5 51 8" fill="none" stroke="#f3c56a" stroke-width="2" stroke-linecap="round" />
+		<rect x="27" y="17" width="18" height="16" rx="5" fill="#3e8e87" stroke="#2B1D14" stroke-width="2.4" />
+		<path d="M31.5 21 v8 M40.5 21 v8" stroke="#2f6f69" stroke-width="2" stroke-linecap="round" />
 	</svg>
 </div>
