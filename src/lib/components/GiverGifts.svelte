@@ -86,7 +86,7 @@
 				{#if item.note}<p class="line-clamp-2 text-xs text-fg-muted italic">“{item.note}”</p>{/if}
 				<div class="mt-auto space-y-2 pt-0.5">
 					<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-						<span class="text-[15px] font-bold tabular-nums sm:text-lg">{formatPrice(item.price_cents, item.currency) || '—'}</span>
+						<span class="price-tag text-[14px] font-bold tabular-nums sm:text-base">{formatPrice(item.price_cents, item.currency) || '—'}</span>
 						{#if item.rating}<Stars value={item.rating} size={13} />{/if}
 					</div>
 					{#if item.url}

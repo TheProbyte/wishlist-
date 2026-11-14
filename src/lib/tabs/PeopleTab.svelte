@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -62,7 +63,8 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="card p-5">
+			<div class="card p-5 text-center">
+				<EmptyArt kind="chairs" class="mx-auto mb-3" />
 				<p class="font-bold">No one here yet</p>
 				<p class="mt-1 text-sm text-fg-muted">
 					{data.circles.length ? 'Your circle is just you so far. Send the invite link below to family or friends; once they join, they show up here.' : 'Make a circle for your family or friends and send them the invite link. Once they join, they show up here and you can see each other’s wish lists.'}

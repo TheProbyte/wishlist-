@@ -153,9 +153,9 @@
 @utility stripes {
 	background: linear-gradient(
 		to bottom,
-		var(--color-mustard-400) 0 33.4%,
-		var(--color-rust-500) 33.4% 66.7%,
-		var(--color-teal-500) 66.7% 100%
+		var(--stripe-a) 0 33.4%,
+		var(--stripe-b) 33.4% 66.7%,
+		var(--stripe-c) 66.7% 100%
 	);
 }
 
@@ -275,9 +275,9 @@ select.field {
 @utility stripes-run {
 	background: repeating-linear-gradient(
 		90deg,
-		var(--color-mustard-400) 0 24px,
-		var(--color-rust-500) 24px 48px,
-		var(--color-teal-500) 48px 72px
+		var(--stripe-a) 0 24px,
+		var(--stripe-b) 24px 48px,
+		var(--stripe-c) 48px 72px
 	);
 	background-size: 72px 100%;
 	animation: stripes-run 600ms linear infinite;
@@ -462,9 +462,24 @@ html[data-nav='close']::view-transition-new(root) {
 
 /* One accent per tab: Lists mustard, People teal, You rust. The layout sets data-accent. */
 :root {
+	--stripe-a: var(--color-mustard-400);
+	--stripe-b: var(--color-rust-500);
+	--stripe-c: var(--color-teal-500);
 	--accent: var(--color-mustard-400);
 	--accent-text: var(--color-mustard-400);
 	--accent-ink: var(--color-cocoa-950);
+}
+:root[data-season='winter'] {
+	/* December: candy-cane stripes. */
+	--stripe-a: var(--color-rust-500);
+	--stripe-b: var(--color-cream);
+	--stripe-c: var(--color-teal-600);
+}
+:root[data-season='hearts'] {
+	/* Early February: valentine stripes. */
+	--stripe-a: #ef8f9b;
+	--stripe-b: var(--color-cream);
+	--stripe-c: var(--color-rust-500);
 }
 :root[data-accent='people'] {
 	--accent: var(--color-teal-300);
@@ -520,4 +535,118 @@ html[data-nav='close']::view-transition-new(root) {
 	/* A torn paper edge in the page's own colour, with a shadow falling on the way back. */
 	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='16'%3E%3Cpath d='M12 0H6L0 8l6 8h6z' fill='%232b1d14'/%3E%3C/svg%3E") repeat-y;
 	filter: drop-shadow(-6px 0 8px rgb(0 0 0 / 0.55));
+}
+
+/* Pull to refresh (PullRibbon): the header's stripes, running down as a ribbon. */
+.ribbon-tail {
+	background:
+		repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.16) 0 8px, transparent 8px 16px),
+		linear-gradient(to right, var(--stripe-a) 0 33.4%, var(--stripe-b) 33.4% 66.7%, var(--stripe-c) 66.7% 100%);
+	box-shadow: 0 2px 0 0 var(--color-edge);
+}
+@keyframes ribbon-run {
+	to {
+		background-position:
+			0 32px,
+			0 0;
+	}
+}
+.ribbon-run {
+	animation: ribbon-run 450ms linear infinite;
+}
+.bow-busy {
+	animation: wiggle 700ms var(--ease-spring) infinite;
+}
+html {
+	/* Our ribbon replaces the browser's own pull-to-refresh and bounce at the top. */
+	overscroll-behavior-y: none;
+}
+
+/* Scroll bars in the theme: a mustard bar on a cocoa track (mostly seen on desktop). */
+:root {
+	scrollbar-color: var(--color-mustard-600) var(--color-cocoa-900);
+}
+@media (hover: hover) and (pointer: fine) {
+	::-webkit-scrollbar {
+		width: 12px;
+		height: 12px;
+	}
+	::-webkit-scrollbar-track {
+		background: var(--color-cocoa-900);
+	}
+	::-webkit-scrollbar-thumb {
+		background: var(--color-mustard-600);
+		border: 3px solid var(--color-cocoa-900);
+		border-radius: 999px;
+	}
+	::-webkit-scrollbar-thumb:hover,
+	::-webkit-scrollbar-thumb:active {
+		background: var(--color-rust-500);
+	}
+}
+
+/* Pointing at things (mouse only): cards lift a little, buttons press down when clicked. */
+@media (hover: hover) and (pointer: fine) {
+	a.card,
+	button.card {
+		transition:
+			translate 180ms var(--ease-spring),
+			box-shadow 180ms;
+	}
+	a.card:hover,
+	button.card:hover {
+		translate: 0 -2px;
+		box-shadow: 0 5px 0 0 var(--color-edge);
+	}
+	.chip:hover {
+		translate: 0 -1px;
+	}
+}
+
+/* The paper pointer (a choice on the You page): a cream arrow, mustard over things you can tap. */
+:root[data-pointer='paper'],
+:root[data-pointer='paper'] * {
+	cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='30' viewBox='0 0 26 30'%3E%3Cpath d='M3 2l18 13.5-8.2 1.3 4.6 9.2-3.6 1.8-4.6-9.2L3 24z' fill='%23f3e7cf' stroke='%232b1d14' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, auto;
+}
+:root[data-pointer='paper'] :is(a, button, [role='button'], label, summary, select, [draggable='true']) {
+	cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='30' viewBox='0 0 26 30'%3E%3Cpath d='M3 2l18 13.5-8.2 1.3 4.6 9.2-3.6 1.8-4.6-9.2L3 24z' fill='%23e8a83a' stroke='%232b1d14' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='25' r='3.2' fill='%23d2602d' stroke='%232b1d14' stroke-width='1.6'/%3E%3C/svg%3E") 3 2, pointer;
+}
+:root[data-pointer='paper'] :is(input:not([type='checkbox'], [type='radio'], [type='range']), textarea) {
+	cursor: text;
+}
+
+/* Stickers have a corner peeling up. */
+.sticker-peel::after {
+	content: '';
+	position: absolute;
+	right: 3px;
+	bottom: 1px;
+	width: 9px;
+	height: 9px;
+	border-radius: 0 0 9px 0;
+	background: linear-gradient(135deg, transparent 50%, rgb(255 255 255 / 0.55) 50%);
+	box-shadow: -1px -1px 2px rgb(0 0 0 / 0.25);
+	transform: rotate(-6deg);
+}
+
+/* Prices hang on little tags: a pointed end with a punched hole. */
+@utility price-tag {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 8px 1px 15px;
+	border-radius: 0 7px 7px 0;
+	background: var(--color-cocoa-800);
+	clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+	&::before {
+		content: '';
+		position: absolute;
+		left: 6px;
+		top: 50%;
+		width: 5px;
+		height: 5px;
+		margin-top: -2.5px;
+		border-radius: 999px;
+		background: var(--color-cocoa-950);
+	}
 }

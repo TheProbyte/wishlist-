@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyArt from './EmptyArt.svelte';
 	import GiverGifts from './GiverGifts.svelte';
 	import Icon from './Icon.svelte';
 	import { SIZE_FIELDS } from '#lib/sizes.ts';
@@ -119,5 +120,5 @@
 
 <GiverGifts items={shown} {categories} {giverName} {error} {hideTaken} {preview} />
 {#if shown.length === 0}
-	<p class="py-14 text-center text-sm text-fg-faint">Nothing here at that price. Try another.</p>
+	<div class="py-10 text-center"><EmptyArt class="mx-auto mb-3 opacity-80" /><p class="text-sm text-fg-faint">Nothing here at that price. Try another.</p></div>
 {/if}

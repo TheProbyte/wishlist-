@@ -9,6 +9,8 @@
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
 	import { edgeBack } from '#lib/edgeBack.ts';
+	import PullRibbon from '#lib/components/PullRibbon.svelte';
+	import { getPref } from '#lib/prefs.ts';
 	import { onMount } from 'svelte';
 	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
 	import { shell } from '#lib/shell.svelte.ts';
@@ -48,6 +50,16 @@
 	// One accent colour per tab (Lists mustard, People teal, You rust), following the swipe.
 	$effect(() => {
 		document.documentElement.dataset.accent = ['lists', 'people', 'me'][shared ? 0 : Math.max(0, active)] ?? 'lists';
+	});
+
+	// The paper pointer (a choice on the You page), and seasonal stripes in the header.
+	onMount(() => {
+		if (getPref('pointer') === 'paper') document.documentElement.dataset.pointer = 'paper';
+		const d = new Date();
+		const m = d.getMonth();
+		const day = d.getDate();
+		if (m === 11) document.documentElement.dataset.season = 'winter';
+		else if (m === 1 && day <= 14) document.documentElement.dataset.season = 'hearts';
 	});
 
 	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
@@ -125,6 +137,7 @@
 			</nav>
 		{/if}
 	</div>
+	{#if !shared}<PullRibbon />{/if}
 	<div class="relative h-[12px]" aria-hidden="true">
 		<div class="stripes h-full"></div>
 		{#if loading}<div class="stripes-run absolute inset-0 opacity-90" role="progressbar" aria-label="Loading"></div>{/if}

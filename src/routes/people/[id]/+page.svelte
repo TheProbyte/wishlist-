@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import GiverShelf from '#lib/components/GiverShelf.svelte';
@@ -48,7 +49,7 @@
 		{#if p.items.length}
 			<GiverShelf items={p.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={p.sizes} person={p.kid ?? data.person.name} />
 		{:else}
-			<p class="py-14 text-center text-sm text-fg-faint">Nothing on this list yet.</p>
+			<div class="py-10 text-center"><EmptyArt class="mx-auto mb-3 opacity-80" /><p class="text-sm text-fg-faint">Nothing on this list yet.</p></div>
 		{/if}
 	{/snippet}
 </SwipePages>

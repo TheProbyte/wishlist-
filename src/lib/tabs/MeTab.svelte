@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getPref, setPref } from '#lib/prefs.ts';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -30,6 +31,12 @@
 		copiedCode = true;
 		setTimeout(() => (copiedCode = false), 1800);
 	}
+
+	// The paper pointer, remembered on this computer.
+	let paperPointer = $state(false);
+	$effect(() => {
+		paperPointer = getPref('pointer') === 'paper';
+	});
 </script>
 
 <section class="mb-8 flex items-center gap-4">
@@ -141,6 +148,23 @@
 		<Icon name="chevron-right" size={18} />
 	</a>
 </section>
+
+<!-- Computers only: the paper pointer. -->
+<label class="card mb-8 hidden cursor-pointer items-center gap-3 p-4 sm:flex">
+	<span class="grid h-11 w-11 place-items-center rounded-full bg-cocoa-950 text-rust-300"><Icon name="sparkle" size={22} /></span>
+	<span class="flex-1"><span class="block font-bold">Paper pointer</span><span class="text-sm text-fg-muted">A cream arrow that turns mustard over anything you can click</span></span>
+	<input
+		type="checkbox"
+		class="h-6 w-6 rounded-md border-2 border-cocoa-600 bg-sunken text-rust-500 focus:ring-0 focus:ring-offset-0"
+		checked={paperPointer}
+		onchange={(e) => {
+			paperPointer = e.currentTarget.checked;
+			setPref('pointer', paperPointer ? 'paper' : 'normal');
+			if (paperPointer) document.documentElement.dataset.pointer = 'paper';
+			else delete document.documentElement.dataset.pointer;
+		}}
+	/>
+</label>
 
 {#if data.authEnabled}
 	<form method="POST" action="/auth/logout">

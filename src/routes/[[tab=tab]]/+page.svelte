@@ -108,6 +108,7 @@
 	{#each ORDER as tab, i (tab)}
 		<section
 			bind:this={panels[i]}
+			data-ptr
 			class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain"
 			inert={current !== i}
 			aria-label={TITLES[i]}

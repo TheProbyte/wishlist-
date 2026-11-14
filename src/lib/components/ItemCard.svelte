@@ -109,7 +109,7 @@
 				</div>
 			{/if}
 			<div class="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-0.5">
-				{@render price('text-[15px] sm:text-lg')}
+				<span class="price-tag">{@render price('text-[14px] sm:text-base')}</span>
 				<Stars value={item.rating} size={14} onchange={onrate} />
 			</div>
 		</div>

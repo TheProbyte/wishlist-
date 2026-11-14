@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { enhance } from '$app/forms';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -40,7 +41,7 @@
 
 {#if data.claims.length === 0}
 	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-14 text-center">
-		<div class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-cocoa-850 text-teal-300"><Icon name="gift" size={30} /></div>
+		<EmptyArt class="mx-auto mb-3" />
 		<h2 class="display text-2xl">Nothing claimed yet</h2>
 		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">When you tap “I’ll get this” on someone’s list, it lands here so you can keep track.</p>
 	</div>

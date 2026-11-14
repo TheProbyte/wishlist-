@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { onMount, tick } from 'svelte';
 	import { enhance, deserialize } from '$app/forms';
 	import { goto, invalidateAll, preloadData } from '$app/navigation';
@@ -404,7 +405,7 @@
 
 {#if items.length === 0}
 	<div class="rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-6 py-14 text-center">
-		<div class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-cocoa-850 text-mustard-400"><Icon name="gift" size={30} /></div>
+		<EmptyArt class="mx-auto mb-3" />
 		<h2 class="display text-2xl">Nothing wrapped yet</h2>
 		<p class="mx-auto mt-2 max-w-sm text-sm text-fg-muted">Copy a product link from any shop and paste it in the bar. The picture, name and price come in by themselves.</p>
 		<div class="mt-5 flex flex-wrap justify-center gap-2">
