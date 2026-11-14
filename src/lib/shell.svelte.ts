@@ -9,5 +9,7 @@ export const shell = $state({
 	progress: 0,
 	go: (_i: number) => {},
 	/** The tab bar's tab for the tab already showing was tapped again. */
-	reselect: (_i: number) => {}
+	reselect: (_i: number) => {},
+	/** Something a tab should do once it's showing (from the tab bar's hold menu): 'new-list', 'new-circle'… */
+	request: null as string | null
 });

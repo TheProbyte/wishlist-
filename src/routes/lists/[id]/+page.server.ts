@@ -183,6 +183,15 @@ export const actions: Actions = {
 		return { listSaved: true };
 	},
 
+	// Just the wrapping paper (from the list's hold menu on the shelf).
+	setWrap: async ({ request, locals, params }) => {
+		const list = await ownList(locals, params.id);
+		const wrap = String((await request.formData()).get('wrap') ?? '');
+		if (!isPaper(wrap)) return fail(400, { listError: 'That paper isn’t one we have.' });
+		await locals.db.prepare('UPDATE lists SET wrap = ?, updated_at = unixepoch() WHERE id = ?').bind(wrap, list.id).run();
+		return { listSaved: true };
+	},
+
 	deleteList: async ({ locals, params }) => {
 		const list = await ownList(locals, params.id);
 		if (list.kind === 'master') return fail(400, { listError: 'The Everything list can’t be deleted.' });

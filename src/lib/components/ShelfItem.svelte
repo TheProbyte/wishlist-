@@ -2,6 +2,7 @@
 	import Present from './Present.svelte';
 	import GiftTag from './GiftTag.svelte';
 	import { openPresent } from '#lib/openPresent.ts';
+	import { contextMenu, type MenuItem } from '#lib/menu.svelte.ts';
 
 	/**
 	 * A present standing on a wooden shelf: the list's paper, its count tag, and its name on the
@@ -19,7 +20,8 @@
 		index = 0,
 		transitionName,
 		subClass = '',
-		days = null
+		days = null,
+		menu = null
 	}: {
 		href: string;
 		wrap: string | null;
@@ -33,6 +35,8 @@
 		subClass?: string;
 		/** Days until its occasion: inside a week, the present gets restless. */
 		days?: number | null;
+		/** Its options, shown when it's held or right-clicked (after "Open", which every list has). */
+		menu?: (() => MenuItem[]) | null;
 	} = $props();
 
 	// Assorted box shapes, by position, so neighbours differ; fuller lists are bigger boxes.
@@ -67,7 +71,13 @@
 	const restless = $derived(days != null && days >= 0 && days <= 7);
 </script>
 
-<a {href} bind:this={link} class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
+<a
+	{href}
+	bind:this={link}
+	use:contextMenu={{
+		spec: () => (menu ? { title, sub: `${count} ${count === 1 ? 'gift' : 'gifts'}`, items: [{ label: 'Open', icon: 'gift', run: () => link?.click() }, ...menu()] } : null)
+	}}
+	class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
 	<div
 		bind:this={box}
 		class="relative mx-auto {shape.aspect} {restless ? 'shelf-restless' : ''} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5"

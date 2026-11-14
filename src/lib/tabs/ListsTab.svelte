@@ -1,6 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance, deserialize } from '$app/forms';
 	import { page } from '$app/state';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { untrack } from 'svelte';
+	import { PAPERS } from '#lib/papers.ts';
+	import { shell } from '#lib/shell.svelte.ts';
+	import type { MenuItem } from '#lib/menu.svelte.ts';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Present from '#lib/components/Present.svelte';
@@ -49,6 +54,51 @@
 		copied = true;
 		setTimeout(() => (copied = false), 1800);
 	}
+
+	// Asked for from the tab bar's hold menu.
+	$effect(() => {
+		const r = shell.request;
+		if (r !== 'new-list' && r !== 'share-all') return;
+		shell.request = null;
+		untrack(() => (r === 'new-list' ? newList() : openShare(data.everything.id, data.everything.share_token, 'your')));
+	});
+
+	/* A list's own menu on the shelf (hold it, or right-click): paper, sharing, settings, delete.
+	   What you pick shows straight away; the server catches up behind. */
+	let wraps = $state<Record<string, string>>({});
+	let gone = $state<string[]>([]);
+	const swatches = PAPERS.map((p) => ({ id: p.id, name: p.name, background: p.background }));
+	async function act(listId: string, action: string, body: Record<string, string> = {}) {
+		const fd = new FormData();
+		for (const [k, v] of Object.entries(body)) fd.set(k, v);
+		const res = await fetch(`/lists/${listId}?/${action}`, { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		const result = deserialize(await res.text());
+		await invalidateAll();
+		return result.type === 'success' || result.type === 'redirect';
+	}
+	async function setWrap(id: string, wrap: string) {
+		const before = wraps[id];
+		wraps[id] = wrap;
+		if (!(await act(id, 'setWrap', { wrap }))) {
+			if (before) wraps[id] = before;
+			else delete wraps[id];
+		}
+	}
+	async function removeList(id: string) {
+		gone = [...gone, id];
+		if (!(await act(id, 'deleteList'))) gone = gone.filter((x) => x !== id);
+	}
+	function listMenu(id: string, wrap: string | null, share: (() => void) | null = null): () => MenuItem[] {
+		const everything = !!share;
+		return () => [
+			{ papers: swatches, current: wraps[id] ?? wrap, pick: (w: string) => setWrap(id, w) },
+			'divider',
+			{ label: everything ? 'Share all' : 'Share', icon: 'share', run: share ?? (() => goto(`/lists/${id}?open=share`)) },
+			{ label: everything ? 'Wish list settings' : 'Name, date & more', icon: 'tag', href: `/lists/${id}?open=settings` },
+			...(everything ? [] : [{ label: 'Delete list', icon: 'close', danger: true, confirm: 'Tap again to delete', run: () => removeList(id) }])
+		];
+	}
+	const wrapOf = (id: string, wrap: string | null) => wraps[id] ?? wrap;
 
 	const next = $derived(data.next);
 	const nextKid = $derived(data.kids.find((k) => k.lists.some((l) => l.id === data.nextId))?.kid.name ?? null);
@@ -116,7 +166,8 @@
 	<div class="shelf grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
 		<ShelfItem
 			href="/lists/{data.everything.id}"
-			wrap={data.everything.wrap ?? 'sunburst'}
+			wrap={wrapOf(data.everything.id, data.everything.wrap) ?? 'sunburst'}
+			menu={listMenu(data.everything.id, data.everything.wrap ?? 'sunburst', () => openShare(data.everything.id, data.everything.share_token, 'your'))}
 			occasion="general"
 			title="Everything"
 			sub="Every gift you’d love, in one list"
@@ -124,8 +175,8 @@
 			transitionName="paper-{data.everything.id}"
 			big
 		/>
-		{#each data.lists as list, i (list.id)}
-			<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+		{#each data.lists.filter((l) => !gone.includes(l.id)) as list, i (list.id)}
+			<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 		{:else}
 			<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists yet</p>
 		{/each}
@@ -146,7 +197,8 @@
 		<div class="shelf grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
 			<ShelfItem
 				href="/lists/{section.everything.id}"
-				wrap={section.everything.wrap ?? 'sunburst'}
+				wrap={wrapOf(section.everything.id, section.everything.wrap) ?? 'sunburst'}
+				menu={listMenu(section.everything.id, section.everything.wrap ?? 'sunburst', () => openShare(section.everything.id, section.everything.share_token, `${section.kid.name}’s`))}
 				occasion="general"
 				title="{section.kid.name}’s wish list"
 				sub="What {section.kid.name} would love, picked by you"
@@ -154,8 +206,8 @@
 				transitionName="paper-{section.everything.id}"
 				big
 			/>
-			{#each section.lists as list, i (list.id)}
-				<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+			{#each section.lists.filter((l) => !gone.includes(l.id)) as list, i (list.id)}
+				<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 			{:else}
 				<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists for {section.kid.name} yet</p>
 			{/each}

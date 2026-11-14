@@ -23,6 +23,9 @@
 	import PasteBar from '#lib/components/PasteBar.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
 	import { holdDrag } from '#lib/holdDrag.ts';
+	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
+	import { untrack } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { firstTime, getPref, setPref } from '#lib/prefs.ts';
 	import { countdownLabel, formatPrice, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
 	import type { ImportResult, Item } from '#lib/types.ts';
@@ -372,6 +375,50 @@
 			setTimeout(() => (bulkNote = null), 3000);
 		}
 	}
+	/* A gift's own menu: right-click it (with a finger, holding a gift drags it instead). */
+	function giftMenu(item: Item): MenuSpec | null {
+		if (selecting || reordering) return null;
+		const first = items[0]?.id === item.id;
+		return {
+			title: item.title,
+			sub: [formatPrice(item.price_cents, item.currency), item.store].filter(Boolean).join(' · ') || undefined,
+			items: [
+				{ label: 'Open', icon: 'gift', run: () => openGift(item) },
+				{ label: 'Edit', icon: 'tag', run: () => edit(item) },
+				...(item.url ? [{ label: item.store ?? 'Shop', icon: 'link', href: item.url, external: true }] : []),
+				'divider' as const,
+				...(first ? [] : [{ label: 'Move to the top', icon: 'chevron-up', run: () => moveToTop(item) }]),
+				{ label: 'Select', icon: 'check-box', run: () => startSelecting(item.id) },
+				...(isEverything ? [] : [{ label: 'Take off this list', icon: 'close', run: () => one('remove', item) }]),
+				{ label: 'Delete gift', icon: 'close', danger: true, confirm: 'Click again to delete', run: () => one('delete', item) }
+			]
+		};
+	}
+	function moveToTop(item: Item) {
+		items = [item, ...items.filter((i) => i.id !== item.id)];
+		saveOrder();
+	}
+	async function one(op: string, item: Item) {
+		selected = [item.id];
+		await bulk(op);
+		if (!selecting) selected = [];
+	}
+
+	// Arriving from a list's menu on the shelf: open its settings or sharing straight away.
+	$effect(() => {
+		const want = page.url.searchParams.get('open');
+		if (!want) return;
+		untrack(() => {
+			if (want === 'settings') {
+				confirmDeleteList = false;
+				settingsOpen = true;
+			} else if (want === 'share') shareOpen = true;
+			const url = new URL(location.href);
+			url.searchParams.delete('open');
+			replaceState(url, page.state);
+		});
+	});
+
 	// Picking gifts from the Everything list onto this occasion list.
 	let pickOpen = $state(false);
 	let picked = $state<string[]>([]);
@@ -511,6 +558,7 @@
 					style="--i: {i}"
 					role="listitem"
 					data-gift={item.id}
+					use:contextMenu={{ spec: () => giftMenu(item), touch: false }}
 					use:holdDrag={{
 						id: item.id,
 						enabled: !selecting,

@@ -11,6 +11,8 @@
 	import { edgeBack } from '#lib/edgeBack.ts';
 	import PullRibbon from '#lib/components/PullRibbon.svelte';
 	import PageSkeleton from '#lib/components/PageSkeleton.svelte';
+	import ContextMenu from '#lib/components/ContextMenu.svelte';
+	import { contextMenu, closeMenu, type MenuSpec } from '#lib/menu.svelte.ts';
 	import { getPref } from '#lib/prefs.ts';
 	import { onMount } from 'svelte';
 	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
@@ -66,6 +68,58 @@
 		else if (m === 1 && day <= 14) document.documentElement.dataset.season = 'hearts';
 	});
 
+	// Givers' share pages stay ordinary web pages (text can be selected there, and so on).
+	$effect(() => {
+		document.documentElement.toggleAttribute('data-shared', shared);
+	});
+
+	// No browser menu in the app: things that have options get the app's own menu (hold or
+	// right-click them); everything else, nothing. Typing fields keep theirs (paste and so on),
+	// and givers' share pages are left as ordinary web pages.
+	onMount(() => {
+		const block = (e: Event) => {
+			if (shared || e.defaultPrevented) return;
+			if ((e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable], .selectable')) return;
+			e.preventDefault();
+		};
+		addEventListener('contextmenu', block);
+		return () => removeEventListener('contextmenu', block);
+	});
+
+	/** Shortcuts on each tab: hold it (or right-click it) to jump straight to the useful things. */
+	async function ask(request: string, tab: number) {
+		shell.request = request;
+		if (onPager && shell.active) shell.go(tab);
+		else await goto(TABS[tab].href);
+	}
+	function tabMenu(i: number): MenuSpec {
+		if (i === 0)
+			return {
+				title: 'Lists',
+				items: [
+					{ label: 'New list', icon: 'plus', run: () => ask('new-list', 0) },
+					{ label: 'Share all', icon: 'share', run: () => ask('share-all', 0) },
+					{ label: 'Coming up', icon: 'calendar', href: '/upcoming' }
+				]
+			};
+		if (i === 1)
+			return {
+				title: 'People',
+				items: [
+					{ label: 'Gifts I’m getting', icon: 'gift', href: '/getting' },
+					{ label: 'New circle', icon: 'people', run: () => ask('new-circle', 1) },
+					{ label: 'Start a Secret Santa', icon: 'shuffle', run: () => ask('new-santa', 1) }
+				]
+			};
+		return {
+			title: 'You',
+			items: [
+				{ label: 'Look & feel', icon: 'palette', href: '/me/look' },
+				{ label: 'Categories', icon: 'tag', href: '/categories' }
+			]
+		};
+	}
+
 	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
 	let loading = $state(false);
 	// A list or person page that's slow to arrive gets cardboard stand-ins in its place.
@@ -99,6 +153,7 @@
 		else depth++;
 		arrived?.();
 		arrived = null;
+		closeMenu();
 	});
 	function parentOf(path: string): { href: string; label: string } {
 		if (/^\/(people\/|getting|circles|santa)/.test(path)) return { href: '/people', label: 'People' };
@@ -148,7 +203,7 @@
 		{#if !shared && !signingIn}
 			<nav class="hidden items-center gap-1 sm:flex" aria-label="Main">
 				{#each TABS as tab, i (tab.href)}
-					<a href={tab.href} onclick={(e) => tabClick(e, i)} aria-current={active === i ? 'page' : undefined} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
+					<a href={tab.href} use:contextMenu={{ spec: () => tabMenu(i) }} onclick={(e) => tabClick(e, i)} aria-current={active === i ? 'page' : undefined} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
 						{tab.label}
 						{#if active === i}<span class="stripes absolute inset-x-3 bottom-1.5 h-[6px] rounded-full"></span>{/if}
 					</a>
@@ -187,6 +242,7 @@
 			{#each TABS as tab, i (tab.href)}
 				<a
 					href={tab.href}
+					use:contextMenu={{ spec: () => tabMenu(i) }}
 					aria-current={active === i ? 'page' : undefined}
 					class="flex min-h-16 flex-col items-center justify-center gap-1 pt-1.5 text-[11px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint'}"
 					onclick={(e) => tabClick(e, i)}
@@ -198,3 +254,5 @@
 		</div>
 	</nav>
 {/if}
+
+<ContextMenu />

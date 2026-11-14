@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { paperFor } from '#lib/papers.ts';
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
-	import { enhance } from '$app/forms';
+	import { enhance, deserialize } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
+	import { untrack } from 'svelte';
+	import { shell } from '#lib/shell.svelte.ts';
+	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -25,6 +29,48 @@
 
 	let newCircle = $state(false);
 	let newSanta = $state(false);
+	// Asked for from the tab bar's hold menu.
+	$effect(() => {
+		const r = shell.request;
+		if (r !== 'new-circle' && r !== 'new-santa') return;
+		shell.request = null;
+		untrack(() => (r === 'new-circle' ? (newCircle = true) : (newSanta = true)));
+	});
+
+	/* Hold (or right-click) a person or a circle for its options. */
+	type Person = NonNullable<PeopleData['people']>[number];
+	type Circle = NonNullable<PeopleData['circles']>[number];
+	function personMenu(p: Person): MenuSpec {
+		return {
+			title: p.name,
+			sub: p.circles.join(' · '),
+			items: [
+				{ label: 'Wish lists', icon: 'gift', href: `/people/${p.id}`, hint: p.gift_count ? String(p.gift_count) : undefined },
+				...(p.next?.listId ? [{ label: `${p.next.label} list`, icon: 'calendar', href: `/people/${p.id}?list=${p.next.listId}` }] : []),
+				{ label: 'Gifts I’m getting', icon: 'check', href: '/getting' }
+			]
+		};
+	}
+	let leaving = $state<string[]>([]);
+	async function leave(id: string) {
+		leaving = [...leaving, id];
+		const fd = new FormData();
+		fd.set('id', id);
+		const res = await fetch('/people?/leaveCircle', { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		if (deserialize(await res.text()).type !== 'success') leaving = leaving.filter((x) => x !== id);
+		await invalidateAll();
+	}
+	function circleMenu(c: Circle): MenuSpec {
+		return {
+			title: c.name,
+			sub: `${c.members.length} ${c.members.length === 1 ? 'person' : 'people'}`,
+			items: [
+				{ label: copied === c.invite_token ? 'Invite link copied' : 'Copy invite link', icon: 'link', run: () => copyInvite(c.invite_token) },
+				'divider',
+				{ label: 'Leave circle', icon: 'close', danger: true, confirm: 'Tap again to leave', run: () => leave(c.id) }
+			]
+		};
+	}
 	let copied = $state<string | null>(null);
 	async function copyInvite(token: string) {
 		await navigator.clipboard.writeText(`${page.url.origin}/circles/join/${token}`);
@@ -51,7 +97,7 @@
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 				{#each data.people as person, i (person.id)}
 					<!-- Each person is a gift tag on a string: "To: Sam". -->
-					<a href="/people/{person.id}" class="group rise relative block pt-5 drop-shadow-[0_3px_0_var(--color-edge)] transition active:translate-y-0.5" style="--i: {i}">
+					<a href="/people/{person.id}" use:contextMenu={{ spec: () => personMenu(person) }} class="group rise relative block pt-5 drop-shadow-[0_3px_0_var(--color-edge)] transition active:translate-y-0.5" style="--i: {i}">
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
@@ -129,9 +175,9 @@
 			</button>
 		{:else}
 			<div class="grid gap-3 md:grid-cols-2">
-				{#each data.circles as c (c.id)}
+				{#each data.circles.filter((c) => !leaving.includes(c.id)) as c (c.id)}
 					{@const others = c.members.filter((m) => m.id !== me?.id)}
-					<div class="card p-4">
+					<div class="card p-4" use:contextMenu={{ spec: () => circleMenu(c) }}>
 						<div class="flex items-start justify-between gap-2">
 							<div class="min-w-0">
 								<h3 class="display truncate text-xl">{c.name}</h3>

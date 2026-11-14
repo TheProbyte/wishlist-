@@ -71,7 +71,7 @@
 	</div>
 
 	{#if item.note}
-		<blockquote class="rounded-[16px] bg-cocoa-850 px-4 py-3 text-[15px] text-fg italic">“{item.note}”</blockquote>
+		<blockquote class="selectable rounded-[16px] bg-cocoa-850 px-4 py-3 text-[15px] text-fg italic">“{item.note}”</blockquote>
 	{/if}
 
 	{#if item.specifics.length || item.quantity > 1}
@@ -94,7 +94,7 @@
 	{#if about}
 		<details class="group rounded-[14px] bg-cocoa-850 px-4 py-3">
 			<summary class="cursor-pointer list-none text-sm font-bold text-fg-muted">About it <span class="text-fg-faint group-open:hidden">· show</span></summary>
-			<p class="mt-2 text-sm leading-relaxed whitespace-pre-line text-fg-muted">{about}</p>
+			<p class="selectable mt-2 text-sm leading-relaxed whitespace-pre-line text-fg-muted">{about}</p>
 		</details>
 	{/if}
 

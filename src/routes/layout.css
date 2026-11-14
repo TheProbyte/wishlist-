@@ -1076,3 +1076,34 @@ html[data-nav='morph']::view-transition-group(*) {
 	--accent: var(--color-cream) !important;
 	--accent-text: var(--color-cream) !important;
 }
+
+/* An app, not a web page: holding things doesn't pop up the phone's link preview, select text
+   or offer to save pictures. Typing fields (and anything marked .selectable) work as usual. */
+html:not([data-shared]) body {
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	user-select: none;
+}
+html:not([data-shared]) img {
+	-webkit-user-drag: none;
+}
+input,
+textarea,
+select,
+[contenteditable],
+.selectable {
+	-webkit-touch-callout: default;
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+/* Holding something with a menu: it sinks a little while the hold builds, then grows back a
+   touch as the menu opens. (`scale`, not transform, so it adds to whatever else is moving it.) */
+[data-holding] {
+	scale: 0.95;
+	transition: scale 450ms var(--ease-out-soft);
+}
+[data-menu-open] {
+	scale: 1.03;
+	transition: scale 180ms var(--ease-spring);
+}
