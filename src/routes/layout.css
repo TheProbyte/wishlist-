@@ -1196,3 +1196,64 @@ select,
 [data-armed='left'] .swipe-del {
 	transform: scale(1.18);
 }
+
+/* A list that's gained gifts since you last saw it: its present hops. */
+.shelf-hop {
+	animation: shelf-hop 800ms var(--ease-spring);
+}
+@keyframes shelf-hop {
+	0%,
+	100% {
+		translate: 0 0;
+	}
+	30% {
+		translate: 0 -16px;
+		rotate: -3deg;
+	}
+	55% {
+		translate: 0 0;
+		rotate: 2deg;
+	}
+	72% {
+		translate: 0 -5px;
+		rotate: 0deg;
+	}
+}
+/* Arranging the shelf: every present jiggles a little, like it's waiting to be moved. */
+.shelf-jiggle {
+	animation: shelf-jiggle 340ms ease-in-out infinite alternate;
+	cursor: grab;
+}
+.shelf .shelf-jiggle:nth-of-type(odd) {
+	animation-delay: -170ms;
+}
+@keyframes shelf-jiggle {
+	from {
+		rotate: -1.6deg;
+	}
+	to {
+		rotate: 1.6deg;
+	}
+}
+
+/* Yesterday's calendar page tearing off: a tug, then it rips from the binding and falls. */
+.leaf-tear {
+	transform-origin: 15% 0;
+	animation: leaf-tear 1100ms cubic-bezier(0.45, 0, 0.7, 0.4) 450ms both;
+}
+@keyframes leaf-tear {
+	0% {
+		transform: none;
+	}
+	18% {
+		transform: rotate(-4deg);
+	}
+	30% {
+		transform: rotate(9deg) translateY(2px);
+		opacity: 1;
+	}
+	100% {
+		transform: rotate(38deg) translate(14px, 140%);
+		opacity: 0;
+	}
+}

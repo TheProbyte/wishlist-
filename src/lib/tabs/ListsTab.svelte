@@ -3,6 +3,9 @@
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { fly } from 'svelte/transition';
+	import { dur } from '#lib/motion.ts';
 	import { PAPERS } from '#lib/papers.ts';
 	import { shell } from '#lib/shell.svelte.ts';
 	import type { MenuItem } from '#lib/menu.svelte.ts';
@@ -100,10 +103,48 @@
 			'divider',
 			{ label: everything ? 'Share all' : 'Share', icon: 'share', run: share ?? (() => goto(`/lists/${id}?open=share`)) },
 			{ label: everything ? 'Wish list settings' : 'Name, date & more', icon: 'tag', href: `/lists/${id}?open=settings` },
+			...(shelves.some((ls) => ls.length > 1) ? [{ label: 'Arrange shelf', icon: 'grip', run: startArranging }] : []),
 			...(everything ? [] : [{ label: 'Delete list', icon: 'close', danger: true, run: () => removeList(id, name) }])
 		];
 	}
 	const wrapOf = (id: string, wrap: string | null) => wraps[id] ?? wrap;
+
+	/* Arranging the shelf by hand: presents jiggle, drag one to a new place (within its own
+	   shelf), and the order is saved each time you let go. */
+	let arranging = $state(false);
+	let order = $state<string[] | null>(null);
+	const shelves = $derived([data.lists, ...data.kids.map((k) => k.lists)]);
+	function startArranging() {
+		order = shelves.flat().map((l) => l.id);
+		arranging = true;
+	}
+	function placed<T extends { id: string }>(lists: T[]): T[] {
+		const o = order;
+		return o ? [...lists].sort((a, b) => o.indexOf(a.id) - o.indexOf(b.id)) : lists;
+	}
+	function moveList(drag: string, over: string) {
+		const shelf = shelves.find((ls) => ls.some((l) => l.id === drag));
+		if (!order || !shelf?.some((l) => l.id === over)) return;
+		const next = [...order];
+		next.splice(next.indexOf(over), 0, next.splice(next.indexOf(drag), 1)[0]);
+		order = next;
+	}
+	async function saveArrangement() {
+		if (!order) return;
+		const fd = new FormData();
+		for (const id of order) fd.append('ids', id);
+		await fetch('/?/arrangeLists', { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		await invalidateAll();
+	}
+	async function doneArranging() {
+		arranging = false;
+		await saveArrangement();
+		order = null;
+	}
+	$effect(() => {
+		shell.pasteHidden = arranging;
+	});
+	const arrangeFor = (id: string) => ({ id, on: arranging, onover: moveList, ondrop: saveArrangement });
 
 	const next = $derived(data.next && !isHidden(`list:${data.next.id}`) ? data.next : null);
 	const nextKid = $derived(data.kids.find((k) => k.lists.some((l) => l.id === data.nextId))?.kid.name ?? null);
@@ -144,7 +185,7 @@
 			<p class="truncate text-[15px] font-bold"><span class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</span> {next.name}</p>
 			<p class="truncate text-[13px] text-fg-muted">{formatDate(next.next_date)} · {gifts(next.item_count)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
 		</div>
-		<Countdown {days} />
+		<Countdown {days} id={next.id} />
 	</a>
 	<a href="/upcoming" class="mt-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={15} />See everything coming up<Icon name="chevron-right" size={15} /></a>
 {/if}
@@ -166,6 +207,16 @@
 	</a>
 {/each}
 
+{#if arranging}
+	<!-- Arranging: a bar to finish, where the paste bar usually is. -->
+	<div class="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem]" transition:fly={{ y: 80, duration: dur(220), opacity: 1 }}>
+		<div class="flex items-center gap-3 rounded-[var(--radius-card)] bg-cocoa-900 p-2 pl-4 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
+			<span class="flex-1 text-sm text-fg-muted">Hold a present and drag it into place.</span>
+			<button class="btn-primary min-h-10 px-4 text-sm" onclick={doneArranging}>Done</button>
+		</div>
+	</div>
+{/if}
+
 <!-- The shelf: Everything first and biggest, then every list, standing on planks. -->
 <section class="mt-6" aria-label="Your lists">
 	<div class="shelf grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
@@ -180,8 +231,10 @@
 			transitionName="paper-{data.everything.id}"
 			big
 		/>
-		{#each data.lists.filter((l) => !isHidden(`list:${l.id}`)) as list, i (list.id)}
-			<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+		{#each placed(data.lists.filter((l) => !isHidden(`list:${l.id}`))) as list, i (list.id)}
+			<div class="grid" animate:flip={{ duration: dur(220) }}>
+			<ShelfItem arrange={arrangeFor(list.id)} href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+			</div>
 		{:else}
 			<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists yet</p>
 		{/each}
@@ -211,8 +264,10 @@
 				transitionName="paper-{section.everything.id}"
 				big
 			/>
-			{#each section.lists.filter((l) => !isHidden(`list:${l.id}`)) as list, i (list.id)}
-				<ShelfItem href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+			{#each placed(section.lists.filter((l) => !isHidden(`list:${l.id}`))) as list, i (list.id)}
+				<div class="grid" animate:flip={{ duration: dur(220) }}>
+				<ShelfItem arrange={arrangeFor(list.id)} href="/lists/{list.id}" wrap={wrapOf(list.id, list.wrap)} menu={listMenu(list.id, list.wrap, null, list.name)} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
+				</div>
 			{:else}
 				<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists for {section.kid.name} yet</p>
 			{/each}

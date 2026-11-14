@@ -29,7 +29,9 @@ export async function orderedLists(db: D1Database, userId: string, kidId: string
 		if (ba !== bb) return ba - bb;
 		if (ba === 0) return (a.next_date ?? '').localeCompare(b.next_date ?? '');
 		return b.updated_at - a.updated_at;
-	});
+	})
+	// Arranged by hand: those keep their places, after any not placed yet (new ones show first).
+	.sort((a, b) => (a.position ?? -1) - (b.position ?? -1));
 }
 
 /** Someone's (or a kid's) Everything list with its gift count. */

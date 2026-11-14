@@ -1,5 +1,13 @@
+<script lang="ts" module>
+	// Each list's gift count when its present was last on screen (this visit): if it has gone up
+	// since, the present gives a little hop and its tag counts up to the new number.
+	const seenCounts = new Map<string, number>();
+</script>
+
 <script lang="ts">
 	import Present from './Present.svelte';
+	import CountUp from './CountUp.svelte';
+	import { holdDrag } from '#lib/holdDrag.ts';
 	import GiftTag from './GiftTag.svelte';
 	import { openPresent } from '#lib/openPresent.ts';
 	import { contextMenu, type MenuItem } from '#lib/menu.svelte.ts';
@@ -21,7 +29,8 @@
 		transitionName,
 		subClass = '',
 		days = null,
-		menu = null
+		menu = null,
+		arrange = null
 	}: {
 		href: string;
 		wrap: string | null;
@@ -37,7 +46,23 @@
 		days?: number | null;
 		/** Its options, shown when it's held or right-clicked (after "Open", which every list has). */
 		menu?: (() => MenuItem[]) | null;
+		/** Arranging the shelf: the present can be dragged to a new place (and doesn't open). */
+		arrange?: { id: string; on: boolean; onover: (dragId: string, overId: string) => void; ondrop: () => void } | null;
 	} = $props();
+
+	// More gifts than last time it was on screen: hop.
+	let hop = $state(false);
+	let from = $state<number | null>(null);
+	$effect(() => {
+		const before = seenCounts.get(href);
+		seenCounts.set(href, count);
+		if (before == null || count <= before) return;
+		from = before;
+		hop = true;
+		const t = setTimeout(() => (hop = false), 900);
+		return () => clearTimeout(t);
+	});
+	const arranging = $derived(!!arrange?.on);
 
 	// Assorted box shapes, by position, so neighbours differ; fuller lists are bigger boxes.
 	const SHAPES = [
@@ -57,6 +82,8 @@
 		return () => el.removeEventListener('click', open);
 	});
 	function open(e: MouseEvent) {
+		// Arranging the shelf: presents are for moving, not opening.
+		if (arranging) return void e.preventDefault();
 		// Let new-tab and similar clicks behave normally.
 		if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 		const present = box?.firstElementChild as HTMLElement | null;
@@ -74,14 +101,17 @@
 <a
 	{href}
 	bind:this={link}
+	data-gift={arranging ? arrange?.id : undefined}
+	use:holdDrag={{ id: arrange?.id ?? href, enabled: arranging, draggable: arranging, onover: (a, b) => arrange?.onover(a, b), ondrop: () => arrange?.ondrop() }}
 	use:contextMenu={{
-		spec: () => (menu ? { title, sub: `${count} ${count === 1 ? 'gift' : 'gifts'}`, items: [{ label: 'Open', icon: 'gift', run: () => link?.click() }, ...menu()] } : null)
+		touch: !arranging,
+		spec: () => (arranging ? null : menu ? { title, sub: `${count} ${count === 1 ? 'gift' : 'gifts'}`, items: [{ label: 'Open', icon: 'gift', run: () => link?.click() }, ...menu()] } : null)
 	}}
 	class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
 	<div
 		bind:this={box}
 		data-lift
-		class="relative mx-auto {shape.aspect} {restless ? 'shelf-restless' : ''} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5"
+		class="relative mx-auto {shape.aspect} {restless && !arranging ? 'shelf-restless' : ''} {arranging ? 'shelf-jiggle' : ''} {hop ? 'shelf-hop' : ''} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5"
 		style="width: {shape.width}%; --delay: {(index % 4) * 1.3}s"
 	>
 		<Present
@@ -91,7 +121,7 @@
 			{transitionName}
 			class="paper-grain h-full w-full rounded-[12px] shadow-[inset_0_-6px_0_rgb(0_0_0/0.12)]"
 		>
-			<GiftTag tilt={-6} class="absolute bottom-2.5 left-2.5 z-10">{count} {count === 1 ? 'gift' : 'gifts'}</GiftTag>
+			<GiftTag tilt={-6} class="absolute bottom-2.5 left-2.5 z-10">{#if hop && from != null}<CountUp value={count} {from} />{:else}{count}{/if} {count === 1 ? 'gift' : 'gifts'}</GiftTag>
 		</Present>
 	</div>
 	<div class="shelf-plank" aria-hidden="true"></div>

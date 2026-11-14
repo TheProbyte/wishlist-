@@ -94,6 +94,18 @@
 
 	// The paste bar belongs to Lists: it fades and sinks away as you swipe off it.
 	const pasteShown = $derived(Math.max(0, 1 - progress * 1.8));
+	// ...and steps out of the way while you scroll down the shelf, back as soon as you scroll up
+	// (or reach the top). Also away while the shelf is being arranged.
+	let scrolledAway = $state(false);
+	let lastY = 0;
+	function onListsScroll(e: Event) {
+		const y = (e.currentTarget as HTMLElement).scrollTop;
+		const dy = y - lastY;
+		if (Math.abs(dy) < 6) return;
+		scrolledAway = dy > 0 && y > 80;
+		lastY = y;
+	}
+	const pasteAway = $derived(scrolledAway || shell.pasteHidden);
 	let plusOpen = $state(false);
 	const tabForm = $derived(form as TabForm);
 </script>
@@ -109,6 +121,7 @@
 		<section
 			bind:this={panels[i]}
 			data-ptr
+			onscroll={i === 0 ? onListsScroll : undefined}
 			class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain"
 			inert={current !== i}
 			aria-label={TITLES[i]}
@@ -132,7 +145,9 @@
 	style="opacity: {pasteShown}; transform: translateY({(1 - pasteShown) * 24}px); pointer-events: {pasteShown > 0.5 ? 'auto' : 'none'}"
 	aria-hidden={pasteShown < 0.5}
 >
-	<PasteBar class="shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)]" onplus={() => (plusOpen = true)} />
+	<div class="transition-[transform,opacity] duration-300 ease-[var(--ease-out-soft)] {pasteAway ? 'pointer-events-none translate-y-[calc(100%+5.5rem)] opacity-0' : ''}">
+		<PasteBar class="shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)]" onplus={() => (plusOpen = true)} />
+	</div>
 </div>
 
 <Modal bind:open={plusOpen} title="Add a gift">

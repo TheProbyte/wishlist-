@@ -41,6 +41,8 @@ export interface List {
 	kid_id: string | null;
 	created_at: number;
 	updated_at: number;
+	/** Its place on the shelf when arranged by hand (null: not placed). */
+	position?: number | null;
 }
 
 export interface Category {

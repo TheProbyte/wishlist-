@@ -11,5 +11,7 @@ export const shell = $state({
 	/** The tab bar's tab for the tab already showing was tapped again. */
 	reselect: (_i: number) => {},
 	/** Something a tab should do once it's showing (from the tab bar's hold menu): 'new-list', 'new-circle'… */
-	request: null as string | null
+	request: null as string | null,
+	/** Something on the Lists tab wants the docked paste bar out of the way (arranging the shelf). */
+	pasteHidden: false
 });

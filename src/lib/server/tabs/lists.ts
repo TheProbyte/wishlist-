@@ -39,6 +39,13 @@ export const loadLists = async ({ locals }: RequestEvent) => {
 };
 
 export const listsActions = {
+	/** The shelf, arranged by hand: each list's place, in the order given. */
+	arrangeLists: async ({ request, locals }: RequestEvent) => {
+		const ids = (await request.formData()).getAll('ids').map(String).slice(0, 200);
+		if (!ids.length) return { arranged: 0 };
+		await locals.db.batch(ids.map((id, i) => locals.db.prepare('UPDATE lists SET position = ? WHERE id = ? AND owner_id = ?').bind(i, id, locals.user.id)));
+		return { arranged: ids.length };
+	},
 	create: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
