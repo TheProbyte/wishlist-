@@ -37,7 +37,7 @@ test('Secret Santa: everyone gives to one other person, nobody draws themselves'
 	for (let n = 2; n <= 12; n++) {
 		const people = Array.from({ length: n }, (_, i) => `p${i}`);
 		for (let trial = 0; trial < 50; trial++) {
-			const pairs = drawNames(people);
+			const pairs = drawNames(people)!;
 			assert.equal(pairs.size, n);
 			assert.equal(new Set(pairs.values()).size, n, 'each person receives exactly once');
 			for (const [giver, receiver] of pairs) assert.notEqual(giver, receiver);
@@ -60,4 +60,21 @@ test('giftKey matches the same product however it was linked', () => {
 	assert.equal(giftKey('https://shop.example.com/products/mug/?utm_source=x'), giftKey('https://shop.example.com/products/mug'));
 	assert.notEqual(giftKey('https://shop.example.com/products/mug'), giftKey('https://shop.example.com/products/plate'));
 	assert.equal(giftKey('not a link'), null);
+});
+
+test('Secret Santa: people kept apart never draw each other', async () => {
+	const { drawNames } = await import('../src/lib/server/santa.ts');
+	const people = ['ann', 'bo', 'cy', 'di', 'ed', 'fay'];
+	const apart: [string, string][] = [['ann', 'bo'], ['cy', 'di'], ['ann', 'ed']];
+	for (let trial = 0; trial < 200; trial++) {
+		const pairs = drawNames(people, Math.random, apart)!;
+		assert.ok(pairs, 'a draw is possible');
+		assert.equal(new Set(pairs.values()).size, people.length);
+		for (const [g, r] of pairs) {
+			assert.notEqual(g, r);
+			assert.ok(!apart.some(([x, y]) => (x === g && y === r) || (x === r && y === g)), `${g} drew ${r}`);
+		}
+	}
+	// Three people where two are kept apart from the third: nobody can give to the third.
+	assert.equal(drawNames(['a', 'b', 'c'], Math.random, [['a', 'c'], ['b', 'c']]), null);
 });

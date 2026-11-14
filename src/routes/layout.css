@@ -1300,3 +1300,45 @@ select,
 		transform: none;
 	}
 }
+
+/* Secret Santa reveal, the full show: a tug on the slip, the paper opens, the stamp lands a
+   beat later, then the name writes itself on and a pen line runs under it. */
+.slip-tug {
+	animation: slip-tug 420ms ease-in-out;
+}
+@keyframes slip-tug {
+	20% {
+		transform: translateY(-6px) rotate(-3deg);
+	}
+	45% {
+		transform: translateY(2px) rotate(3deg);
+	}
+	70% {
+		transform: translateY(-10px) rotate(-1deg);
+	}
+}
+.theatre .stamp-late {
+	animation-delay: 650ms;
+	animation-fill-mode: both;
+}
+.write-on {
+	animation: write-on 1100ms cubic-bezier(0.5, 0.1, 0.4, 1) 1000ms both;
+}
+@keyframes write-on {
+	from {
+		clip-path: inset(-20% 100% -20% 0);
+	}
+	to {
+		clip-path: inset(-20% -4% -20% 0);
+	}
+}
+.pen-line {
+	stroke-dasharray: 170;
+	stroke-dashoffset: 170;
+	animation: pen-line 500ms ease-out 2050ms forwards;
+}
+@keyframes pen-line {
+	to {
+		stroke-dashoffset: 0;
+	}
+}
