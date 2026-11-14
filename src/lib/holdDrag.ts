@@ -127,7 +127,7 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 		if (!lifted) return;
 		// The edges of what you can see: under the header, and above the tab bar.
 		const top = 76 + EDGE;
-		const bottom = innerHeight - 64 - EDGE;
+		const bottom = innerHeight - (innerWidth < 640 ? 64 : 0) - EDGE;
 		const speed = !moved ? 0 : y < top ? -Math.min(16, (top - y) / 4) : y > bottom ? Math.min(16, (y - bottom) / 4) : 0;
 		if (speed) {
 			scrollBy(0, speed);
@@ -189,6 +189,43 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 		if (timer || lifted) e.preventDefault();
 	}
 
+	/* ---- With a mouse: no hold needed; pull a card a few pixels and it lifts. */
+	let mouseArmed = false;
+	function mousedown(e: MouseEvent) {
+		if (e.button !== 0 || !o.enabled || !o.draggable || lifted) return;
+		if ((e.target as HTMLElement).closest('input, textarea, select, [role="radio"]')) return;
+		mouseArmed = true;
+		startX = x = e.clientX;
+		startY = y = e.clientY;
+		addEventListener('mousemove', mousemove);
+		addEventListener('mouseup', mouseup, { once: true });
+	}
+	function mousemove(e: MouseEvent) {
+		if (!mouseArmed) return;
+		x = e.clientX;
+		y = e.clientY;
+		if (!lifted) {
+			if (Math.hypot(x - startX, y - startY) < 6) return;
+			lift();
+			moved = true;
+		}
+		e.preventDefault();
+		place();
+		hitTest();
+		if (!scrollFrame) scrollFrame = requestAnimationFrame(autoScroll);
+	}
+	function mouseup() {
+		mouseArmed = false;
+		removeEventListener('mousemove', mousemove);
+		if (lifted) up();
+	}
+	// The browser's own drag and drop (of the photo or link) would fight this.
+	function nativeDrag(e: DragEvent) {
+		if (o.draggable) e.preventDefault();
+	}
+
+	node.addEventListener('mousedown', mousedown);
+	node.addEventListener('dragstart', nativeDrag);
 	node.addEventListener('touchstart', down, { passive: true });
 	node.addEventListener('touchmove', move, { passive: false });
 	node.addEventListener('touchend', up);
@@ -207,6 +244,9 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 			node.removeEventListener('touchend', up);
 			node.removeEventListener('touchcancel', cancel);
 			node.removeEventListener('contextmenu', contextmenu);
+			node.removeEventListener('mousedown', mousedown);
+			node.removeEventListener('dragstart', nativeDrag);
+			removeEventListener('mousemove', mousemove);
 		}
 	};
 };

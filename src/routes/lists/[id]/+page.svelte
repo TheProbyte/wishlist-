@@ -60,11 +60,7 @@
 		return list;
 	}
 	const rankable = (pageId: string) => sort === 'rank' && pageId === 'all';
-	// Mice drag with the browser's own drag and drop; touch screens use press-and-hold (holdDrag).
-	let finePointer = $state(false);
-	$effect(() => {
-		finePointer = matchMedia('(pointer: fine)').matches;
-	});
+	// Dragging to rank (touch: press and hold; mouse: just drag) is holdDrag, on each card.
 
 	/* ------------------------------------------------ cards coming and going */
 
@@ -259,18 +255,6 @@
 		items = next;
 	}
 
-	// Mouse drag and drop (desktop).
-	let dragId = $state<string | null>(null);
-	function dragOver(e: DragEvent, over: Item) {
-		if (!dragId || dragId === over.id) return;
-		e.preventDefault();
-		moveOnto(dragId, over.id);
-	}
-	function dragEnd() {
-		if (!dragId) return;
-		dragId = null;
-		saveOrder();
-	}
 
 	/* ------------------------------------------------ menus */
 
@@ -291,7 +275,12 @@
 	// One-time tips, the first time they'd be useful on this device.
 	let hint = $state<string | null>(null);
 	onMount(() => {
-		if (!matchMedia('(pointer: coarse)').matches) return;
+		// Tips fade on their own after a while.
+		setTimeout(() => (hint = null), 7000);
+		if (!matchMedia('(pointer: coarse)').matches) {
+			if (items.length > 2 && firstTime('drag-mouse')) hint = 'Drag a gift to move it up or down the list.';
+			return;
+		}
 		if (items.length > 2 && firstTime('hold')) hint = 'Press and hold a gift to drag it up or down. Hold and let go to pick several.';
 		else if (pages.length > 1 && firstTime('swipe')) hint = 'Swipe across your gifts to flip through categories.';
 	});
@@ -477,13 +466,6 @@
 		</button>
 	</div>
 
-	{#if hint}
-		<p class="rise mb-3 flex items-start gap-2 rounded-[14px] bg-cocoa-850 px-3 py-2.5 text-[13px] text-fg-muted">
-			<Icon name="sparkle" size={16} class="mt-px text-mustard-400" />
-			<span class="flex-1">{hint}</span>
-			<button class="-m-1 grid h-7 w-7 shrink-0 place-items-center text-fg-faint" aria-label="Got it" onclick={() => (hint = null)}><Icon name="close" size={15} /></button>
-		</p>
-	{/if}
 
 	<SwipePages {pages} bind:active={filter} onchange={followChip}>
 		{#snippet page(pageId)}
@@ -495,18 +477,8 @@
 					out:cardOut={{ on: animateChanges() }}
 					class="{i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''}"
 					style="--i: {i}"
-					data-slot={dragId === item.id ? '' : undefined}
 					role="listitem"
 					data-gift={item.id}
-					draggable={rankable(pageId) && finePointer && !selecting}
-					ondragstart={(e) => {
-						dragId = item.id;
-						e.dataTransfer?.setData('text/plain', item.id);
-						if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-					}}
-					ondragover={(e) => dragOver(e, item)}
-					ondrop={(e) => e.preventDefault()}
-					ondragend={dragEnd}
 					use:holdDrag={{
 						id: item.id,
 						enabled: !selecting,
@@ -530,6 +502,17 @@
 		</div>
 		{/snippet}
 	</SwipePages>
+{/if}
+
+{#if hint}
+	<!-- A one-time tip, floating above the bottom bars so it doesn't push the gifts down. -->
+	<div class="pointer-events-none fixed inset-x-0 bottom-[calc(8.75rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-4 sm:bottom-6" role="status">
+		<p class="rise pointer-events-auto flex max-w-md items-start gap-2 rounded-[14px] bg-cocoa-800 px-3.5 py-2.5 text-[13px] text-fg shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
+			<Icon name="sparkle" size={16} class="mt-px shrink-0 text-mustard-400" />
+			<span class="flex-1">{hint}</span>
+			<button class="-m-1 grid h-7 w-7 shrink-0 place-items-center text-fg-faint" aria-label="Got it" onclick={() => (hint = null)}><Icon name="close" size={15} /></button>
+		</p>
+	</div>
 {/if}
 
 <!-- More: everything that used to crowd the header. -->

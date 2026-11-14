@@ -151,11 +151,11 @@ function finish(r: ImportResult, original: URL): ImportResult {
 	}
 	// The page couldn't be read: shops like Amazon put a readable name in the path.
 	if (!r.title) r.title = titleFromSlug(original);
-	if (r.title) r.title = tidyTitle(r.title, r.store);
 	if (r.description) r.description = clip(r.description, 600);
+	if (r.title) setNames(r, tidyTitle(r.title, r.store));
+	else r.category_id = null;
 	r.images = [...new Set(r.images.filter(Boolean))].slice(0, 8);
 	if (!r.image_url && r.images.length) r.image_url = r.images[0];
-	r.category_id = guessCategory(r.title ?? '');
 	r.ok = Boolean(r.title && (r.image_url || r.price_cents != null));
 	if (r.blocked && !r.error) r.error = `${r.store ?? 'The shop'} blocked the automatic lookup. Fill in what’s missing, or try again in a minute.`;
 	return r;
@@ -548,6 +548,42 @@ function tidyTitle(title: string, store: string | null): string {
 	return clip(t, 200);
 }
 
+/**
+ * A shop's product name, cut down to what a person would call it. Amazon names run to 200
+ * characters of features ("…Headphones with Auto Noise Canceling Optimizer, Crystal Clear…").
+ * In order, it cuts at: a dash or bar between parts, then the first comma, then "with" / "for" /
+ * "featuring", and finally at a word boundary. Short names are left alone; brackets that are part
+ * of the name, like "(2nd Generation)", are kept.
+ */
+export function shortTitle(full: string): string {
+	let t = full.replace(/\s+/g, ' ').trim();
+	if (t.length <= 58) return t;
+	const cut = (re: RegExp, min: number) => {
+		const m = re.exec(t);
+		if (m && m.index >= min) t = t.slice(0, m.index).trim();
+	};
+	cut(/\s[|–—]\s|\s-\s/, 12);
+	if (t.length > 58) cut(/,\s/, 18);
+	if (t.length > 58) cut(/\s(?:with|for|featuring|includes?|including|compatible with|perfect for|great for|designed for)\s/i, 22);
+	if (t.length > 76) {
+		t = t.slice(0, 76);
+		t = t.slice(0, t.lastIndexOf(' ') > 30 ? t.lastIndexOf(' ') : 76);
+	}
+	// No dangling joiners or half-open brackets at the end.
+	t = t.replace(/[\s,;:&+/-]+$/, '').replace(/\s+(and|or|with|for|in|of|the|a|an|to|by)$/i, '');
+	const open = (t.match(/\(/g) ?? []).length - (t.match(/\)/g) ?? []).length;
+	if (open > 0) t = t.slice(0, t.lastIndexOf('(')).trim();
+	return t.length >= 6 ? t : full.slice(0, 70).trim();
+}
+
+/** Set a result's name: the short one as the title, the full one kept at the top of the notes. */
+function setNames(r: ImportResult, full: string) {
+	r.category_id = guessCategory(full);
+	const short = shortTitle(full);
+	r.title = short;
+	if (short !== full) r.description = clip(r.description && !r.description.startsWith(full) ? `${full}\n\n${r.description}` : full, 900);
+}
+
 const CATEGORY_WORDS: [string, RegExp][] = [
 	['cat_shoes', /\b(shoes?|sneakers?|trainers?|runners?|boots?|sandals?|loafers?|heels|slippers?|cleats|running shoe)\b/i],
 	[
@@ -654,7 +690,7 @@ export async function importWithHint(hint: ImportHint, fetchGaps = true): Promis
 	const price = hint.price == null || hint.price === '' ? null : typeof hint.price === 'number' ? { cents: Math.round(hint.price * 100), currency: null } : parsePrice(String(hint.price));
 	const complete = Boolean(hint.title && hint.image_url && price);
 	const r = url && !complete && fetchGaps ? await importProduct(url.toString()) : url ? baseResult(url) : empty('');
-	if (hint.title) r.title = tidyTitle(String(hint.title), r.store);
+	if (hint.title) setNames(r, tidyTitle(String(hint.title), r.store));
 	if (hint.image_url && /^https?:\/\//.test(hint.image_url)) {
 		r.image_url = hint.image_url;
 		r.images = [hint.image_url, ...r.images.filter((i) => i !== hint.image_url)];
@@ -666,7 +702,7 @@ export async function importWithHint(hint: ImportHint, fetchGaps = true): Promis
 	for (const s of hint.specifics ?? []) {
 		if (s?.label && s?.value && !r.specifics.some((x) => x.label === s.label)) r.specifics.push({ label: String(s.label).slice(0, 40), value: String(s.value).slice(0, 120) });
 	}
-	r.category_id = guessCategory(r.title ?? '');
+	if (!hint.title) r.category_id = r.category_id ?? guessCategory(r.title ?? '');
 	r.blocked = r.blocked && !complete;
 	if (!r.title && url) r.title = titleFromSlug(url);
 	r.ok = Boolean(r.title && (r.image_url || r.price_cents != null));

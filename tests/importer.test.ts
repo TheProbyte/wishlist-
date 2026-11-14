@@ -282,3 +282,42 @@ test('Amazon wish list: a page that repeats what we have stops the paging', asyn
 	assert.equal(calls, 2);
 	assert.equal(nextWishlistPage('<div id="endOfListMarker"></div>', new URL(list)), null);
 });
+
+/* ------------------------------------------------ long shop names, shortened */
+
+import { shortTitle } from '../src/lib/server/importer.ts';
+
+test('long Amazon names are cut to what a person would call it', () => {
+	const cases: [string, string][] = [
+		["Levi's Men's 505 Regular Fit Jeans", "Levi's Men's 505 Regular Fit Jeans"],
+		[
+			'Instant Pot Duo 7-in-1 Electric Pressure Cooker, Slow Cooker, Rice Cooker, Steamer, Sauté, Yogurt Maker, Warmer & Sterilizer, Includes App With Over 800 Recipes, Stainless Steel, 6 Quart',
+			'Instant Pot Duo 7-in-1 Electric Pressure Cooker'
+		],
+		[
+			'Apple AirPods Pro (2nd Generation) Wireless Ear Buds with USB-C Charging, Up to 2X More Active Noise Cancelling Bluetooth Headphones, Transparency Mode',
+			'Apple AirPods Pro (2nd Generation) Wireless Ear Buds'
+		],
+		['Kindle Paperwhite (16 GB) – Our fastest Kindle ever, with new 7" glare-free display and weeks of battery life – Black', 'Kindle Paperwhite (16 GB)'],
+		[
+			'Sony WH-1000XM5 The Best Wireless Noise Canceling Headphones with Auto Noise Canceling Optimizer, Crystal Clear Hands-Free Calling, and Alexa Voice Control, Silver',
+			'Sony WH-1000XM5 The Best Wireless Noise Canceling Headphones'
+		],
+		['LEGO Icons Orchid Artificial Plant Building Set for Adults, Home Décor, Flower Gift Idea, 10311', 'LEGO Icons Orchid Artificial Plant Building Set for Adults'],
+		[
+			'Stanley Quencher H2.0 FlowState Stainless Steel Vacuum Insulated Tumbler with Lid and Straw for Water, Iced Tea or Coffee, Smoothie and More',
+			'Stanley Quencher H2.0 FlowState Stainless Steel Vacuum Insulated Tumbler'
+		]
+	];
+	for (const [full, short] of cases) assert.equal(shortTitle(full), short);
+	for (const [full] of cases) assert.ok(shortTitle(full).length <= 76, full);
+});
+
+test('import keeps the full name in the notes when it shortens the title', async () => {
+	const { importWithHint, guessCategory } = await import('../src/lib/server/importer.ts');
+	const full = 'Instant Pot Duo 7-in-1 Electric Pressure Cooker, Slow Cooker, Rice Cooker, Steamer, Sauté, Yogurt Maker, Warmer & Sterilizer, 6 Quart';
+	const r = await importWithHint({ url: 'https://www.amazon.com/dp/B00FLYWNYQ', title: `Amazon.com: ${full}`, image_url: 'https://img.example/p.jpg', price: '$89.95' });
+	assert.equal(r.title, 'Instant Pot Duo 7-in-1 Electric Pressure Cooker');
+	assert.equal(r.description, full);
+	assert.equal(r.category_id, guessCategory(full));
+});

@@ -743,3 +743,9 @@ html[data-nav='morph']::view-transition-group(*) {
 :root[data-opening] .rise {
 	animation-play-state: paused;
 }
+
+/* While a gift is being dragged, the pointer is a closed hand everywhere. */
+:root[data-lifted],
+:root[data-lifted] * {
+	cursor: grabbing !important;
+}
