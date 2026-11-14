@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { backOut, cubicIn, cubicOut } from 'svelte/easing';
+	import { cubicOut } from 'svelte/easing';
 	import { goto } from '$app/navigation';
 	import Icon from './Icon.svelte';
 	import { menu, closeMenu, type MenuAction, type MenuItem, type MenuPapers } from '#lib/menu.svelte.ts';
@@ -60,18 +60,31 @@
 		return header ? parseFloat(getComputedStyle(header).paddingTop) || 0 : 0;
 	}
 
-	// In: it grows out of the finger (or pointer) with the slightest overshoot, and is solid
-	// almost at once, so nothing half-there hangs about. Out: a quick shrink and fade.
+	// Opening: a slight grow out of the finger (or pointer) with a fade, quick and smooth, no
+	// bounce. Closing: the same in reverse, a touch quicker. The dim behind keeps the same time.
+	const IN = 190;
+	const OUT = 150;
+	const smooth = (t: number) => 1 - Math.pow(1 - t, 3); // ease out
+	const smoothIn = (t: number) => t * t * (3 - 2 * t); // ease in-out, for leaving
 	function pop(_node: HTMLElement) {
 		if (prefersReducedMotion()) return { duration: 0 };
 		return {
-			duration: menu.touch ? 260 : 170,
-			css: (t: number) => `opacity: ${Math.min(1, t * 3)}; transform: scale(${0.86 + 0.14 * backOut(t)})`
+			duration: IN,
+			css: (t: number) => {
+				const e = smooth(t);
+				return `opacity: ${e}; transform: scale(${0.93 + 0.07 * e})`;
+			}
 		};
 	}
 	function shrink(_node: HTMLElement) {
 		if (prefersReducedMotion()) return { duration: 0 };
-		return { duration: dur(130), easing: cubicIn, css: (t: number) => `opacity: ${t}; transform: scale(${0.95 + 0.05 * t})` };
+		return {
+			duration: OUT,
+			css: (t: number) => {
+				const e = smoothIn(t);
+				return `opacity: ${e}; transform: scale(${0.95 + 0.05 * e})`;
+			}
+		};
 	}
 
 	async function choose(item: MenuAction, i: number) {
@@ -126,8 +139,8 @@
 				// After a hold, the phone's own long-press signal can land here: that's not a request to close.
 				if (!menu.touch) closeMenu();
 			}}
-			in:fade={{ duration: dur(220), easing: cubicOut }}
-			out:fade={{ duration: dur(130) }}
+			in:fade|global={{ duration: dur(IN), easing: cubicOut }}
+			out:fade|global={{ duration: dur(OUT) }}
 		></button>
 		<div
 			bind:this={panel}
@@ -137,8 +150,8 @@
 			aria-label={spec.title ?? 'Menu'}
 			class="paper-grain absolute w-[min(16rem,calc(100vw-16px))] overflow-hidden rounded-[18px] bg-cocoa-900 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_18px_40px_-12px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700 outline-none select-none"
 			style="left: 0; top: 0; visibility: hidden"
-			in:pop
-			out:shrink
+			in:pop|global
+			out:shrink|global
 		>
 			{#if spec.title}
 				<div class="px-3 pt-2 pb-2">
