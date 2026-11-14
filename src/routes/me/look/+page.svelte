@@ -5,7 +5,7 @@
 	import PaperPicker from '#lib/components/PaperPicker.svelte';
 	import { STICKER_ICONS, STICKER_INKS, makeSticker, readSticker } from '#lib/stickers.ts';
 	import { INKS, INK_NAMES, type Ink } from '#lib/papers.ts';
-	import { HIGHLIGHTS, THEMES, type HighlightId, type ThemeId } from '#lib/themes.ts';
+	import { HIGHLIGHTS, SEASONAL, THEMES, resolveTheme, seasonalTheme, type HighlightId, type ThemeChoice, type ThemeId } from '#lib/themes.ts';
 	import { getPref, setPref } from '#lib/prefs.ts';
 	import type { PageProps } from './$types';
 
@@ -25,20 +25,55 @@
 
 	// How the app looks: applied the moment you tap, saved behind it.
 	// svelte-ignore state_referenced_locally
-	let theme = $state<ThemeId>(data.profile.theme as ThemeId);
+	let theme = $state<ThemeChoice>(data.profile.theme as ThemeChoice);
 	// svelte-ignore state_referenced_locally
 	let highlight = $state<HighlightId>(data.profile.highlight as HighlightId);
 	let themeForm = $state<HTMLFormElement>();
+	/** Show a theme across the whole app (Seasonal shows this month's). */
+	function show(choice: ThemeChoice) {
+		const root = document.documentElement;
+		const t = resolveTheme(choice) ?? 'cocoa';
+		if (t === 'cocoa') delete root.dataset.theme;
+		else root.dataset.theme = t;
+		const bg = THEMES.find((x) => x.id === t)?.page;
+		if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+	}
 	function apply() {
 		const root = document.documentElement;
-		if (theme === 'cocoa') delete root.dataset.theme;
-		else root.dataset.theme = theme;
+		show(theme);
 		if (highlight === 'auto') delete root.dataset.highlight;
 		else root.dataset.highlight = highlight;
-		const bg = THEMES.find((t) => t.id === theme)?.page;
-		if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
 		queueMicrotask(() => themeForm?.requestSubmit());
 	}
+
+	/* Hold a theme to try it on: the whole app wears it while you hold, and goes back when you
+	   let go. A quick tap picks it. */
+	let previewing = $state<ThemeChoice | null>(null);
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+	let held = false;
+	function pressTheme(id: ThemeChoice) {
+		held = false;
+		clearTimeout(holdTimer);
+		holdTimer = setTimeout(() => {
+			held = true;
+			previewing = id;
+			show(id);
+			navigator.vibrate?.(6);
+		}, 280);
+	}
+	function releaseTheme() {
+		clearTimeout(holdTimer);
+		if (!previewing) return;
+		previewing = null;
+		show(theme);
+	}
+	function tapTheme(id: ThemeChoice) {
+		if (held) return void (held = false);
+		theme = id;
+		apply();
+	}
+	const nowSeason = seasonalTheme();
+	const seasonLook = THEMES.find((t) => t.id === nowSeason)!;
 
 	// The paper pointer, remembered on this computer.
 	let paperPointer = $state(false);
@@ -57,19 +92,21 @@
 	<input type="hidden" name="theme" value={theme} />
 	<input type="hidden" name="highlight" value={highlight} />
 	<h2 class="text-lg font-bold">App theme</h2>
-	<p class="mt-0.5 mb-3 text-sm text-fg-muted">The whole app’s background and cards. Mustard, rust and teal stay, so it still feels like The Giver.</p>
+	<p class="mt-0.5 mb-3 text-sm text-fg-muted">The whole app’s background and cards. Mustard, rust and teal stay, so it still feels like The Giver. <span class="text-fg-faint">Hold one to try it on.</span></p>
 	<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-		{#each THEMES as t (t.id)}
+		{#each [...THEMES, { ...seasonLook, id: SEASONAL.id, name: SEASONAL.name, note: `Now: ${seasonLook.name}` }] as t (t.id)}
 			<button
 				type="button"
-				class="overflow-hidden rounded-[var(--radius-card)] text-left ring-3 transition {theme === t.id ? 'ring-[var(--accent)]' : 'ring-transparent hover:ring-cocoa-600'}"
+				class="relative overflow-hidden rounded-[var(--radius-card)] text-left ring-3 transition select-none [-webkit-touch-callout:none] {theme === t.id ? 'ring-[var(--accent)]' : 'ring-transparent hover:ring-cocoa-600'} {previewing === t.id ? 'scale-[1.03]' : ''}"
 				style="background: {t.page}; color: {t.text}"
 				aria-pressed={theme === t.id}
-				onclick={() => {
-					theme = t.id;
-					apply();
-				}}
+				onpointerdown={() => pressTheme(t.id as ThemeChoice)}
+				onpointerup={releaseTheme}
+				onpointerleave={releaseTheme}
+				onpointercancel={releaseTheme}
+				onclick={() => tapTheme(t.id as ThemeChoice)}
 			>
+				{#if t.id === SEASONAL.id}<span class="absolute top-2 right-2 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] font-bold">Auto</span>{/if}
 				<!-- A tiny version of the app in this theme. -->
 				<span class="block h-1.5" style="background: linear-gradient(to bottom, #e8a83a 0 33%, #d2602d 33% 66%, #3e8e87 66%)"></span>
 				<span class="flex gap-1.5 p-2.5">

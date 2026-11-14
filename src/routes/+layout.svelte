@@ -123,7 +123,10 @@
 		return {
 			title: 'You',
 			items: [
+				{ label: 'About you', icon: 'cake', href: '/me/about' },
+				{ label: 'Family', icon: 'teddy', href: '/me/family' },
 				{ label: 'Look & feel', icon: 'palette', href: '/me/look' },
+				{ label: 'Add from anywhere', icon: 'share', href: '/me/tools' },
 				{ label: 'Categories', icon: 'tag', href: '/categories' }
 			]
 		};

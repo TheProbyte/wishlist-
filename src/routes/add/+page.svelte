@@ -164,7 +164,7 @@
 					<button class="btn-primary shrink-0">Add</button>
 				</div>
 			</label>
-			<p class="mt-4 text-sm text-fg-faint">Tip: add gifts straight from any shop with the bookmark button or your phone’s share menu. Set them up on the <a href="/me#anywhere" class="font-bold text-mustard-400 hover:underline">You</a> page.</p>
+			<p class="mt-4 text-sm text-fg-faint">Tip: add gifts straight from any shop with the bookmark button or your phone’s share menu. Set them up on the <a href="/me/tools" class="font-bold text-mustard-400 hover:underline">You</a> page.</p>
 		</form>
 	{:else if phase === 'gift'}
 		<div class="card flex items-center gap-4 p-4">

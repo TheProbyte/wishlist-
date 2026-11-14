@@ -25,4 +25,17 @@ export type HighlightId = (typeof HIGHLIGHTS)[number]['id'];
 
 export const isTheme = (v: unknown): v is ThemeId => THEMES.some((t) => t.id === v);
 export const isHighlight = (v: unknown): v is HighlightId => HIGHLIGHTS.some((h) => h.id === v);
-export const themeBackground = (id: string | null | undefined) => THEMES.find((t) => t.id === id)?.page ?? THEMES[0].page;
+/**
+ * "Seasonal": the theme follows the time of year. December is Berry, winter Midnight, spring
+ * Forest, summer Plum, autumn the original Cocoa.
+ */
+export const SEASONAL = { id: 'season', name: 'Seasonal', note: 'Changes with the time of year' } as const;
+export function seasonalTheme(d = new Date()): ThemeId {
+	const m = d.getMonth();
+	return m === 11 ? 'berry' : m <= 1 ? 'midnight' : m <= 4 ? 'forest' : m <= 7 ? 'plum' : 'cocoa';
+}
+export type ThemeChoice = ThemeId | 'season';
+export const isThemeChoice = (v: unknown): v is ThemeChoice => v === 'season' || isTheme(v);
+/** The theme actually shown for a saved choice (Seasonal resolves to this month's). */
+export const resolveTheme = (v: unknown, d?: Date): ThemeId | null => (v === 'season' ? seasonalTheme(d) : isTheme(v) ? v : null);
+export const themeBackground = (id: string | null | undefined) => THEMES.find((t) => t.id === resolveTheme(id))?.page ?? THEMES[0].page;

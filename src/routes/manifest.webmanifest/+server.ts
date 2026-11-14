@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { isTheme, themeBackground } from '#lib/themes.ts';
+import { themeBackground } from '#lib/themes.ts';
 
 /**
  * The installed app's manifest, in your theme. On Android, Chrome colours an installed app's
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const look = locals.user
 		? await locals.db.prepare('SELECT theme FROM users WHERE id = ?').bind(locals.user.id).first<{ theme: string | null }>().catch(() => null)
 		: null;
-	const color = themeBackground(isTheme(look?.theme) ? look.theme : null);
+	const color = themeBackground(look?.theme);
 	const manifest = {
 		id: '/',
 		name: 'The Giver',

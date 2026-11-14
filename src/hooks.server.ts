@@ -3,7 +3,7 @@ import { error, json, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { SESSION_COOKIE, authEnabled, localUser, ownerMarks, rememberOwner, userFromSession } from '#lib/server/auth.ts';
 import { ensureSchema } from '#lib/server/schema.ts';
-import { isHighlight, isTheme, themeBackground } from '#lib/themes.ts';
+import { isHighlight, resolveTheme, themeBackground } from '#lib/themes.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
 const PUBLIC = [/^\/icons\//, /^\/og\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
@@ -17,7 +17,7 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	const resolve = async (e: typeof event) => {
 		const page = e.request.method === 'GET' && !e.url.pathname.endsWith('__data.json') && !e.url.pathname.startsWith('/api/') && (e.request.headers.get('accept') ?? '').includes('text/html');
 		const look = page && e.locals.user ? await e.locals.db.prepare('SELECT theme, highlight FROM users WHERE id = ?').bind(e.locals.user.id).first<{ theme: string | null; highlight: string | null }>().catch(() => null) : null;
-		const theme = isTheme(look?.theme) ? look.theme : null;
+		const theme = resolveTheme(look?.theme);
 		const highlight = isHighlight(look?.highlight) && look.highlight !== 'auto' ? look.highlight : null;
 		if (!theme && !highlight) return kitResolve(e, { preload });
 		return kitResolve(e, {

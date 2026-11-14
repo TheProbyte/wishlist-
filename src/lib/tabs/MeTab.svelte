@@ -1,37 +1,16 @@
 <script lang="ts">
 	import { paperFor } from '#lib/papers.ts';
-	import { enhance } from '$app/forms';
-	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
-	import SizeFields from '#lib/components/SizeFields.svelte';
-	import Modal from '#lib/components/Modal.svelte';
-	import { bookmarklet } from '#lib/bookmarklet.ts';
+	import SizesCard from '#lib/components/SizesCard.svelte';
+	import { countdownLabel, occasionDate } from '#lib/format.ts';
 	import type { TabForm } from './types.ts';
-	import type { Kid } from '#lib/types.ts';
 	import type { MeData } from '#lib/server/tabs/me.ts';
 
 	/** One of the three tabs; the shell around it is in routes/[[tab=tab]]. */
 	let { data, form, me = null }: { data: MeData; form: TabForm; me?: { id: string; name: string } | null } = $props();
 
-	let savedNote = $state<string | null>(null);
-	const flash = (msg: string) => {
-		savedNote = msg;
-		setTimeout(() => (savedNote = null), 2200);
-	};
-
-	let editingKid = $state<Kid | null>(null);
-	let kidOpen = $state(false);
-	let confirmRemove = $state(false);
-
-	const code = $derived(bookmarklet(page.url.origin));
-	let copiedCode = $state(false);
-	async function copyCode() {
-		await navigator.clipboard.writeText(code);
-		copiedCode = true;
-		setTimeout(() => (copiedCode = false), 1800);
-	}
-
+	const hasSizes = $derived(Object.values(data.profile.sizes).some(Boolean));
 </script>
 
 <section class="mb-8 flex items-center gap-4">
@@ -49,107 +28,43 @@
 	</div>
 {/if}
 
-<!-- About you: birthday and sizes -->
-<form
-	method="POST"
-	action="?/saveProfile"
-	class="card mb-8 space-y-5 p-5"
-	use:enhance={() => async ({ update, result }) => {
-		await update({ reset: false });
-		if (result.type === 'success') flash('Saved');
-	}}
->
-	<div>
-		<h2 class="text-lg font-bold">About you</h2>
-		<p class="mt-1 text-sm text-fg-muted">Your sizes fill in automatically when you add clothes, and givers can see them. You can always change the size on a single gift.</p>
-	</div>
-	<label class="block">
-		<span class="label">Your birthday</span>
-		<input class="field sm:max-w-56" type="date" name="birthday" value={data.profile.birthday ?? ''} />
-		<span class="mt-1.5 block text-xs text-fg-faint">Shown to people in your circles so they know it’s coming up.</span>
-	</label>
-	<SizeFields sizes={data.profile.sizes} />
-	<div class="flex items-center justify-end gap-3">
-		{#if savedNote}<span class="text-sm font-bold text-teal-300">{savedNote}</span>{/if}
-		<button class="btn-primary">Save</button>
-	</div>
-</form>
-
-<!-- Kids -->
-<section class="mb-8">
-	<h2 class="mb-3 text-lg font-bold">Kids</h2>
-	{#if data.kids.length}
-		<div class="grid gap-3 sm:grid-cols-2">
-			{#each data.kids as kid (kid.id)}
-				<div class="card flex items-center gap-3 p-3.5">
-					<Avatar name={kid.name} size={44} />
-					<div class="min-w-0 flex-1">
-						<p class="font-bold">{kid.name}</p>
-						<p class="text-xs text-fg-muted">{Object.values(kid.sizes).filter(Boolean).length ? 'Sizes saved' : 'No sizes yet'}</p>
-					</div>
-					<a href="/lists/mst_{kid.id}" class="btn-quiet text-sm">List</a>
-					<button class="btn-ghost text-sm" onclick={() => { editingKid = kid; confirmRemove = false; kidOpen = true; }}>Edit</button>
-				</div>
-			{/each}
-		</div>
-	{:else}
-		<p class="text-sm text-fg-muted">Keep wish lists for your kids, clearly labelled with their names. Add one from the <a href="/" class="font-bold text-mustard-400 hover:underline">Lists</a> page.</p>
-	{/if}
-</section>
-
-<!-- Add from anywhere -->
-<section id="anywhere" class="mb-8 scroll-mt-24">
-	<h2 class="mb-1 text-lg font-bold">Add gifts from anywhere</h2>
-	<p class="mb-4 text-sm text-fg-muted">Add gifts while you shop, without copying links.</p>
-	<div class="grid gap-3 md:grid-cols-2">
-		<div class="card p-5">
-			<h3 class="flex items-center gap-2 font-bold"><Icon name="share" size={18} class="text-teal-300" />From your phone’s share menu</h3>
-			<ol class="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-fg-muted">
-				<li>Open The Giver in Chrome on Android and choose <span class="font-bold text-fg">Add to Home screen</span> (or <span class="font-bold text-fg">Install app</span>).</li>
-				<li>In the Amazon app or any browser, tap <span class="font-bold text-fg">Share → The Giver</span>.</li>
-			</ol>
-			<p class="mt-3 text-xs text-fg-faint">On iPhone, Apple doesn’t let web apps join the share menu. Use the bookmark button instead; it works in Safari. You can still add The Giver to your Home Screen from Safari’s share menu.</p>
-		</div>
-		<div class="card p-5">
-			<h3 class="flex items-center gap-2 font-bold"><Icon name="tag" size={18} class="text-mustard-400" />The bookmark button</h3>
-			<p class="mt-2 text-sm text-fg-muted">On a computer, drag this to your bookmarks bar. Then, on any product page (or an Amazon wish list), click it.</p>
-			<!-- svelte-ignore a11y_invalid_attribute -->
-			<a href={code} class="btn-primary mt-3 cursor-grab" onclick={(e) => e.preventDefault()} draggable="true">
-				<Icon name="gift" size={18} />Add to The Giver
-			</a>
-			<details class="mt-4 text-sm">
-				<summary class="cursor-pointer font-bold text-fg-muted hover:text-fg">Dragging doesn’t work? (Zen, Firefox, iPhone)</summary>
-				<div class="mt-2 space-y-3 text-fg-muted">
-					<p><span class="font-bold text-fg">Zen or Firefox:</span> right-click the yellow button and choose <span class="font-bold text-fg">Bookmark Link…</span>. Then open it from your bookmarks (or press Ctrl+Shift+B to show the bookmarks bar).</p>
-					<p><span class="font-bold text-fg">Any browser:</span>
-						<button class="font-bold text-mustard-400 hover:underline" onclick={copyCode}>{copiedCode ? 'Copied!' : 'Copy the bookmark code'}</button>, make a new bookmark, name it “Add to The Giver” and paste the code as its address (URL).</p>
-					<p><span class="font-bold text-fg">iPhone or iPad:</span> copy the code above. In Safari, bookmark any page, then edit that bookmark: rename it and paste the code as its address. On a product page, open Bookmarks and tap it.</p>
-				</div>
-			</details>
-			<p class="mt-3 text-xs text-fg-faint">It reads the page in your own browser, so it works even when a shop blocks automatic lookups. On an Amazon wish list it brings in every item (scroll to the bottom first so they’ve all loaded).</p>
-		</div>
-	</div>
-</section>
-
-<section class="mb-8 grid gap-3 sm:grid-cols-2">
-	<a href="/me/look" class="card flex items-center gap-3 p-4 transition active:translate-y-0.5 sm:col-span-2">
+<!-- Everything about you, each in its own place: tap a card to open it. -->
+<div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+	<a href="/me/about" class="card rise block min-w-0 p-4 transition active:translate-y-0.5 sm:col-span-2" style="--i: 0">
+		<span class="flex items-center gap-3">
+			<span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cocoa-950 text-rust-300"><Icon name="cake" size={22} /></span>
+			<span class="min-w-0 flex-1"><span class="block font-bold">About you</span><span class="block truncate text-sm text-fg-muted">{data.profile.birthday ? `Birthday ${countdownLabel(occasionDate('birthday', data.profile.birthday))}` : 'Add your birthday'} · {hasSizes ? 'sizes saved' : 'add your sizes'}</span></span>
+			<Icon name="chevron-right" size={18} class="shrink-0" />
+		</span>
+		{#if hasSizes}<SizesCard sizes={data.profile.sizes} row class="mt-3" />{/if}
+	</a>
+	<a href="/me/family" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 1">
+		{#if data.kids.length}
+			<span class="flex shrink-0 -space-x-3">{#each data.kids.slice(0, 3) as k (k.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={k.name} size={40} /></span>{/each}</span>
+		{:else}
+			<span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cocoa-950 text-teal-300"><Icon name="teddy" size={22} /></span>
+		{/if}
+		<span class="min-w-0 flex-1"><span class="block font-bold">Family</span><span class="block truncate text-sm text-fg-muted">{data.kids.length ? data.kids.map((k) => k.name).join(', ') : 'Wish lists for your kids'}</span></span>
+		<Icon name="chevron-right" size={18} class="shrink-0" />
+	</a>
+	<a href="/me/look" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 2">
 		<span class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full" style="background: {paperFor(data.profile.paper ?? 'sunburst').background}">
 			<span class="grid h-7 w-7 place-items-center rounded-full bg-cocoa-950/85 text-mustard-400"><Icon name="palette" size={16} /></span>
 		</span>
-		<span class="flex-1"><span class="block font-bold">Look &amp; feel</span><span class="text-sm text-fg-muted">Your sticker and paper, the app’s colours, the pointer</span></span>
-		<Icon name="chevron-right" size={18} />
+		<span class="min-w-0 flex-1"><span class="block font-bold">Look &amp; feel</span><span class="block truncate text-sm text-fg-muted">Sticker, paper, the app’s colours</span></span>
+		<Icon name="chevron-right" size={18} class="shrink-0" />
 	</a>
-	<a href="/categories" class="card flex items-center gap-3 p-4 transition active:translate-y-0.5">
-		<span class="grid h-11 w-11 place-items-center rounded-full bg-cocoa-950 text-mustard-400"><Icon name="tag" size={22} /></span>
-		<span class="flex-1"><span class="block font-bold">Categories</span><span class="text-sm text-fg-muted">Make your own, with the details to ask for</span></span>
-		<Icon name="chevron-right" size={18} />
+	<a href="/me/tools" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 3">
+		<span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cocoa-950 text-teal-300"><Icon name="share" size={20} /></span>
+		<span class="min-w-0 flex-1"><span class="block font-bold">Add from anywhere</span><span class="block truncate text-sm text-fg-muted">Share menu, bookmark button, Amazon lists</span></span>
+		<Icon name="chevron-right" size={18} class="shrink-0" />
 	</a>
-	<a href="/add" class="card flex items-center gap-3 p-4 transition active:translate-y-0.5">
-		<span class="grid h-11 w-11 place-items-center rounded-full bg-cocoa-950 text-teal-300"><Icon name="link" size={22} /></span>
-		<span class="flex-1"><span class="block font-bold">Import an Amazon wish list</span><span class="text-sm text-fg-muted">Paste its link (set it to Public or Shared first)</span></span>
-		<Icon name="chevron-right" size={18} />
+	<a href="/categories" class="card rise flex items-center gap-3 p-4 transition active:translate-y-0.5" style="--i: 4">
+		<span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cocoa-950 text-mustard-400"><Icon name="tag" size={22} /></span>
+		<span class="min-w-0 flex-1"><span class="block font-bold">Categories</span><span class="block truncate text-sm text-fg-muted">Your own, with the details to ask for</span></span>
+		<Icon name="chevron-right" size={18} class="shrink-0" />
 	</a>
-</section>
+</div>
 
 {#if data.authEnabled}
 	<form method="POST" action="/auth/logout">
@@ -157,44 +72,3 @@
 		<p class="mt-1 text-center text-xs text-fg-faint">Claims on your lists stay hidden on this device even after you sign out.</p>
 	</form>
 {/if}
-
-<Modal bind:open={kidOpen} title="Edit {editingKid?.name ?? ''}">
-	{#if editingKid}
-		<form
-			id="kid-form"
-			method="POST"
-			action="?/saveKid"
-			class="space-y-5"
-			use:enhance={() => async ({ update, result }) => {
-				await update({ reset: false });
-				if (result.type === 'success') kidOpen = false;
-			}}
-		>
-			<input type="hidden" name="id" value={editingKid.id} />
-			<label class="block"><span class="label">Name</span><input class="field" name="name" required maxlength="40" value={editingKid.name} /></label>
-			<label class="block"><span class="label">Birthday</span><input class="field sm:max-w-56" type="date" name="birthday" value={editingKid.birthday ?? ''} /></label>
-			<div>
-				<span class="label">Sizes</span>
-				<SizeFields sizes={editingKid.sizes} />
-			</div>
-			{#if form?.kidError}<p class="text-sm font-bold text-rust-300">{form.kidError}</p>{/if}
-		</form>
-		<div class="mt-8 rounded-[var(--radius-card)] bg-rust-500/10 p-4">
-			<form method="POST" action="?/deleteKid" use:enhance={() => async ({ update }) => { await update(); kidOpen = false; }} class="flex items-center justify-between gap-4">
-				<input type="hidden" name="id" value={editingKid.id} />
-				<p class="text-sm text-fg-muted">Remove {editingKid.name} and all their lists and gifts.</p>
-				{#if confirmRemove}
-					<button class="btn-danger shrink-0">Yes, remove</button>
-				{:else}
-					<button type="button" class="btn-quiet shrink-0 text-rust-300" onclick={() => (confirmRemove = true)}>Remove</button>
-				{/if}
-			</form>
-		</div>
-	{/if}
-	{#snippet footer()}
-		<div class="flex justify-end gap-2">
-			<button type="button" class="btn-quiet" onclick={() => (kidOpen = false)}>Cancel</button>
-			<button form="kid-form" class="btn-primary">Save</button>
-		</div>
-	{/snippet}
-</Modal>

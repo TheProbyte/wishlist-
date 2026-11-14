@@ -1342,3 +1342,13 @@ select,
 		stroke-dashoffset: 0;
 	}
 }
+
+/* A woven size label: stitches just inside the edge. */
+.size-label::after {
+	content: '';
+	position: absolute;
+	inset: 3px;
+	border: 1.5px dashed rgb(43 29 20 / 0.28);
+	border-radius: 4px;
+	pointer-events: none;
+}

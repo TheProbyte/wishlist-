@@ -3,6 +3,7 @@
 	import GiverGifts from './GiverGifts.svelte';
 	import Icon from './Icon.svelte';
 	import Modal from './Modal.svelte';
+	import SizesCard from './SizesCard.svelte';
 	import { enhance } from '$app/forms';
 	import { SIZE_FIELDS } from '#lib/sizes.ts';
 	import type { Category, GiverItem, Sizes } from '#lib/types.ts';
@@ -87,11 +88,10 @@
 {/if}
 
 {#if savedSizes.length}
-	<div class="card no-scrollbar mb-4 flex items-center gap-2 overflow-x-auto px-3.5 py-2.5 whitespace-nowrap" data-no-swipe>
-		<span class="flex shrink-0 items-center gap-2 pr-1 text-sm font-bold"><Icon name="shirt" size={18} class="text-rust-300" />{person ? `${person.split(' ')[0]}’s sizes` : 'Sizes'}</span>
-		{#each savedSizes as f (f.key)}
-			<span class="pill shrink-0 text-xs"><span class="text-fg-faint">{f.label}</span>{sizes[f.key]}</span>
-		{/each}
+	<!-- Their sizes, as the labels sewn into clothes. -->
+	<div class="card mb-4 p-3.5">
+		<p class="mb-2.5 flex items-center gap-2 text-sm font-bold"><Icon name="shirt" size={17} class="text-rust-300" />{person ? `${person.split(' ')[0]}’s sizes` : 'Sizes'}</p>
+		<SizesCard {sizes} row />
 	</div>
 {/if}
 

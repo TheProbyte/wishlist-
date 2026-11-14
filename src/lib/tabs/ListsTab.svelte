@@ -62,9 +62,13 @@
 	// Asked for from the tab bar's hold menu.
 	$effect(() => {
 		const r = shell.request;
-		if (r !== 'new-list' && r !== 'share-all') return;
+		if (r !== 'new-list' && r !== 'new-kid' && r !== 'share-all') return;
 		shell.request = null;
-		untrack(() => (r === 'new-list' ? newList() : openShare(data.everything.id, data.everything.share_token, 'your')));
+		untrack(() => {
+			if (r === 'share-all') return openShare(data.everything.id, data.everything.share_token, 'your');
+			newList();
+			if (r === 'new-kid') creatingFor = 'new-kid';
+		});
 	});
 
 	/* A list's own menu on the shelf (hold it, or right-click): paper, sharing, settings, delete.
