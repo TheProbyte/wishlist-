@@ -132,10 +132,25 @@
 		};
 	}
 
+	// No connection: a ribbon under the header says so (pages open from the copy kept on the phone).
+	let offline = $state(false);
+	onMount(() => {
+		const update = () => (offline = !navigator.onLine);
+		update();
+		addEventListener('online', update);
+		addEventListener('offline', update);
+		return () => {
+			removeEventListener('online', update);
+			removeEventListener('offline', update);
+		};
+	});
+
 	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
 	let loading = $state(false);
 	// A list or person page that's slow to arrive gets cardboard stand-ins in its place.
-	let placeholder = $state<'list' | 'person' | null>(null);
+	let placeholder = $state<'list' | 'person' | 'rows' | null>(null);
+	// Pages made of rows (coming up, shopping list, circles, Secret Santa, the You pages…).
+	const ROWS = new Set(['/upcoming', '/getting', '/circles/[id]', '/santa/[id]', '/me/about', '/me/family', '/me/tools', '/me/look', '/categories']);
 	$effect(() => {
 		const to = navigating.to;
 		if (!to) {
@@ -143,7 +158,8 @@
 			placeholder = null;
 			return;
 		}
-		const kind = to.route.id === '/lists/[id]' ? 'list' : to.route.id === '/people/[id]' ? 'person' : null;
+		const id = to.route.id ?? '';
+		const kind = id === '/lists/[id]' ? 'list' : id === '/people/[id]' ? 'person' : ROWS.has(id) ? 'rows' : null;
 		const t = setTimeout(() => (loading = true), 120);
 		const p = setTimeout(() => {
 			// Not while a present is opening: it covers the screen itself.
@@ -230,8 +246,17 @@
 	</div>
 </header>
 
+{#if offline}
+	<!-- No connection: just under the header, without moving anything. -->
+	<div class="pointer-events-none fixed inset-x-0 top-[var(--header-h)] z-30 flex justify-center px-3 pt-2" role="status">
+		<span class="flex items-center gap-2 rounded-full bg-cocoa-800 px-3.5 py-1.5 text-xs font-bold text-fg-muted shadow-[0_2px_0_0_var(--color-edge)]">
+			<Icon name="alert" size={14} class="text-mustard-400" />Offline: showing what you last saw. Changes need a connection.
+		</span>
+	</div>
+{/if}
+
 <!-- The tab pager fills the space itself; other pages scroll as normal pages. -->
-<main class={onPager ? 'overflow-hidden' : `mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 ${shared ? 'pb-24' : 'pb-52 sm:pb-24'}`}>
+<main class={onPager && !placeholder ? 'overflow-hidden' : `mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 ${shared ? 'pb-24' : 'pb-52 sm:pb-24'}`}>
 	{#if placeholder}<PageSkeleton kind={placeholder} />{:else}{@render children()}{/if}
 </main>
 

@@ -354,7 +354,13 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={shareOpen} title="Share {sharing?.who ?? 'your'} whole wish list">
+{#snippet shareAllFooter()}
+	<div class="flex justify-end gap-2">
+		<button type="button" class="btn-quiet" onclick={() => (shareOpen = false)}>Not now</button>
+		<button form="share-all-form" class="btn-teal">Create link</button>
+	</div>
+{/snippet}
+<Modal bind:open={shareOpen} title="Share {sharing?.who ?? 'your'} whole wish list" footer={sharing && !shareUrl ? shareAllFooter : undefined}>
 	{#if sharing}
 		{#if shareUrl}
 			<p class="mb-4 text-sm text-fg-muted">This link shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. Anyone with it can mark a gift as theirs, and it’s crossed off everywhere so nobody doubles up. To share just one list, like Christmas, open it and tap Share there.</p>
@@ -370,10 +376,9 @@
 				</form>
 			</div>
 		{:else}
-			<p class="mb-6 text-sm text-fg-muted">Make one private link that shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. New gifts show up on it automatically. To share just one list, like Christmas, open it and tap Share there.</p>
-			<form method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
+			<p class="text-sm text-fg-muted">Make one private link that shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. New gifts show up on it automatically. To share just one list, like Christmas, open it and tap Share there.</p>
+			<form id="share-all-form" method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
 				<input type="hidden" name="list" value={sharing.id} />
-				<button class="btn-teal w-full">Create link</button>
 			</form>
 		{/if}
 	{/if}

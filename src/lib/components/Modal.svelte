@@ -259,7 +259,7 @@
 				{@render children()}
 			</div>
 			{#if footer}
-				<div class="bg-cocoa-900 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-2px_0_0_var(--color-cocoa-800)] sm:px-6 sm:pb-4">
+				<div class="sheet-footer bg-cocoa-900 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-2px_0_0_var(--color-cocoa-800)] sm:px-6 sm:pb-4">
 					{@render footer()}
 				</div>
 			{/if}

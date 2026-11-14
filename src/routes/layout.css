@@ -1352,3 +1352,12 @@ select,
 	border-radius: 4px;
 	pointer-events: none;
 }
+
+/* Sheets on phones: the main button is always wide, tall and in the same spot at the bottom
+   (Cancel and the like stay small beside it). */
+@media (max-width: 639px) {
+	.sheet-footer :is(.btn-primary, .btn-teal, .btn-danger) {
+		flex: 1 1 auto;
+		min-height: 3rem;
+	}
+}

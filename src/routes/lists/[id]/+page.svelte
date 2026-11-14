@@ -974,7 +974,13 @@
 </Modal>
 
 <!-- Sharing -->
-<Modal bind:open={shareOpen} title="Share with givers">
+{#snippet shareFooter()}
+	<div class="flex justify-end gap-2">
+		<button type="button" class="btn-quiet" onclick={() => (shareOpen = false)}>Not now</button>
+		<button form="share-form" class="btn-teal">Create share link</button>
+	</div>
+{/snippet}
+<Modal bind:open={shareOpen} title="Share with givers" footer={shareUrl ? undefined : shareFooter}>
 	{#if shareUrl}
 		<p class="mb-4 text-sm text-fg-muted">Anyone with this link can see the list and mark a gift as theirs, so nobody buys the same thing twice.</p>
 		<div class="flex gap-2">
@@ -988,10 +994,8 @@
 			</form>
 		</div>
 	{:else}
-		<p class="mb-6 text-sm text-fg-muted">Create a private link to send to family and friends. They can mark gifts as theirs so nobody doubles up, and they don’t need an account.</p>
-		<form method="POST" action="?/share" use:enhance={() => async ({ update }) => update({ reset: false })}>
-			<button class="btn-teal w-full">Create share link</button>
-		</form>
+		<p class="text-sm text-fg-muted">Create a private link to send to family and friends. They can mark gifts as theirs so nobody doubles up, and they don’t need an account.</p>
+		<form id="share-form" method="POST" action="?/share" use:enhance={() => async ({ update }) => update({ reset: false })}></form>
 	{/if}
 </Modal>
 
