@@ -123,7 +123,8 @@
 			onclick={closeMenu}
 			oncontextmenu={(e) => {
 				e.preventDefault();
-				closeMenu();
+				// After a hold, the phone's own long-press signal can land here: that's not a request to close.
+				if (!menu.touch) closeMenu();
 			}}
 			in:fade={{ duration: dur(220), easing: cubicOut }}
 			out:fade={{ duration: dur(130) }}

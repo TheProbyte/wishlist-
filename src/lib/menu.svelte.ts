@@ -125,13 +125,25 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 		if (!spec) return;
 		e.preventDefault();
 		e.stopPropagation();
-		// Android also sends this at the end of a hold, after we've already opened the menu.
+		// A finger is down: this is the phone itself noticing the long press (iPhone and Android
+		// both send it, sometimes before our own hold is up). It's the same hold, so it opens the
+		// one finger-style menu, never a second, mouse-style one.
+		if (touching || performance.now() - touchEndedAt < 600) {
+			if (o.touch !== false && !(menu.spec && menu.owner === node)) {
+				clearTimeout(timer);
+				timer = undefined;
+				openHeld(spec);
+			}
+			return;
+		}
 		if (menu.spec && performance.now() - openedAt < 1000) return;
 		openMenu(spec, e.clientX, e.clientY, false, node);
 	}
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let held = false;
+	let touching = false;
+	let touchEndedAt = 0;
 	let sx = 0;
 	let sy = 0;
 
@@ -158,6 +170,7 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 
 	function touchstart(e: TouchEvent) {
 		cancel();
+		touching = true;
 		// The innermost element with a menu gets the hold.
 		if (o.touch === false || e.touches.length !== 1 || (e as TouchEvent & { menuClaimed?: boolean }).menuClaimed) return;
 		if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
@@ -173,9 +186,22 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 		if (Math.hypot(t.clientX - sx, t.clientY - sy) > 10) cancel();
 	}
 	function touchend(e: TouchEvent) {
+		touching = false;
+		touchEndedAt = performance.now();
 		if (held) {
 			held = false;
 			if (e.cancelable) e.preventDefault();
+			swallowUntil = performance.now() + 300;
+			return;
+		}
+		cancel();
+	}
+	function touchcancel() {
+		touching = false;
+		touchEndedAt = performance.now();
+		if (held) {
+			// The phone took over a hold that already opened the menu: the menu stays.
+			held = false;
 			swallowUntil = performance.now() + 300;
 			return;
 		}
@@ -190,6 +216,11 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 		timer = undefined;
 		const spec = o.spec();
 		if (!spec) return rise(160);
+		openHeld(spec);
+	}
+	/** The hold is up (our timer, or the phone's own long press, whichever comes first): one menu. */
+	function openHeld(spec: MenuSpec) {
+		if (menu.spec && menu.owner === node) return;
 		held = true;
 		buzz();
 		rise(240);
@@ -200,7 +231,7 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 	node.addEventListener('touchstart', touchstart, { passive: true });
 	node.addEventListener('touchmove', touchmove, { passive: true });
 	node.addEventListener('touchend', touchend, { passive: false });
-	node.addEventListener('touchcancel', cancel);
+	node.addEventListener('touchcancel', touchcancel);
 	return {
 		update(next) {
 			o = next;
@@ -212,7 +243,7 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 			node.removeEventListener('touchstart', touchstart);
 			node.removeEventListener('touchmove', touchmove);
 			node.removeEventListener('touchend', touchend);
-			node.removeEventListener('touchcancel', cancel);
+			node.removeEventListener('touchcancel', touchcancel);
 		}
 	};
 };
