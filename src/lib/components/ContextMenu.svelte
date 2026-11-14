@@ -12,8 +12,6 @@
 	 */
 
 	let panel = $state<HTMLDivElement>();
-	let h = $state(0);
-	let w = $state(0);
 	// The item waiting for its second tap.
 	let armed = $state<number | null>(null);
 	$effect(() => {
@@ -23,26 +21,38 @@
 	const isAction = (i: MenuItem): i is MenuAction => typeof i === 'object' && 'label' in i;
 	const isPapers = (i: MenuItem): i is MenuPapers => typeof i === 'object' && 'papers' in i;
 
-	const pos = $derived.by(() => {
-		if (typeof window === 'undefined' || !h) return { left: 0, top: 0, origin: 'top left' };
+	/** Where the menu goes, worked out from its real size in one go, before it's ever drawn, so
+	 *  it appears in its place and never jumps. */
+	function place(node: HTMLElement) {
+		const w = node.offsetWidth; // forces layout; transforms (the pop) don't affect it
+		const h = node.offsetHeight;
 		const vw = innerWidth;
 		const vh = innerHeight;
 		const top0 = 8 + safeTop();
 		const bottom0 = vh - 8 - (menu.touch ? 72 : 0);
+		let left: number;
+		let top: number;
+		let origin: string;
 		if (menu.touch) {
 			// Above the finger if it fits, else below it; centred on it, kept on screen.
-			const left = clamp(menu.x - w / 2, 8, vw - w - 8);
+			left = clamp(menu.x - w / 2, 8, vw - w - 8);
 			const above = menu.y - h - 18;
-			const top = above >= top0 ? above : clamp(menu.y + 18, top0, bottom0 - h);
-			return { left, top, origin: `${menu.x - left}px ${above >= top0 ? '100%' : '0'}` };
+			const fitsAbove = above >= top0;
+			top = fitsAbove ? above : clamp(menu.y + 18, top0, Math.max(top0, bottom0 - h));
+			origin = `${menu.x - left}px ${fitsAbove ? '100%' : `${clamp(menu.y - top, 0, h)}px`}`;
+		} else {
+			// A mouse: from the pointer, flipping when near the right or bottom edge.
+			const right = menu.x + w > vw - 8;
+			const up = menu.y + h > bottom0;
+			left = clamp(right ? menu.x - w : menu.x, 8, vw - w - 8);
+			top = clamp(up ? menu.y - h : menu.y, top0, Math.max(top0, bottom0 - h));
+			origin = `${right ? 'right' : 'left'} ${up ? 'bottom' : 'top'}`;
 		}
-		// A mouse: from the pointer, flipping when near the right or bottom edge.
-		const right = menu.x + w > vw - 8;
-		const up = menu.y + h > bottom0;
-		const left = clamp(right ? menu.x - w : menu.x, 8, vw - w - 8);
-		const top = clamp(up ? menu.y - h : menu.y, top0, bottom0 - h);
-		return { left, top, origin: `${right ? 'right' : 'left'} ${up ? 'bottom' : 'top'}` };
-	});
+		node.style.left = `${left}px`;
+		node.style.top = `${top}px`;
+		node.style.transformOrigin = origin;
+		node.style.visibility = 'visible';
+	}
 	const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 	// Below the phone's status bar (the header's own top padding, in the installed app).
 	function safeTop() {
@@ -102,6 +112,7 @@
 <svelte:window {onkeydown} onresize={closeMenu} onscrollcapture={() => menu.spec && !menu.touch && closeMenu()} />
 
 {#if menu.spec}
+	{#key menu.spec}
 	{@const spec = menu.spec}
 	<div class="fixed inset-0 z-[90]" role="presentation">
 		<button
@@ -119,13 +130,12 @@
 		></button>
 		<div
 			bind:this={panel}
-			bind:offsetHeight={h}
-			bind:offsetWidth={w}
+			use:place
 			role="menu"
 			tabindex="-1"
 			aria-label={spec.title ?? 'Menu'}
 			class="paper-grain absolute w-[min(16rem,calc(100vw-16px))] overflow-hidden rounded-[18px] bg-cocoa-900 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_18px_40px_-12px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700 outline-none select-none"
-			style="left: {pos.left}px; top: {pos.top}px; transform-origin: {pos.origin}; visibility: {h ? 'visible' : 'hidden'}"
+			style="left: 0; top: 0; visibility: hidden"
 			in:pop
 			out:shrink
 		>
@@ -179,4 +189,5 @@
 			{/each}
 		</div>
 	</div>
+{/key}
 {/if}
