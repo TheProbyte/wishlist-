@@ -5,7 +5,9 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import GiverShelf from '#lib/components/GiverShelf.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
-	import { countdownLabel, formatDate, occasionDate, occasionMeta } from '#lib/format.ts';
+	import { countdownLabel, formatDate, occasionDate, occasionMeta, withKid } from '#lib/format.ts';
+	import { askForIdeas, looksThin } from '#lib/nudge.ts';
+	import { toast } from '#lib/undo.svelte.ts';
 	import { dur } from '#lib/motion.ts';
 	import type { PageProps } from './$types';
 
@@ -15,6 +17,14 @@
 	let active = $state(data.start);
 	const first = $derived(data.person.name.split(' ')[0]);
 	const pageIds = $derived(data.pages.map((p) => p.id));
+	// Their next occasion, and whether the wish list for it looks thin: then offer to ask them.
+	const soonest = $derived(data.soon);
+	const thin = $derived(!!soonest && looksThin(soonest.gifts, soonest.days));
+	async function nudge() {
+		const r = await askForIdeas(data.person.name, soonest ? { label: soonest.label, kid: soonest.kid } : null);
+		if (r === 'copied') toast('Message copied: paste it to them');
+	}
+
 	function followChip(id: string) {
 		document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: dur(1) ? 'smooth' : 'auto' });
 	}
@@ -32,6 +42,15 @@
 		{#if data.person.birthday}<p class="text-sm font-bold text-rust-300">Birthday {countdownLabel(occasionDate('birthday', data.person.birthday))}</p>{/if}
 	</div>
 </section>
+
+{#if thin && soonest}
+	<!-- Their day is close and the list is thin: ask them for ideas (however you usually talk). -->
+	<div class="mb-4 flex items-center gap-3 rounded-[var(--radius-card)] bg-mustard-400/12 p-3 pl-4 ring-2 ring-mustard-400/30">
+		<Icon name="sparkle" size={20} class="shrink-0 text-mustard-400" />
+		<p class="min-w-0 flex-1 text-sm text-fg-muted"><span class="font-bold text-fg">{withKid(soonest.kid, soonest.label)}</span> is {(countdownLabel(soonest.date) ?? 'soon').toLowerCase()}, and {soonest.gifts === 0 ? 'there are no ideas yet' : soonest.gifts === 1 ? 'there’s only 1 idea so far' : `there are only ${soonest.gifts} ideas so far`}.</p>
+		<button class="btn-primary min-h-10 shrink-0 px-3 text-sm" onclick={nudge}>Ask for ideas</button>
+	</div>
+{/if}
 
 <div class="sticky top-[var(--header-h)] z-30 -mx-4 mb-3 flex gap-1.5 overflow-x-auto bg-cocoa-950 px-4 py-2  sm:mx-0 sm:flex-wrap sm:px-0 no-scrollbar" data-no-swipe>
 	{#each data.pages as p (p.id)}

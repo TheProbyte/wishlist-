@@ -6,6 +6,10 @@
 	import { untrack } from 'svelte';
 	import { shell } from '#lib/shell.svelte.ts';
 	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
+	import { getPref, setPref } from '#lib/prefs.ts';
+	import { askForIdeas, looksThin } from '#lib/nudge.ts';
+	import { toast } from '#lib/undo.svelte.ts';
+	import { sway } from '#lib/sway.ts';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -37,6 +41,25 @@
 		untrack(() => (r === 'new-circle' ? (newCircle = true) : (newSanta = true)));
 	});
 
+	/* Sorting your people: soonest occasion first, A–Z, or grouped by circle. Remembered here. */
+	type PeopleSort = 'soon' | 'az' | 'circle';
+	let peopleSort = $state<PeopleSort>('soon');
+	$effect(() => {
+		const saved = getPref('people-sort');
+		if (saved === 'az' || saved === 'circle') peopleSort = saved;
+	});
+	function setSort(v: PeopleSort) {
+		peopleSort = v;
+		setPref('people-sort', v);
+	}
+	const groups = $derived.by(() => {
+		if (!data.authEnabled) return [];
+		const people = data.people;
+		if (peopleSort === 'az') return [{ title: null, people: [...people].sort((a, b) => a.name.localeCompare(b.name)) }];
+		if (peopleSort === 'circle') return data.circles.map((c) => ({ title: c.name, people: people.filter((p) => c.members.some((m) => m.id === p.id)) })).filter((g) => g.people.length);
+		return [{ title: null, people }];
+	});
+
 	/* Hold (or right-click) a person or a circle for its options. */
 	type Person = NonNullable<PeopleData['people']>[number];
 	type Circle = NonNullable<PeopleData['circles']>[number];
@@ -47,9 +70,13 @@
 			items: [
 				{ label: 'Wish lists', icon: 'gift', href: `/people/${p.id}`, hint: p.gift_count ? String(p.gift_count) : undefined },
 				...(p.next?.listId ? [{ label: `${p.next.label} list`, icon: 'calendar', href: `/people/${p.id}?list=${p.next.listId}` }] : []),
+				...(looksThin(p.gift_count, p.next?.days) ? [{ label: 'Ask for ideas', icon: 'sparkle', run: () => nudge(p) }] : []),
 				{ label: 'Gifts I’m getting', icon: 'check', href: '/getting' }
 			]
 		};
+	}
+	async function nudge(p: Person) {
+		if ((await askForIdeas(p.name, p.next)) === 'copied') toast('Message copied: paste it to them');
 	}
 	let leaving = $state<string[]>([]);
 	async function leave(id: string) {
@@ -94,14 +121,23 @@
 	<!-- Your people: the main thing this page is for. -->
 	<section class="mb-8">
 		{#if data.people.length}
+			{#if data.people.length > 2}
+				<div class="mb-4 flex gap-1.5" role="group" aria-label="Sort people">
+					{#each [['soon', 'Soonest'], ['az', 'A–Z'], ['circle', 'By circle']] as [v, label] (v)}
+						<button class="chip min-h-9 {peopleSort === v ? 'chip-on' : 'hover:text-fg'}" aria-pressed={peopleSort === v} onclick={() => setSort(v as PeopleSort)}>{label}</button>
+					{/each}
+				</div>
+			{/if}
+			{#each groups as g (g.title ?? 'all')}
+			{#if g.title}<h3 class="mt-6 mb-1 text-sm font-bold text-fg-faint first:mt-0">{g.title}</h3>{/if}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-				{#each data.people as person, i (person.id)}
+				{#each g.people as person, i (person.id)}
 					<!-- Each person is a gift tag on a string: "To: Sam". -->
 					<a href="/people/{person.id}" use:contextMenu={{ spec: () => personMenu(person) }} class="group rise relative block pt-5 transition active:translate-y-0.5" style="--i: {i}">
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
-						<div data-lift class="relative origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2">
+						<div data-lift use:sway class="relative origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2" style="--sway-delay: {i * 90}ms">
 						<!-- The tag's shadow: the same shape a little lower, as a plain layer. (A shadow filter over
 						     the whole tag is slow for iPhones to paint, and could leave a tag blank for a while.) -->
 						<span class="tag-shape absolute inset-0 translate-y-[3px] bg-[var(--color-edge)]" aria-hidden="true"></span>
@@ -122,6 +158,7 @@
 					</a>
 				{/each}
 			</div>
+			{/each}
 		{:else}
 			<div class="card p-5 text-center">
 				<EmptyArt kind="chairs" class="mx-auto mb-3" />
@@ -172,7 +209,7 @@
 			<button class="text-sm font-bold text-teal-300 hover:underline" onclick={() => (newCircle = true)}>+ New circle</button>
 		</div>
 		<p class="mb-3 text-sm text-fg-muted">
-			{#if data.circles.length}You’re in {data.circles.length} {data.circles.length === 1 ? 'circle' : 'circles'}. {/if}Everyone in a circle can see each other’s wish lists and birthdays. To add someone, send them the circle’s invite link; they sign in with Google and they’re in.
+			Everyone in a circle can see each other’s wish lists and birthdays. Open one to invite people, rename it or see what’s coming up.
 		</p>
 		{#if data.circles.length === 0}
 			<button class="flex w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 py-8 text-sm font-bold text-fg-muted transition hover:border-teal-300 hover:text-teal-300" onclick={() => (newCircle = true)}>
@@ -181,36 +218,18 @@
 		{:else}
 			<div class="grid gap-3 md:grid-cols-2">
 				{#each data.circles.filter((c) => !leaving.includes(c.id)) as c (c.id)}
-					{@const others = c.members.filter((m) => m.id !== me?.id)}
-					<div class="card p-4" use:contextMenu={{ spec: () => circleMenu(c) }}>
-						<div class="flex items-start justify-between gap-2">
-							<div class="min-w-0">
-								<h3 class="display truncate text-xl">{c.name}</h3>
-								<p class="text-xs font-bold text-fg-faint">{c.owner_id === me?.id ? 'You made this' : 'You joined'} · {c.members.length} {c.members.length === 1 ? 'person' : 'people'}</p>
-							</div>
-							<!-- Everyone's faces, overlapping -->
-							<div class="flex shrink-0 -space-x-2.5">
-								{#each c.members.slice(0, 5) as m (m.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={30} /></span>{/each}
-								{#if c.members.length > 5}<span class="grid h-[30px] min-w-[30px] place-items-center rounded-full bg-cocoa-800 px-1 text-xs font-bold ring-3 ring-cocoa-850">+{c.members.length - 5}</span>{/if}
-							</div>
+					<!-- Each circle opens its own page: who's in, what's coming up, the invite link. -->
+					<a href="/circles/{c.id}" class="card flex items-center gap-3 p-4 transition active:translate-y-0.5" use:contextMenu={{ spec: () => circleMenu(c) }}>
+						<div class="min-w-0 flex-1">
+							<h3 class="display truncate text-xl">{c.name}</h3>
+							<p class="text-xs font-bold text-fg-faint">{c.owner_id === me?.id ? 'You made this' : 'You joined'} · {c.members.length} {c.members.length === 1 ? 'person' : 'people'}</p>
 						</div>
-						{#if others.length}
-							<div class="mt-3 flex flex-wrap gap-1.5">
-								{#each others as m (m.id)}
-									<a href="/people/{m.id}" class="chip pr-3 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={26} />{m.name.split(' ')[0]}<Icon name="chevron-right" size={14} /></a>
-								{/each}
-							</div>
-						{:else}
-							<p class="mt-3 text-sm text-fg-muted">Just you so far. Send the invite link to get people in.</p>
-						{/if}
-						<div class="mt-4 flex items-center justify-between gap-2">
-							<button class="btn-teal text-sm" onclick={() => copyInvite(c.invite_token)}><Icon name={copied === c.invite_token ? 'check' : 'link'} size={16} />{copied === c.invite_token ? 'Invite link copied' : 'Copy invite link'}</button>
-							<form method="POST" action="?/leaveCircle" use:enhance>
-								<input type="hidden" name="id" value={c.id} />
-								<button class="btn-quiet text-sm hover:text-rust-300">Leave</button>
-							</form>
+						<div class="flex shrink-0 -space-x-2.5">
+							{#each c.members.slice(0, 4) as m (m.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={30} /></span>{/each}
+							{#if c.members.length > 4}<span class="grid h-[30px] min-w-[30px] place-items-center rounded-full bg-cocoa-800 px-1 text-xs font-bold ring-3 ring-cocoa-850">+{c.members.length - 4}</span>{/if}
 						</div>
-					</div>
+						<Icon name="chevron-right" size={18} class="shrink-0 text-fg-faint" />
+					</a>
 				{/each}
 			</div>
 		{/if}

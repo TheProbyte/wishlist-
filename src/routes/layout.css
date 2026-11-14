@@ -1257,3 +1257,28 @@ select,
 		opacity: 0;
 	}
 }
+
+/* A tag swinging on its string, settling (see sway.ts). */
+.tag-sway {
+	animation: tag-sway 1.6s cubic-bezier(0.37, 0, 0.3, 1) var(--sway-delay, 0ms) both;
+}
+@keyframes tag-sway {
+	0% {
+		rotate: 0deg;
+	}
+	14% {
+		rotate: 5deg;
+	}
+	36% {
+		rotate: -3.5deg;
+	}
+	58% {
+		rotate: 2deg;
+	}
+	78% {
+		rotate: -0.8deg;
+	}
+	100% {
+		rotate: 0deg;
+	}
+}

@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { daysUntil, occasionDate } from '#lib/format.ts';
 import { getCategories, getKids, masterId, safeJson } from '#lib/server/db.ts';
 import { GIVER_COOKIE, claim, giverItems, unclaim } from '#lib/server/giving.ts';
 import { orderedLists } from '#lib/server/lists.ts';
@@ -31,9 +32,27 @@ export const load: PageServerLoad = async ({ locals, params, cookies, url, setHe
 	}
 	refreshStale(locals.db, pages[0].items);
 	const wanted = url.searchParams.get('list');
+
+	// Their next occasion (from every list, even empty ones, and their birthday), with how many
+	// ideas are on the wish list it belongs to: the page offers to ask them for more if it's thin.
+	const candidates = [
+		...pages
+			.filter((p) => p.occasion !== 'general')
+			.map((p) => ({
+				label: p.kid ? p.label.slice(p.kid.length + 2) : p.label,
+				kid: p.kid,
+				date: occasionDate(p.occasion, p.occasion_date),
+				gifts: (p.kid ? pages.find((x) => x.kid === p.kid && x.occasion === 'general') : pages[0])?.items.length ?? 0
+			})),
+		...(person.birthday ? [{ label: 'Birthday', kid: null, date: occasionDate('birthday', person.birthday), gifts: pages[0].items.length }] : [])
+	]
+		.map((c) => ({ ...c, days: daysUntil(c.date) }))
+		.filter((c): c is typeof c & { date: string; days: number } => !!c.date && c.days != null && c.days >= 0)
+		.sort((a, b) => a.days - b.days);
 	return {
 		person: { id: person.id, name: person.name, avatar_url: person.avatar_url, birthday: person.birthday, sticker: person.sticker, paper: person.paper },
 		pages: pages.filter((p, i) => i === 0 || p.items.length || p.id === wanted),
+		soon: candidates[0] ?? null,
 		start: wanted && pages.some((p) => p.id === wanted) ? wanted : pages[0].id,
 		categories,
 		giverName: locals.user.name
