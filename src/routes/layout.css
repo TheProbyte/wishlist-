@@ -841,3 +841,87 @@ html[data-nav='morph']::view-transition-group(*) {
 .welcome-card.is-turning {
 	transform: perspective(900px) rotateY(90deg);
 }
+
+/* Secret Santa: the hat being stirred, slips flying out, and a slip unfolding. */
+.hat-shake {
+	transform-origin: 50% 85%;
+	animation: hat-shake 420ms ease-in-out infinite;
+}
+@keyframes hat-shake {
+	0%,
+	100% {
+		transform: rotate(0) translateY(0);
+	}
+	25% {
+		transform: rotate(-8deg) translateY(-4px);
+	}
+	75% {
+		transform: rotate(8deg) translateY(-2px);
+	}
+}
+.slip-fly {
+	position: absolute;
+	left: 50%;
+	top: 30%;
+	width: 18px;
+	height: 26px;
+	border-radius: 3px;
+	background: var(--color-cream);
+	border: 2px solid var(--color-edge);
+	animation: slip-fly 900ms cubic-bezier(0.2, 0.7, 0.4, 1) infinite;
+	animation-delay: var(--d, 0ms);
+}
+@keyframes slip-fly {
+	0% {
+		transform: translate(-50%, 0) rotate(0);
+		opacity: 0;
+	}
+	15% {
+		opacity: 1;
+	}
+	100% {
+		transform: translate(calc(-50% + var(--x, 40px)), -150px) rotate(var(--r, 120deg));
+		opacity: 0;
+	}
+}
+.slip-unfold {
+	transform-origin: 50% 0;
+	animation: slip-unfold 600ms var(--ease-spring) both;
+}
+@keyframes slip-unfold {
+	0% {
+		transform: perspective(700px) translateY(50px) rotateX(-75deg) scaleY(0.35);
+		opacity: 0.4;
+	}
+	60% {
+		opacity: 1;
+	}
+	100% {
+		transform: none;
+	}
+}
+.slip-rise {
+	animation: slip-rise 1.8s ease-in-out infinite;
+}
+@keyframes slip-rise {
+	0%,
+	100% {
+		transform: translateY(0) rotate(-3deg);
+	}
+	50% {
+		transform: translateY(-5px) rotate(2deg);
+	}
+}
+
+/* Wrapping a bought gift (Gifts I'm getting): paper closes over it from both sides. */
+.wrap-close {
+	animation: wrap-close 520ms var(--ease-out-soft) both;
+}
+@keyframes wrap-close {
+	from {
+		clip-path: inset(0 50% 0 50%);
+	}
+	to {
+		clip-path: inset(0 0 0 0);
+	}
+}
