@@ -74,8 +74,8 @@ function buzz() {
 		input.type = 'checkbox';
 		input.setAttribute('switch', '');
 		input.tabIndex = -1;
-		haptic.append(input);
-		document.body.append(haptic);
+		haptic.appendChild(input);
+		document.body.appendChild(haptic);
 	}
 	haptic.click();
 	haptic.querySelector('input')?.blur();
