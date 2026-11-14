@@ -9,7 +9,6 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { shell } from '#lib/shell.svelte.ts';
-	import { paperFor } from '#lib/papers.ts';
 	import { TABS, prefersReducedMotion } from '#lib/motion.ts';
 	import type { TabForm } from '#lib/tabs/types.ts';
 	import type { PageProps } from './$types';
@@ -65,6 +64,13 @@
 	onMount(() => {
 		shell.active = true;
 		shell.go = (i) => go(i);
+		// Tapping the tab you're already on: back to its top, or (on Lists, already at the top)
+		// straight into Everything.
+		shell.reselect = (i) => {
+			const panel = panels[i];
+			if (panel && panel.scrollTop > 40) return panel.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+			if (i === 0) goto(`/lists/${data.listsTab.everything.id}`);
+		};
 		go(progress, false);
 		// Links like /me#anywhere: scroll that section into view inside its tab.
 		if (location.hash.length > 1) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' }));
@@ -106,7 +112,7 @@
 			inert={current !== i}
 			aria-label={TITLES[i]}
 		>
-			<div class="mx-auto max-w-6xl px-4 pt-7 pb-[calc(14rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 sm:pb-24">
+			<div class="mx-auto max-w-6xl px-4 pt-7 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 sm:pb-24">
 				{#if tab === 'lists'}
 					<ListsTab data={data.listsTab} form={tabForm} me={data.me} />
 				{:else if tab === 'people'}
@@ -125,20 +131,6 @@
 	style="opacity: {pasteShown}; transform: translateY({(1 - pasteShown) * 24}px); pointer-events: {pasteShown > 0.5 ? 'auto' : 'none'}"
 	aria-hidden={pasteShown < 0.5}
 >
-	<!-- Everything, always in thumb reach. -->
-	<a
-		href="/lists/{data.listsTab.everything.id}"
-		class="mb-2 flex items-center gap-3 overflow-hidden rounded-[var(--radius-card)] bg-cocoa-850 p-1.5 pr-4 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition active:translate-y-0.5"
-	>
-		<span class="relative h-10 w-14 shrink-0 overflow-hidden rounded-[12px]" style="background: {paperFor(data.listsTab.everything.wrap ?? 'sunburst', 'general').background}; view-transition-name: paper-{data.listsTab.everything.id}">
-			<span class="absolute inset-y-0 right-[22%] w-2" style="background: {paperFor(data.listsTab.everything.wrap ?? 'sunburst', 'general').ribbon}"></span>
-		</span>
-		<span class="min-w-0 flex-1">
-			<span class="block font-bold leading-tight">Everything</span>
-			<span class="block text-xs text-fg-muted">{data.listsTab.everything.item_count} {data.listsTab.everything.item_count === 1 ? 'gift' : 'gifts'} · your whole wish list</span>
-		</span>
-		<Icon name="chevron-right" size={18} class="text-fg-faint" />
-	</a>
 	<PasteBar class="shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)]" onplus={() => (plusOpen = true)} />
 </div>
 

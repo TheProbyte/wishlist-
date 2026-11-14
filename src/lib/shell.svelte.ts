@@ -7,5 +7,7 @@ export const shell = $state({
 	/** Set while the tab pager is on screen. */
 	active: false,
 	progress: 0,
-	go: (_i: number) => {}
+	go: (_i: number) => {},
+	/** The tab bar's tab for the tab already showing was tapped again. */
+	reselect: (_i: number) => {}
 });

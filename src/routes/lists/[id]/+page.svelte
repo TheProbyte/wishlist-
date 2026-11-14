@@ -31,7 +31,7 @@
 	type Sort = 'rank' | 'rating' | 'price_asc' | 'price_desc' | 'newest';
 	const SORTS: { value: Sort; label: string }[] = [
 		{ value: 'rank', label: 'Most wanted' },
-		{ value: 'rating', label: 'Rating' },
+		{ value: 'rating', label: 'Most hearts' },
 		{ value: 'price_asc', label: 'Price, low' },
 		{ value: 'price_desc', label: 'Price, high' },
 		{ value: 'newest', label: 'Newest' }

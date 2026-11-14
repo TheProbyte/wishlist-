@@ -32,7 +32,7 @@
 </script>
 
 <section class="mb-6">
-	<h1 class="display text-[40px] leading-[1.05]">People</h1>
+	<h1 class="display accent-bar text-[40px] leading-[1.05]">People</h1>
 	<p class="mt-2 max-w-lg text-fg-muted">Everyone in your circles. Tap someone to see their wish lists and pick a gift.</p>
 </section>
 

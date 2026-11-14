@@ -24,7 +24,8 @@
 	function tabClick(e: MouseEvent, i: number) {
 		if (onPager && shell.active) {
 			e.preventDefault();
-			shell.go(i);
+			if (i === active) shell.reselect(i);
+			else shell.go(i);
 		} else setNavDirection(i === active ? 'close' : i > active ? 'next' : 'prev');
 	}
 
@@ -41,6 +42,11 @@
 				await nav.complete;
 			});
 		});
+	});
+
+	// One accent colour per tab (Lists mustard, People teal, You rust), following the swipe.
+	$effect(() => {
+		document.documentElement.dataset.accent = ['lists', 'people', 'me'][shared ? 0 : Math.max(0, active)] ?? 'lists';
 	});
 
 	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
@@ -121,7 +127,7 @@
 					class="flex min-h-16 flex-col items-center justify-center gap-1 pt-1.5 text-[11px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint'}"
 					onclick={(e) => tabClick(e, i)}
 				>
-					<Icon name={tab.icon} size={22} class="transition-transform duration-300 {active === i ? '-translate-y-0.5 text-mustard-400' : ''}" />
+					<Icon name={tab.icon} size={22} class="transition-transform duration-300 {active === i ? '-translate-y-0.5 text-[var(--accent)]' : ''}" />
 					{tab.label}
 				</a>
 			{/each}

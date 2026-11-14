@@ -121,7 +121,22 @@
 }
 
 @utility chip-on {
-	@apply bg-mustard-400 text-cocoa-950;
+	background-color: var(--accent);
+	color: var(--accent-ink);
+}
+
+/* A short bar in the tab's accent colour under a page title. */
+@utility accent-bar {
+	&::after {
+		content: '';
+		display: block;
+		width: 3rem;
+		height: 6px;
+		margin-top: 0.45rem;
+		border-radius: 999px;
+		background: var(--accent);
+		transition: background-color 250ms;
+	}
 }
 
 @utility pill {
@@ -415,4 +430,47 @@ html[data-nav='close']::view-transition-new(root) {
 :root[data-lifted] .lift-hide {
 	opacity: 0;
 	pointer-events: none;
+}
+
+/* The home shelf: presents stand on wooden planks. Each item has its own plank, reaching half
+   the gap on each side, so a row of them reads as one long shelf. */
+@utility shelf-plank {
+	position: relative;
+	height: 14px;
+	margin-inline: -7px;
+	border-radius: 3px;
+	background:
+		repeating-linear-gradient(90deg, transparent 0 46px, rgb(0 0 0 / 0.07) 46px 48px, transparent 48px 91px),
+		linear-gradient(to bottom, #9a7550 0 3px, #6e4f35 3px 9px, #5a3f2a 9px 100%);
+	box-shadow:
+		0 3px 0 0 var(--color-edge),
+		0 12px 14px -8px rgb(0 0 0 / 0.7);
+}
+
+/* A faint printed grain, so flat colours look like paper. */
+@utility paper-grain {
+	&::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		opacity: 0.16;
+		mix-blend-mode: multiply;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.17 0 0 0 0 0.11 0 0 0 0 0.08 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+	}
+}
+
+/* One accent per tab: Lists mustard, People teal, You rust. The layout sets data-accent. */
+:root {
+	--accent: var(--color-mustard-400);
+	--accent-text: var(--color-mustard-400);
+	--accent-ink: var(--color-cocoa-950);
+}
+:root[data-accent='people'] {
+	--accent: var(--color-teal-300);
+	--accent-text: var(--color-teal-300);
+}
+:root[data-accent='me'] {
+	--accent: var(--color-rust-300);
+	--accent-text: var(--color-rust-300);
 }

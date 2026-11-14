@@ -35,7 +35,7 @@
 <section class="mb-8 flex items-center gap-4">
 	<Avatar name={data.profile.name === 'You' ? 'Y' : data.profile.name} src={data.profile.avatar_url} size={64} />
 	<div class="min-w-0">
-		<h1 class="display truncate text-[36px] leading-tight">{data.profile.name === 'You' ? 'You' : data.profile.name}</h1>
+		<h1 class="display accent-bar truncate text-[36px] leading-tight">{data.profile.name === 'You' ? 'You' : data.profile.name}</h1>
 		{#if data.profile.email}<p class="truncate text-sm text-fg-muted">{data.profile.email}</p>{/if}
 	</div>
 </section>

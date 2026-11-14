@@ -4,13 +4,12 @@
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Present from '#lib/components/Present.svelte';
-	import ListCard from '#lib/components/ListCard.svelte';
-	import EverythingCard from '#lib/components/EverythingCard.svelte';
+	import ShelfItem from '#lib/components/ShelfItem.svelte';
+	import Countdown from '#lib/components/Countdown.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import PasteBar from '#lib/components/PasteBar.svelte';
-	import CountUp from '#lib/components/CountUp.svelte';
-	import { countdownLabel, formatDate, milestone, daysUntil } from '#lib/format.ts';
+	import { countdownLabel, formatDate, milestone, daysUntil, occasionMeta } from '#lib/format.ts';
 	import type { TabForm } from './types.ts';
 	import type { ListsData } from '#lib/server/tabs/lists.ts';
 
@@ -54,14 +53,20 @@
 	const next = $derived(data.next);
 	const nextKid = $derived(data.kids.find((k) => k.lists.some((l) => l.id === data.nextId))?.kid.name ?? null);
 	const gifts = (n: number) => `${n} ${n === 1 ? 'gift' : 'gifts'}`;
+
+	/** The line under a list on the shelf: a countdown when it's close, else its date or kind. */
+	function listSub(list: { occasion: string; next_date: string | null }): { sub: string; subClass: string } {
+		const days = daysUntil(list.next_date);
+		if (list.next_date && days != null && days >= 0 && days <= 60) return { sub: countdownLabel(list.next_date) ?? '', subClass: 'font-bold text-rust-300' };
+		return { sub: list.next_date ? formatDate(list.next_date) : occasionMeta(list.occasion).label, subClass: '' };
+	}
 </script>
 
-<section class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-	<div>
-		<p class="mb-1 text-[15px] font-bold text-mustard-400">Hey{data.everything.item_count ? ' again' : ''}{me?.name && me.name !== 'You' ? `, ${me.name.split(' ')[0]}` : ''}!</p>
-		<h1 class="display text-[40px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
-	</div>
-	<div class="flex gap-2 self-start sm:self-auto">
+<!-- Top: who you are, and the two things you do here most. -->
+<section class="mb-5">
+	<p class="text-[15px] font-bold text-[var(--accent-text)]">Hey{data.everything.item_count ? ' again' : ''}{me?.name && me.name !== 'You' ? `, ${me.name.split(' ')[0]}` : ''}!</p>
+	<h1 class="display accent-bar text-[34px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
+	<div class="mt-5 flex gap-2">
 		<button class="btn-primary" onclick={() => newList()}>
 			<Icon name="plus" size={18} />
 			New list
@@ -76,9 +81,8 @@
 <!-- Bigger screens: the paste bar sits here. Phones get it docked above the tab bar (the shell). -->
 <PasteBar class="mb-6 hidden sm:flex" />
 
-
 {#each data.reminders as r (r.id)}
-	<a href="/lists/{r.id}" class="rise mt-4 flex items-center gap-3 rounded-[var(--radius-card)] bg-rust-500/15 px-4 py-3 text-sm text-rust-300 transition hover:bg-rust-500/20">
+	<a href="/lists/{r.id}" class="rise mb-3 flex items-center gap-3 rounded-[var(--radius-card)] bg-rust-500/15 px-4 py-3 text-sm text-rust-300 transition hover:bg-rust-500/20">
 		<Icon name="calendar" size={20} />
 		<span class="flex-1">
 			<span class="font-bold">{r.kid ? `${r.kid}’s ${r.name}` : r.name}</span> is {r.days === 0 ? 'today' : r.days === 1 ? 'tomorrow' : `in ${r.days} days`} and
@@ -88,49 +92,75 @@
 	</a>
 {/each}
 
-
+<!-- Next up: one slim strip, so the shelf sits low, in thumb reach. -->
 {#if next}
 	{@const days = daysUntil(next.next_date) ?? 0}
 	{@const turning = milestone(next.occasion, next.occasion_date)}
-	<a href="/lists/{next.id}" class="card group rise mt-8 flex overflow-hidden transition active:translate-y-0.5">
-		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={50} class="w-[30%] shrink-0 rounded-l-[var(--radius-card)] sm:w-64" />
-		<div class="flex min-w-0 flex-1 items-center justify-between gap-3 py-4 pr-3.5 pl-4 sm:p-6">
-			<div class="min-w-0">
-				<p class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</p>
-				<h2 class="display mt-1 line-clamp-2 text-[22px] leading-tight break-words sm:text-3xl">{next.name}</h2>
-				<p class="mt-1 text-sm text-fg-muted">{gifts(next.item_count)} · {formatDate(next.next_date)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
-			</div>
-			<div class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-cocoa-950 text-center sm:h-24 sm:w-24">
-				<div>
-					<div class="display text-[28px] leading-none text-mustard-400 sm:text-4xl"><CountUp value={days} /></div>
-					<div class="text-[11px] font-bold text-fg-muted">{days === 1 ? 'day' : 'days'}</div>
-				</div>
-			</div>
+	<a href="/lists/{next.id}" class="card group rise flex items-center gap-3 p-2 pr-3 transition active:translate-y-0.5">
+		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={55} bow={false} class="h-12 w-14 shrink-0 rounded-[12px]" />
+		<div class="min-w-0 flex-1">
+			<p class="truncate text-[15px] font-bold"><span class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</span> {next.name}</p>
+			<p class="truncate text-[13px] text-fg-muted">{formatDate(next.next_date)} · {gifts(next.item_count)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
 		</div>
+		<Countdown {days} />
 	</a>
-	<a href="/upcoming" class="mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={16} />See everything coming up<Icon name="chevron-right" size={16} /></a>
+	<a href="/upcoming" class="mt-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={15} />See everything coming up<Icon name="chevron-right" size={15} /></a>
 {/if}
 
-<section class="mt-9">
-	<div class="mb-3 flex items-baseline justify-between">
-		<h2 class="text-lg font-bold">Lists</h2>
-	</div>
-	<div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-		{#each data.lists as list, i (list.id)}<ListCard {list} index={i} />{:else}
-		<button class="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 text-sm font-bold text-fg-muted transition hover:border-mustard-400 hover:text-mustard-400" onclick={() => newList()}>
-			<Icon name="plus" size={22} />New list
-		</button>
+<!-- The shelf: Everything first and biggest, then every list, standing on planks. -->
+<section class="mt-6" aria-label="Your lists">
+	<div class="grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+		<ShelfItem
+			href="/lists/{data.everything.id}"
+			wrap={data.everything.wrap ?? 'sunburst'}
+			occasion="general"
+			title="Everything"
+			sub="Every gift you’d love, in one list"
+			count={data.everything.item_count}
+			transitionName="paper-{data.everything.id}"
+			big
+		/>
+		{#each data.lists as list, i (list.id)}
+			<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} transitionName="paper-{list.id}" index={i + 1} />
+		{:else}
+			<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists yet</p>
 		{/each}
 	</div>
 </section>
 
-<!-- Everything: every gift in one list. Phones have it docked above the paste bar instead. -->
-<section class="mt-8 hidden sm:block">
-	<EverythingCard id={data.everything.id} count={data.everything.item_count} wrap={data.everything.wrap} />
-</section>
+{#each data.kids as section (section.kid.id)}
+	<section class="mt-12">
+		<div class="mb-4 flex items-center justify-between gap-3">
+			<h2 class="display flex min-w-0 items-center gap-2.5 text-[26px]"><Avatar name={section.kid.name} size={34} /><span class="truncate">{section.kid.name}</span></h2>
+			<div class="flex shrink-0 gap-1.5">
+				<button class="btn-quiet px-2.5 text-sm" onclick={() => newList(section.kid.id)}><Icon name="plus" size={16} />List</button>
+				<button class="btn-ghost px-3 text-sm" onclick={() => openShare(section.everything.id, section.everything.share_token, `${section.kid.name}’s`)}>
+					<Icon name={section.everything.share_token ? 'check' : 'share'} size={16} />{section.everything.share_token ? 'Shared' : 'Share'}
+				</button>
+			</div>
+		</div>
+		<div class="grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+			<ShelfItem
+				href="/lists/{section.everything.id}"
+				wrap={section.everything.wrap ?? 'sunburst'}
+				occasion="general"
+				title="{section.kid.name}’s wish list"
+				sub="What {section.kid.name} would love, picked by you"
+				count={section.everything.item_count}
+				transitionName="paper-{section.everything.id}"
+				big
+			/>
+			{#each section.lists as list, i (list.id)}
+				<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} transitionName="paper-{list.id}" index={i + 1} />
+			{:else}
+				<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists for {section.kid.name} yet</p>
+			{/each}
+		</div>
+	</section>
+{/each}
 
 {#if data.friends.length}
-	<section class="mt-8">
+	<section class="mt-12">
 		<h2 class="mb-3 flex items-center justify-between text-lg font-bold">Coming up for your people <a href="/people" class="text-sm text-teal-300 hover:underline">See all</a></h2>
 		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
 			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
@@ -146,26 +176,6 @@
 		</div>
 	</section>
 {/if}
-
-{#each data.kids as section (section.kid.id)}
-	<section class="mt-12">
-		<div class="mb-3 flex items-center justify-between gap-3">
-			<h2 class="display flex items-center gap-2.5 text-[28px]"><Avatar name={section.kid.name} size={36} />{section.kid.name}</h2>
-			<button class="btn-ghost px-3 text-sm" onclick={() => openShare(section.everything.id, section.everything.share_token, `${section.kid.name}’s`)}>
-				<Icon name={section.everything.share_token ? 'check' : 'share'} size={16} />{section.everything.share_token ? 'Shared' : 'Share'}
-			</button>
-		</div>
-		<EverythingCard id={section.everything.id} count={section.everything.item_count} wrap={section.everything.wrap} title="{section.kid.name}’s wish list" subtitle="What {section.kid.name} would love, picked by you" compact />
-		<div class="mt-4 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-			{#each section.lists as list, i (list.id)}<ListCard {list} index={i} />{/each}
-			<button class="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 text-sm font-bold text-fg-muted transition hover:border-mustard-400 hover:text-mustard-400" onclick={() => newList(section.kid.id)}>
-				<Icon name="plus" size={22} />List for {section.kid.name}
-			</button>
-		</div>
-	</section>
-{/each}
-
-
 
 <Modal bind:open={creating} title={creatingFor === 'new-kid' ? 'Add a kid’s wish list' : creatingFor === 'me' ? 'New list' : `New list for ${data.kids.find((k) => k.kid.id === creatingFor)?.kid.name}`}>
 	<div class="mb-6">
