@@ -416,7 +416,7 @@
 	<!-- One toolbar: categories, sort, view and more. Phones: docked above the tab bar, in thumb
 	     reach (it steps aside while selecting). Bigger screens: sticks under the header. -->
 	<div
-		class="lift-hide fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-1.5 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition duration-200 sm:sticky sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:mb-5 sm:gap-2 sm:rounded-none sm:bg-cocoa-950 sm:p-0 sm:py-2 sm:shadow-none sm:ring-0 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
+		class="lift-hide peel-follow fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-1.5 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition duration-200 sm:sticky sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:mb-5 sm:gap-2 sm:rounded-none sm:bg-cocoa-950 sm:p-0 sm:py-2 sm:shadow-none sm:ring-0 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
 		style="view-transition-name: list-toolbar"
 	>
 		<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
@@ -554,7 +554,7 @@
 
 <!-- Reorder mode: arrows on every gift, and a bar to finish. -->
 {#if reordering}
-	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
+	<div class="peel-follow fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
 		<div class="mx-auto flex max-w-3xl items-center gap-3 rounded-[var(--radius-card)] bg-cocoa-900 p-2 pl-4 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
 			<span class="flex-1 text-sm text-fg-muted">Use the arrows, or hold a gift and drag it.</span>
 			<button class="btn-primary min-h-10 px-4 text-sm" onclick={() => (reordering = false)}>Done</button>
@@ -668,7 +668,7 @@
 
 <!-- Select several: the action bar sits above the tab bar while selecting. -->
 {#if selecting}
-	<div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" style="view-transition-name: bulk-bar" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
+	<div class="peel-follow fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 sm:bottom-5" style="view-transition-name: bulk-bar" transition:fly={{ y: 90, duration: dur(220), opacity: 1 }}>
 		<div class="mx-auto flex max-w-3xl items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-2 shadow-[0_4px_0_0_var(--color-edge),0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700">
 			<span class="pl-2 text-sm font-bold whitespace-nowrap">{selected.length}<span class="hidden min-[400px]:inline"> picked</span></span>
 			<button class="btn-quiet min-h-10 px-2 text-sm" onclick={() => (selected = allOnPageSelected ? selected.filter((id) => !onThisPage.includes(id)) : [...new Set([...selected, ...onThisPage])])}>

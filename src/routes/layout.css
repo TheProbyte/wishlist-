@@ -474,3 +474,50 @@ html[data-nav='close']::view-transition-new(root) {
 	--accent: var(--color-rust-300);
 	--accent-text: var(--color-rust-300);
 }
+
+/* Swipe back (see edgeBack): the page peels right with a torn edge; the way back shows below. */
+:root[data-peeling] main {
+	position: relative;
+	z-index: 1;
+	min-height: 100dvh;
+	background: var(--color-cocoa-950);
+}
+:root[data-peeling] .peel-follow {
+	--tw-translate-x: var(--peel, 0px);
+	translate: var(--tw-translate-x) var(--tw-translate-y, 0);
+	transition: none;
+}
+.peel-underlay {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	display: grid;
+	place-items: center start;
+	padding-left: 1.25rem;
+	background:
+		repeating-linear-gradient(135deg, rgb(255 255 255 / 0.025) 0 14px, transparent 14px 28px),
+		var(--color-cocoa-900);
+	pointer-events: none;
+}
+.peel-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	font-weight: 700;
+	font-size: 15px;
+	color: var(--accent-text);
+	transform: translateX(calc((var(--p, 0) - 1) * 24px));
+	opacity: var(--p, 0);
+}
+.peel-edge {
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: -12px;
+	width: 12px;
+	z-index: 2;
+	pointer-events: none;
+	/* A torn paper edge in the page's own colour, with a shadow falling on the way back. */
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='16'%3E%3Cpath d='M12 0H6L0 8l6 8h6z' fill='%232b1d14'/%3E%3C/svg%3E") repeat-y;
+	filter: drop-shadow(-6px 0 8px rgb(0 0 0 / 0.55));
+}

@@ -7,7 +7,8 @@
 	import Logo from '#lib/components/Logo.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import { navigating, page } from '$app/state';
-	import { onNavigate, preloadCode, preloadData } from '$app/navigation';
+	import { afterNavigate, goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
+	import { edgeBack } from '#lib/edgeBack.ts';
 	import { onMount } from 'svelte';
 	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
 	import { shell } from '#lib/shell.svelte.ts';
@@ -56,6 +57,37 @@
 		const t = setTimeout(() => (loading = true), 120);
 		return () => clearTimeout(t);
 	});
+
+	// Swipe back from the left edge on any page that isn't a tab. Goes back through the app's
+	// own history when there is some, otherwise up to the page this one belongs to.
+	let depth = 0;
+	let arrived: (() => void) | null = null;
+	afterNavigate((nav) => {
+		if (nav.type === 'enter') depth = 0;
+		else if (nav.type === 'popstate') depth = Math.max(0, depth + (nav.delta ?? -1));
+		else depth++;
+		arrived?.();
+		arrived = null;
+	});
+	function parentOf(path: string): { href: string; label: string } {
+		if (/^\/(people\/|getting|circles|santa)/.test(path)) return { href: '/people', label: 'People' };
+		if (/^\/categories/.test(path)) return { href: '/me', label: 'You' };
+		return { href: '/', label: 'Lists' };
+	}
+	onMount(() =>
+		edgeBack({
+			enabled: () => !onPager && !shared,
+			label: () => parentOf(page.url.pathname).label,
+			back: () => {
+				if (depth > 0) {
+					const done = new Promise<void>((r) => (arrived = r));
+					history.back();
+					return done;
+				}
+				return goto(parentOf(page.url.pathname).href);
+			}
+		})
+	);
 
 	// Get the tabs ready in the background once the app has settled, so going back is instant.
 	onMount(() => {
