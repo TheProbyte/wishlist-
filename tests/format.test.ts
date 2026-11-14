@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { occasionDate, milestone, nextAnnual, storedDate } from '../src/lib/format.ts';
+import { occasionDate, milestone, nextAnnual, storedDate, withKid } from '../src/lib/format.ts';
 
 const at = (s: string) => {
 	const [y, m, d] = s.split('-').map(Number);
@@ -43,4 +43,11 @@ test('Secret Santa: everyone gives to one other person, nobody draws themselves'
 			for (const [giver, receiver] of pairs) assert.notEqual(giver, receiver);
 		}
 	}
+});
+
+test('withKid names a child once', () => {
+	assert.equal(withKid('Kya', 'Kya’s birthday'), 'Kya’s birthday');
+	assert.equal(withKid('kya', 'Kya’s birthday'), 'Kya’s birthday');
+	assert.equal(withKid('Kya', 'Christmas'), 'Kya’s Christmas');
+	assert.equal(withKid(null, 'Birthday'), 'Birthday');
 });

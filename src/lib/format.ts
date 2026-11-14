@@ -163,3 +163,10 @@ export function thumb(url: string | null | undefined, px: number): string | null
 	const m = url.match(/^(https:\/\/[^/]*(?:media-amazon|ssl-images-amazon|images-amazon)\.com\/images\/I\/[^./]+)(?:\.[^/]*?)?\.(jpe?g|png|webp|gif)$/i);
 	return m ? `${m[1]}._AC_SL${px}_.${m[2]}` : url;
 }
+
+/** A child's list, named for them: "Kya’s birthday" already says whose it is, so it's left
+ *  alone; other lists get the child's name in front ("Kya’s Christmas"). */
+export function withKid(kid: string | null | undefined, label: string): string {
+	if (!kid || label.toLowerCase().startsWith(kid.toLowerCase())) return label;
+	return `${kid}’s ${label}`;
+}

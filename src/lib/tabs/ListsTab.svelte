@@ -14,7 +14,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import PasteBar from '#lib/components/PasteBar.svelte';
-	import { countdownLabel, formatDate, milestone, daysUntil, occasionMeta } from '#lib/format.ts';
+	import { countdownLabel, formatDate, milestone, daysUntil, occasionMeta, withKid } from '#lib/format.ts';
 	import type { TabForm } from './types.ts';
 	import type { ListsData } from '#lib/server/tabs/lists.ts';
 
@@ -154,7 +154,7 @@
 	<a href="/lists/{r.id}" class="rise mb-3 flex items-center gap-3 rounded-[var(--radius-card)] bg-rust-500/15 px-4 py-3 text-sm text-rust-300 transition hover:bg-rust-500/20">
 		<Icon name="calendar" size={20} />
 		<span class="flex-1">
-			<span class="font-bold">{r.kid ? `${r.kid}’s ${r.name}` : r.name}</span> is {r.days === 0 ? 'today' : r.days === 1 ? 'tomorrow' : `in ${r.days} days`} and
+			<span class="font-bold">{withKid(r.kid, r.name)}</span> is {r.days === 0 ? 'today' : r.days === 1 ? 'tomorrow' : `in ${r.days} days`} and
 			{r.count === 0 ? 'has no gifts yet' : `only has ${gifts(r.count)}`}. Add a few so people have choices.
 		</span>
 		<Icon name="chevron-right" size={18} />
