@@ -61,6 +61,55 @@ export const PAPERS: Paper[] = [
 		background: `repeating-conic-gradient(${MUSTARD} 0 25%, ${COCOA} 0 50%) 0 0 / 24px 24px`,
 		ribbon: RUST,
 		bow: CREAM
+	},
+	{
+		id: 'plaid',
+		name: 'Plaid',
+		background: `repeating-linear-gradient(0deg, rgb(210 96 45 / 0.6) 0 9px, transparent 9px 30px, rgb(243 231 207 / 0.35) 30px 33px, transparent 33px 44px), repeating-linear-gradient(90deg, rgb(210 96 45 / 0.6) 0 9px, transparent 9px 30px, rgb(243 231 207 / 0.35) 30px 33px, transparent 33px 44px), ${TEAL}`,
+		ribbon: MUSTARD,
+		bow: COCOA
+	},
+	{
+		id: 'confetti',
+		name: 'Confetti',
+		background: `radial-gradient(circle, ${RUST} 0 3px, transparent 3.5px) 0 0 / 34px 30px, radial-gradient(circle, ${TEAL} 0 3px, transparent 3.5px) 17px 12px / 34px 30px, radial-gradient(circle, ${MUSTARD} 0 3.5px, transparent 4px) 8px 21px / 34px 30px, ${CREAM}`,
+		ribbon: TEAL,
+		bow: MUSTARD
+	},
+	{
+		id: 'zigzag',
+		name: 'Zigzag',
+		background: `linear-gradient(135deg, ${MUSTARD} 25%, transparent 25%) -14px 0 / 28px 28px, linear-gradient(225deg, ${MUSTARD} 25%, transparent 25%) -14px 0 / 28px 28px, linear-gradient(315deg, ${MUSTARD} 25%, transparent 25%) 0 0 / 28px 28px, linear-gradient(45deg, ${MUSTARD} 25%, transparent 25%) 0 0 / 28px 28px, ${TEAL}`,
+		ribbon: RUST,
+		bow: CREAM
+	},
+	{
+		id: 'gingham',
+		name: 'Gingham',
+		background: `repeating-linear-gradient(0deg, rgb(210 96 45 / 0.45) 0 12px, transparent 12px 24px), repeating-linear-gradient(90deg, rgb(210 96 45 / 0.45) 0 12px, transparent 12px 24px), ${CREAM}`,
+		ribbon: TEAL,
+		bow: MUSTARD
+	},
+	{
+		id: 'scallop',
+		name: 'Scallops',
+		background: `radial-gradient(circle at 50% 0, ${MUSTARD} 0 10px, transparent 10.5px) 0 0 / 24px 16px, radial-gradient(circle at 50% 0, ${CREAM} 0 4px, transparent 4.5px) 0 0 / 24px 16px, ${RUST}`,
+		ribbon: TEAL,
+		bow: CREAM
+	},
+	{
+		id: 'night',
+		name: 'Starry night',
+		background: `radial-gradient(circle, ${MUSTARD} 0 2.5px, transparent 3px) 0 0 / 40px 36px, radial-gradient(circle, ${CREAM} 0 1.5px, transparent 2px) 20px 18px / 40px 36px, radial-gradient(circle, ${CREAM} 0 1px, transparent 1.5px) 9px 27px / 26px 30px, ${COCOA}`,
+		ribbon: MUSTARD,
+		bow: RUST
+	},
+	{
+		id: 'diamond',
+		name: 'Diamonds',
+		background: `linear-gradient(45deg, ${CREAM} 25%, transparent 25%, transparent 75%, ${CREAM} 75%) 0 0 / 26px 26px, linear-gradient(45deg, ${CREAM} 25%, transparent 25%, transparent 75%, ${CREAM} 75%) 13px 13px / 26px 26px, ${MUSTARD}`,
+		ribbon: RUST,
+		bow: COCOA
 	}
 ];
 

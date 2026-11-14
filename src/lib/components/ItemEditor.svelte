@@ -391,10 +391,13 @@
 							<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (confirmDelete = true)}>{currentList ? 'Delete everywhere' : 'Delete'}</button>
 						{/if}
 					</form>
+				{:else}
+					<!-- Changing your mind about a new gift: one clear way out. -->
+					<button type="button" class="btn-quiet hover:text-rust-300" onclick={() => (open = false)}><Icon name="close" size={18} />Don’t add</button>
 				{/if}
 			</div>
 			<div class="flex gap-2">
-				<button type="button" class="btn-quiet" onclick={() => (open = false)}>Cancel</button>
+				{#if !isNew}<button type="button" class="btn-quiet" onclick={() => (open = false)}>Cancel</button>{/if}
 				<button form="item-form" class="btn-primary" disabled={saving || loading}>{saving ? 'Saving…' : isNew ? (saveLabel ?? 'Add gift') : 'Save'}</button>
 			</div>
 		</div>

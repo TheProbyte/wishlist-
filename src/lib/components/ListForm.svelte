@@ -11,7 +11,9 @@
 		wrap = null,
 		description,
 		showDescription = false,
-		everything = false
+		everything = false,
+		knownBirthday = null,
+		knownWho = 'your'
 	}: {
 		name?: string;
 		occasion?: Occasion;
@@ -21,7 +23,14 @@
 		showDescription?: boolean;
 		/** The Everything list: only its paper and note can change. */
 		everything?: boolean;
+		/** The birthday already set on the You page (or the kid's), used for birthday lists. */
+		knownBirthday?: string | null;
+		/** Whose it is, for the wording: "your" or "Maya’s". */
+		knownWho?: string;
 	} = $props();
+	// A birthday list just uses the birthday you've set, unless you pick another date.
+	// svelte-ignore state_referenced_locally
+	let customDate = $state(Boolean(date && knownBirthday && date !== knownBirthday));
 
 	// The form starts from the props and is then owned by the person typing.
 	// svelte-ignore state_referenced_locally
@@ -71,10 +80,17 @@
 			<Icon name="calendar" size={18} class="text-rust-300" />
 			<span>Every year on <span class="font-bold text-fg">Dec 25</span>. Next one: {formatDate(nextAnnual(12, 25))}.</span>
 		</p>
+	{:else if picked === 'birthday' && knownBirthday && !customDate}
+		<input type="hidden" name="occasion_date" value={knownBirthday} />
+		<p class="flex items-center gap-2.5 rounded-[var(--radius-control)] bg-cocoa-800 px-3.5 py-3 text-sm text-fg-muted">
+			<Icon name="cake" size={18} class="text-rust-300" />
+			<span class="flex-1">Uses {knownWho} birthday from the You page. Next one: <span class="font-bold text-fg">{formatDate(nextAnnual(Number(knownBirthday.slice(5, 7)), Number(knownBirthday.slice(8, 10))))}</span>.</span>
+			<button type="button" class="shrink-0 text-xs font-bold text-mustard-400 hover:underline" onclick={() => (customDate = true)}>Other date</button>
+		</p>
 	{:else if rule !== 'none'}
 		<label class="block">
 			<span class="label">{dateLabel} {#if rule === 'once'}<span class="normal-case text-fg-faint">(optional)</span>{/if}</span>
-			<input class="field sm:max-w-56" type="date" name="occasion_date" value={date} required={rule === 'yearly'} />
+			<input class="field sm:max-w-56" type="date" name="occasion_date" value={date || (picked === 'birthday' ? (knownBirthday ?? '') : '')} required={rule === 'yearly'} />
 			{#if rule === 'yearly'}
 				<span class="mt-1.5 block text-xs text-fg-faint">
 					{picked === 'birthday' ? 'Your real birthday, with the year. Enter it once and it counts down to your next one every year.' : 'Enter it once. It counts down to the next one every year.'}
@@ -88,7 +104,7 @@
 	<div>
 		<span class="label">Wrapping paper</span>
 		<input type="hidden" name="wrap" value={paper} />
-		<div class="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
+		<div class="grid grid-cols-4 gap-2.5 sm:grid-cols-7">
 			{#each PAPERS as p (p.id)}
 				<button
 					type="button"

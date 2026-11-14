@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from './Icon.svelte';
@@ -187,9 +187,11 @@
 	$effect(() => {
 		const vv = window.visualViewport;
 		if (!open || !vv) return;
+		// Only writes (never reads) the state, so this effect can't re-trigger itself.
 		const update = () => {
-			keyboard = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
-			room = keyboard > 0 ? vv.height : null;
+			const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+			keyboard = kb;
+			room = kb > 0 ? vv.height : null;
 		};
 		update();
 		vv.addEventListener('resize', update);
@@ -197,8 +199,10 @@
 		return () => {
 			vv.removeEventListener('resize', update);
 			vv.removeEventListener('scroll', update);
-			keyboard = 0;
-			room = null;
+			untrack(() => {
+				keyboard = 0;
+				room = null;
+			});
 		};
 	});
 

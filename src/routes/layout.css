@@ -694,3 +694,8 @@ html[data-nav='open']::view-transition-new(*.paper) {
 	border-radius: 0 0 var(--radius-card) var(--radius-card);
 	clip-path: polygon(22% 0, 78% 0, 100% 18%, 100% 100%, 0 100%, 0 18%);
 }
+
+/* Switching grid and list: a quick glide. */
+html[data-nav='morph']::view-transition-group(*) {
+	animation-duration: 220ms;
+}

@@ -29,17 +29,39 @@ const dateOrNull = (v: FormDataEntryValue | null) => (/^\d{4}-\d{2}-\d{2}$/.test
 export const meActions = {
 	saveProfile: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
-		await locals.db.prepare('UPDATE users SET birthday = ?, sizes = ? WHERE id = ?').bind(dateOrNull(form.get('birthday')), readSizes(form), locals.user.id).run();
+		const birthday = dateOrNull(form.get('birthday'));
+		const before = await locals.db.prepare('SELECT birthday FROM users WHERE id = ?').bind(locals.user.id).first<{ birthday: string | null }>();
+		await locals.db.batch([
+			locals.db.prepare('UPDATE users SET birthday = ?, sizes = ? WHERE id = ?').bind(birthday, readSizes(form), locals.user.id),
+			// Birthday lists that were using the old birthday (or none) follow the new one.
+			...(birthday
+				? [
+						locals.db
+							.prepare(`UPDATE lists SET occasion_date = ? WHERE owner_id = ? AND kid_id IS NULL AND occasion = 'birthday' AND (occasion_date IS NULL OR occasion_date = ?)`)
+							.bind(birthday, locals.user.id, before?.birthday ?? '')
+					]
+				: [])
+		]);
 		return { profileSaved: true };
 	},
 	saveKid: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim().slice(0, 40);
 		if (!name) return fail(400, { kidError: 'What’s their name?' });
-		await locals.db
-			.prepare('UPDATE kids SET name = ?, birthday = ?, sizes = ? WHERE id = ? AND parent_id = ?')
-			.bind(name, dateOrNull(form.get('birthday')), readSizes(form), String(form.get('id')), locals.user.id)
-			.run();
+		const id = String(form.get('id'));
+		const birthday = dateOrNull(form.get('birthday'));
+		const before = await locals.db.prepare('SELECT birthday FROM kids WHERE id = ? AND parent_id = ?').bind(id, locals.user.id).first<{ birthday: string | null }>();
+		if (!before) return fail(404, { kidError: 'Couldn’t find them.' });
+		await locals.db.batch([
+			locals.db.prepare('UPDATE kids SET name = ?, birthday = ?, sizes = ? WHERE id = ? AND parent_id = ?').bind(name, birthday, readSizes(form), id, locals.user.id),
+			...(birthday
+				? [
+						locals.db
+							.prepare(`UPDATE lists SET occasion_date = ? WHERE owner_id = ? AND kid_id = ? AND occasion = 'birthday' AND (occasion_date IS NULL OR occasion_date = ?)`)
+							.bind(birthday, locals.user.id, id, before.birthday ?? '')
+					]
+				: [])
+		]);
 		return { kidSaved: true };
 	},
 	deleteKid: async ({ request, locals }: RequestEvent) => {

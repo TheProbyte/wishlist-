@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import ItemEditor, { type Draft } from '#lib/components/ItemEditor.svelte';
 	import ProductImage from '#lib/components/ProductImage.svelte';
@@ -87,6 +88,7 @@
 		const params = page.url.searchParams;
 		// "Add by hand" from the + menu: straight into a blank gift.
 		if (params.has('manual')) {
+			manual = true;
 			draft = { title: '' };
 			phase = 'gift';
 			editorOpen = true;
@@ -98,7 +100,19 @@
 		phase = 'empty';
 	});
 
+	// Adding by hand and changing your mind: closing the sheet takes you back where you were,
+	// rather than leaving you on an empty page.
+	let manual = $state(false);
+	let saved = false;
+	$effect(() => {
+		if (!manual || editorOpen || saved) return;
+		manual = false;
+		if (history.length > 1) history.back();
+		else goto('/');
+	});
+
 	function savedGift() {
+		saved = true;
 		doneMessage = `Added to ${scope.id === data.scopes[0].id ? 'your' : `${scope.name}’s`} wish list.`;
 		phase = 'done';
 	}

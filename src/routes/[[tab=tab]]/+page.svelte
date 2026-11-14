@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto, replaceState } from '$app/navigation';
-	import type { Snapshot } from '@sveltejs/kit';
+	import { goto, replaceState, snapshot } from '$app/navigation';
 	import ListsTab from '#lib/tabs/ListsTab.svelte';
 	import PeopleTab from '#lib/tabs/PeopleTab.svelte';
 	import MeTab from '#lib/tabs/MeTab.svelte';
@@ -84,13 +83,14 @@
 	});
 
 	// Going back to this page puts you on the same tab, scrolled where you were.
-	export const snapshot: Snapshot<{ tab: number; scrolls: number[] }> = {
+	snapshot<{ tab: number; scrolls: number[] }>({
+		id: 'tabs',
 		capture: () => ({ tab: current, scrolls: panels.map((p) => p?.scrollTop ?? 0) }),
 		restore: (v) => {
 			go(v.tab, false);
 			requestAnimationFrame(() => v.scrolls.forEach((y, i) => panels[i] && (panels[i].scrollTop = y)));
 		}
-	};
+	});
 
 	// The paste bar belongs to Lists: it fades and sinks away as you swipe off it.
 	const pasteShown = $derived(Math.max(0, 1 - progress * 1.8));

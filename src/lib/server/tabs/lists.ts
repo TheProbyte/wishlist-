@@ -8,7 +8,13 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 export const loadLists = async ({ locals }: RequestEvent) => {
 	const { db, user } = locals;
-	const [everything, lists, kids, friends] = await Promise.all([masterListEnsured(db, user.id), orderedLists(db, user.id), getKids(db, user.id), upcomingInCircles(db, user.id, 45)]);
+	const [everything, lists, kids, friends, me] = await Promise.all([
+		masterListEnsured(db, user.id),
+		orderedLists(db, user.id),
+		getKids(db, user.id),
+		upcomingInCircles(db, user.id, 45),
+		db.prepare('SELECT birthday FROM users WHERE id = ?').bind(user.id).first<{ birthday: string | null }>()
+	]);
 
 	const kidSections = await Promise.all(
 		kids.map(async (kid) => {
@@ -29,7 +35,7 @@ export const loadLists = async ({ locals }: RequestEvent) => {
 		.slice(0, 2)
 		.map((l) => ({ id: l.id, name: l.name, days: daysUntil(l.next_date)!, count: l.item_count, kid: kidSections.find((k) => k.lists.some((x) => x.id === l.id))?.kid.name ?? null }));
 
-	return { everything: everything!, lists, kids: kidSections, nextId: next?.id ?? null, next, reminders, friends };
+	return { everything: everything!, lists, kids: kidSections, nextId: next?.id ?? null, next, reminders, friends, myBirthday: me?.birthday ?? null };
 };
 
 export const listsActions = {

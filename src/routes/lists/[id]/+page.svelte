@@ -89,22 +89,33 @@
 	});
 	// Switching view morphs: each gift and its photo glide from the old layout to the new one
 	// (where the browser can; elsewhere it simply switches).
-	let morphing = $state(false);
-	async function toggleView() {
+	// Only the gifts on screen are named for the morph, straight on the elements (no re-render),
+	// so the switch starts at once even on a long list.
+	function toggleView() {
 		const next = view === 'grid' ? 'row' : 'grid';
 		const apply = () => {
 			view = next;
 			setPref(`view:${data.list.id}`, next);
 		};
 		if (!document.startViewTransition || prefersReducedMotion()) return apply();
-		morphing = true;
-		await tick();
+		const named: HTMLElement[] = [];
+		for (const el of document.querySelectorAll<HTMLElement>(`[data-page="${CSS.escape(filter)}"] [data-gift]`)) {
+			const r = el.getBoundingClientRect();
+			if (r.bottom < 0 || r.top > innerHeight) continue;
+			el.style.viewTransitionName = `g-${el.dataset.gift}`;
+			named.push(el);
+			const photo = el.querySelector<HTMLElement>('[data-photo]');
+			if (photo) {
+				photo.style.viewTransitionName = `gp-${el.dataset.gift}`;
+				named.push(photo);
+			}
+		}
 		document.documentElement.dataset.nav = 'morph';
 		const t = document.startViewTransition(async () => {
 			apply();
 			await tick();
 		});
-		t.finished.finally(() => (morphing = false));
+		t.finished.finally(() => named.forEach((el) => (el.style.viewTransitionName = '')));
 	}
 
 	/* ------------------------------------------------ swiping */
@@ -385,7 +396,7 @@
 			<button class="grid h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 {data.list.share_token ? 'text-teal-300' : 'text-fg'}" aria-label={data.list.share_token ? 'Shared: see the link' : 'Share with givers'} onclick={() => (shareOpen = true)}>
 				<Icon name="share" size={19} />
 			</button>
-			<button class="hidden h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 sm:grid" aria-label="More" onclick={() => (moreOpen = true)}>
+			<button class="hidden h-10 w-10 place-items-center rounded-full bg-cocoa-950/85 text-fg shadow-[0_2px_0_0_var(--color-edge)] active:scale-95 sm:grid {items.length === 0 ? 'max-sm:grid' : ''}" aria-label="More" onclick={() => { confirmDeleteList = false; moreOpen = true; }}>
 				<Icon name="more" size={20} />
 			</button>
 		</div>
@@ -454,7 +465,7 @@
 		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg" aria-label={view === 'grid' ? 'Show as a list' : 'Show as photos'} disabled={reordering} onclick={toggleView}>
 			<Icon name={view === 'grid' ? 'rows' : 'grid'} size={17} />
 		</button>
-		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg sm:hidden" aria-label="More" onclick={() => (moreOpen = true)}>
+		<button class="chip w-9 shrink-0 justify-center px-0 hover:text-fg sm:hidden" aria-label="More" onclick={() => { confirmDeleteList = false; moreOpen = true; }}>
 			<Icon name="more" size={18} />
 		</button>
 	</div>
@@ -475,8 +486,8 @@
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
 					out:cardOut={{ on: animateChanges() }}
-					class="{i > 7 && !morphing ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''}"
-					style="--i: {i};{morphing && pageId === filter && i < 16 ? ` view-transition-name: g-${item.id}` : ''}"
+					class="{i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''}"
+					style="--i: {i}"
 					data-slot={dragId === item.id ? '' : undefined}
 					role="listitem"
 					data-gift={item.id}
@@ -501,7 +512,6 @@
 					<ItemCard
 						{item}
 						{layout}
-						morph={morphing && pageId === filter && i < 16}
 						position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
 						onopen={() => (selecting ? toggleSelect(item.id) : reordering ? undefined : edit(item))}
 						onrate={selecting ? undefined : (r) => rate(item, r)}
@@ -535,6 +545,19 @@
 			<span><span class="block font-bold">{isEverything ? 'Wish list settings' : 'List settings'}</span><span class="text-sm text-fg-muted">{isEverything ? 'Name and wrapping paper.' : 'Name, date and wrapping paper.'}</span></span>
 		</button>
 	</div>
+	{#if !isEverything}
+		<form method="POST" action="?/deleteList" use:enhance class="mt-6 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-rust-500/10 p-3.5 pl-4">
+			<p class="text-sm text-fg-muted">{confirmDeleteList ? `Delete ${data.list.name}? Its gifts stay in Everything.` : 'Done with this list?'}</p>
+			{#if confirmDeleteList}
+				<div class="flex shrink-0 gap-1.5">
+					<button type="button" class="btn-quiet px-3 text-sm" onclick={() => (confirmDeleteList = false)}>Keep</button>
+					<button class="btn-danger px-3 text-sm">Delete</button>
+				</div>
+			{:else}
+				<button type="button" class="btn-quiet shrink-0 px-3 text-sm text-rust-300 hover:text-rust-300" onclick={() => (confirmDeleteList = true)}>Delete list</button>
+			{/if}
+		</form>
+	{/if}
 </Modal>
 
 <!-- + in the paste bar: the other ways to add. -->
@@ -591,7 +614,7 @@
 			if (result.type === 'success') settingsOpen = false;
 		}}
 	>
-		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} wrap={data.list.wrap} description={data.list.description} showDescription everything={isEverything} />
+		<ListForm name={data.list.name} occasion={data.list.occasion} date={data.list.occasion_date ?? ''} wrap={data.list.wrap} description={data.list.description} showDescription everything={isEverything} knownBirthday={data.birthday} knownWho={data.kid ? `${data.kid.name}’s` : 'your'} />
 	</form>
 	{#if !isEverything}
 	<div class="mt-8 rounded-[var(--radius-card)] bg-rust-500/10 p-4">

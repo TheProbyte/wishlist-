@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Present from './Present.svelte';
 	import GiftTag from './GiftTag.svelte';
+	import { openPresent } from '#lib/openPresent.ts';
 
 	/**
 	 * A present standing on a wooden shelf: the list's paper, its count tag, and its name on the
@@ -33,11 +34,29 @@
 
 	// Assorted box shapes, by position, so neighbours differ.
 	const SHAPES = ['aspect-[4/3] w-[86%]', 'aspect-square w-[74%]', 'aspect-[5/4] w-[82%]', 'aspect-[6/5] w-[70%]'];
+	let box = $state<HTMLDivElement>();
+	let link = $state<HTMLAnchorElement>();
+	// Listen on the link itself, so this runs (and can take over) before the app's router,
+	// which picks up link clicks further up the page.
+	$effect(() => {
+		const el = link;
+		if (!el) return;
+		el.addEventListener('click', open);
+		return () => el.removeEventListener('click', open);
+	});
+	function open(e: MouseEvent) {
+		// Let new-tab and similar clicks behave normally.
+		if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		const present = box?.firstElementChild as HTMLElement | null;
+		if (!present) return;
+		e.preventDefault();
+		openPresent(present, href);
+	}
 	const shape = $derived(big ? 'aspect-[2.7/1] w-[92%]' : SHAPES[index % SHAPES.length]);
 </script>
 
-<a {href} class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
-	<div class="relative mx-auto {shape} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5">
+<a {href} bind:this={link} class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
+	<div bind:this={box} class="relative mx-auto {shape} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5">
 		<Present
 			{wrap}
 			{occasion}

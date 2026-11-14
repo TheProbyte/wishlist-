@@ -217,7 +217,12 @@
 			}}
 		>
 			<input type="hidden" name="kid_id" value={creatingFor === 'me' ? '' : creatingFor} />
-			<ListForm />
+			{#key creatingFor}
+				<ListForm
+					knownBirthday={creatingFor === 'me' ? data.myBirthday : (data.kids.find((k) => k.kid.id === creatingFor)?.kid.birthday ?? null)}
+					knownWho={creatingFor === 'me' ? 'your' : `${data.kids.find((k) => k.kid.id === creatingFor)?.kid.name ?? 'their'}’s`}
+				/>
+			{/key}
 			{#if form?.error}<p class="mt-4 text-sm font-bold text-rust-300">{form.error}</p>{/if}
 		</form>
 	{/if}

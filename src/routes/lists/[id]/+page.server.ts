@@ -17,12 +17,13 @@ async function ownList(locals: App.Locals, id: string) {
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const list = await ownList(locals, params.id);
 	// Everything this page needs, asked for at once.
-	const [items, categories, scopeLists, sizes, kid, everything] = await Promise.all([
+	const [items, categories, scopeLists, sizes, kid, me, everything] = await Promise.all([
 		getItems(locals.db, list),
 		getCategories(locals.db, locals.user.id),
 		orderedLists(locals.db, locals.user.id, list.kid_id),
 		sizesFor(locals.db, list),
 		list.kid_id ? getKid(locals.db, list.kid_id) : null,
+		list.kid_id ? null : locals.db.prepare('SELECT birthday FROM users WHERE id = ?').bind(locals.user.id).first<{ birthday: string | null }>(),
 		// For an occasion list: the Everything list, to pick more gifts from.
 		list.kind === 'list'
 			? locals.db
@@ -47,6 +48,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		sizes,
 		pickable,
 		kid: kid ? { id: kid.id, name: kid.name } : null,
+		// Whoever this list is for: their birthday, for birthday lists.
+		birthday: (kid ? kid.birthday : me?.birthday) ?? null,
 		// Lists a gift can be put on (for the editor's "On these lists").
 		lists: scopeLists.map((l) => ({ id: l.id, name: l.name, occasion: l.occasion }))
 	};
