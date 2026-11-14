@@ -13,11 +13,11 @@
 
 	// Group by who it's for (a kid counts as their own person).
 	const groups = $derived.by(() => {
-		const map = new Map<string, { key: string; name: string; avatar: string | null; paper: string | null; claims: typeof data.claims }>();
+		const map = new Map<string, { key: string; name: string; avatar: string | null; sticker: string | null; paper: string | null; claims: typeof data.claims }>();
 		for (const c of data.claims) {
 			const key = c.owner_id + (c.kid_name ?? '');
 			const name = c.kid_name ? `${c.kid_name} (${c.owner_name.split(' ')[0]}’s)` : c.owner_name;
-			if (!map.has(key)) map.set(key, { key, name, avatar: c.kid_name ? null : c.owner_avatar, paper: c.paper, claims: [] });
+			if (!map.has(key)) map.set(key, { key, name, avatar: c.kid_name ? null : c.owner_avatar, sticker: c.kid_name ? null : c.owner_sticker, paper: c.paper, claims: [] });
 			map.get(key)!.claims.push(c);
 		}
 		return [...map.values()];
@@ -62,7 +62,7 @@
 	{@const done = g.claims.filter((c) => c.purchased).length}
 	<section class="mb-10">
 		<h2 class="mb-3 flex items-center gap-2.5 text-lg font-bold">
-			<Avatar name={g.name} src={g.avatar} size={32} />
+			<Avatar name={g.name} src={g.avatar} sticker={g.sticker} size={32} />
 			<span class="min-w-0 flex-1 truncate">{g.name}</span>
 			<span class="shrink-0 text-xs font-bold {done === g.claims.length ? 'text-teal-300' : 'text-fg-faint'}">{done} of {g.claims.length} wrapped</span>
 		</h2>

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import PaperPicker from './PaperPicker.svelte';
 	import { OCCASIONS, dateRule, nextAnnual, formatDate, suggestedListName } from '#lib/format.ts';
-	import { PAPERS, defaultPaperId } from '#lib/papers.ts';
+	import { defaultPaperId } from '#lib/papers.ts';
 	import type { Occasion } from '#lib/types.ts';
 
 	let {
@@ -103,28 +104,7 @@
 
 	<div>
 		<span class="label">Wrapping paper</span>
-		<input type="hidden" name="wrap" value={paper} />
-		<div class="grid grid-cols-4 gap-2.5 sm:grid-cols-7">
-			{#each PAPERS as p (p.id)}
-				<button
-					type="button"
-					class="group flex flex-col items-center gap-1.5 text-[11px] font-bold {paper === p.id ? 'text-fg' : 'text-fg-faint'}"
-					aria-pressed={paper === p.id}
-					onclick={() => {
-						paper = p.id;
-						touchedPaper = true;
-					}}
-				>
-					<span
-						class="relative block h-14 w-full overflow-hidden rounded-xl transition {paper === p.id ? 'ring-3 ring-mustard-400 ring-offset-2 ring-offset-cocoa-900' : 'group-hover:-translate-y-0.5'}"
-						style="background: {p.background}"
-					>
-						<span class="absolute inset-y-0 left-[64%] w-2" style="background: {p.ribbon}"></span>
-					</span>
-					{p.name}
-				</button>
-			{/each}
-		</div>
+		<PaperPicker bind:value={paper} name="wrap" onpick={() => (touchedPaper = true)} />
 	</div>
 
 	{#if showDescription}

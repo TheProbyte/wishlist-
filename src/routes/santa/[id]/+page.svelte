@@ -69,7 +69,7 @@
 				<!-- the fold line across the middle of the paper -->
 				<div class="relative">
 					<p class="text-xs font-bold tracking-widest text-rust-500 uppercase">You’re Secret Santa for</p>
-					<div class="stamp mx-auto mt-3 w-fit"><Avatar name={data.recipient.name} src={data.recipient.avatar_url} size={84} /></div>
+					<div class="stamp mx-auto mt-3 w-fit"><Avatar name={data.recipient.name} src={data.recipient.avatar_url} sticker={data.recipient.sticker} size={84} /></div>
 					<h2 class="display mt-2 text-[32px] leading-tight">{data.recipient.name}</h2>
 					<div class="my-3 border-t-2 border-dashed border-cocoa-950/25"></div>
 					<p class="text-sm text-cocoa-700">Shh! Only you can see this.</p>
@@ -92,7 +92,7 @@
 	<div class="flex flex-wrap gap-2">
 		{#each data.members as m (m.id)}
 			<span class="chip pr-2 pl-1">
-				<Avatar name={m.name} src={m.avatar_url} size={28} />{m.id === data.me?.id ? 'You' : m.name.split(' ')[0]}
+				<Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={28} />{m.id === data.me?.id ? 'You' : m.name.split(' ')[0]}
 				{#if data.isOrganiser && !data.exchange.drawn && m.id !== data.me?.id}
 					<form method="POST" action="?/remove" use:enhance class="inline-flex">
 						<input type="hidden" name="user" value={m.id} />

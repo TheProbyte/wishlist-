@@ -4,7 +4,7 @@
 	import GiverShelf from '#lib/components/GiverShelf.svelte';
 	import GiverWelcome from '#lib/components/GiverWelcome.svelte';
 	import { countdownLabel, formatDate, milestone, occasionDate, occasionMeta } from '#lib/format.ts';
-	import { paperFor } from '#lib/papers.ts';
+	import { previewPaperId } from '#lib/papers.ts';
 	import { page } from '$app/state';
 	import type { PageProps } from './$types';
 
@@ -24,7 +24,7 @@
 			.filter(Boolean)
 			.join(' · ')
 	);
-	const ogImage = $derived(`${page.url.origin}/og/${paperFor(data.list.wrap ?? (isEverything ? 'sunburst' : null), data.list.occasion).id}.png`);
+	const ogImage = $derived(`${page.url.origin}/og/${previewPaperId(data.list.wrap ?? (isEverything ? 'sunburst' : null), data.list.occasion)}.png`);
 </script>
 
 <svelte:head>

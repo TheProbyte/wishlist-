@@ -18,12 +18,13 @@ export const load: PageServerLoad = async ({ locals, params, cookies, setHeaders
 		getCategories(locals.db, list.owner_id),
 		sizesFor(locals.db, list),
 		list.kid_id ? getKid(locals.db, list.kid_id) : null,
-		locals.db.prepare('SELECT name FROM users WHERE id = ?').bind(list.owner_id).first<{ name: string }>()
+		locals.db.prepare('SELECT name, paper FROM users WHERE id = ?').bind(list.owner_id).first<{ name: string; paper: string | null }>()
 	]);
 	refreshStale(locals.db, items);
 	const ownerName = ownerRow?.name && ownerRow.name !== 'You' ? ownerRow.name : null;
 	return {
-		list: { name: list.name, kind: list.kind, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description, wrap: list.wrap },
+		// The Everything list wears its owner's signature paper unless it has its own.
+		list: { name: list.name, kind: list.kind, occasion: list.occasion, occasion_date: list.occasion_date, description: list.description, wrap: list.wrap ?? (list.kind === 'master' && !list.kid_id ? (ownerRow?.paper ?? null) : null) },
 		// Whose list this is, for the heading ("Maya’s wish list").
 		person: kid ? kid.name : ownerName,
 		categories,

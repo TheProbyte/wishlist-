@@ -18,7 +18,8 @@
 		big = false,
 		index = 0,
 		transitionName,
-		subClass = ''
+		subClass = '',
+		days = null
 	}: {
 		href: string;
 		wrap: string | null;
@@ -30,10 +31,17 @@
 		index?: number;
 		transitionName?: string;
 		subClass?: string;
+		/** Days until its occasion: inside a week, the present gets restless. */
+		days?: number | null;
 	} = $props();
 
-	// Assorted box shapes, by position, so neighbours differ.
-	const SHAPES = ['aspect-[4/3] w-[86%]', 'aspect-square w-[74%]', 'aspect-[5/4] w-[82%]', 'aspect-[6/5] w-[70%]'];
+	// Assorted box shapes, by position, so neighbours differ; fuller lists are bigger boxes.
+	const SHAPES = [
+		{ aspect: 'aspect-[4/3]', width: 86 },
+		{ aspect: 'aspect-square', width: 74 },
+		{ aspect: 'aspect-[5/4]', width: 82 },
+		{ aspect: 'aspect-[6/5]', width: 70 }
+	];
 	let box = $state<HTMLDivElement>();
 	let link = $state<HTMLAnchorElement>();
 	// Listen on the link itself, so this runs (and can take over) before the app's router,
@@ -52,11 +60,19 @@
 		e.preventDefault();
 		openPresent(present, href, href.split('/').pop() ?? '');
 	}
-	const shape = $derived(big ? 'aspect-[2.7/1] w-[92%]' : SHAPES[index % SHAPES.length]);
+	const grow = $derived(count === 0 ? 0.86 : count < 3 ? 0.93 : count < 7 ? 1 : count < 15 ? 1.06 : 1.11);
+	const shape = $derived(
+		big ? { aspect: 'aspect-[2.7/1]', width: 92 } : { aspect: SHAPES[index % SHAPES.length].aspect, width: Math.min(96, Math.round(SHAPES[index % SHAPES.length].width * grow)) }
+	);
+	const restless = $derived(days != null && days >= 0 && days <= 7);
 </script>
 
 <a {href} bind:this={link} class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
-	<div bind:this={box} class="relative mx-auto {shape} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5">
+	<div
+		bind:this={box}
+		class="relative mx-auto {shape.aspect} {restless ? 'shelf-restless' : ''} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5"
+		style="width: {shape.width}%; --delay: {(index % 4) * 1.3}s"
+	>
 		<Present
 			{wrap}
 			{occasion}

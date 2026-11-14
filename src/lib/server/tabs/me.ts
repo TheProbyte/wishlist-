@@ -1,3 +1,5 @@
+import { readSticker } from '#lib/stickers.ts';
+import { isPaper } from '#lib/papers.ts';
 import { fail } from '@sveltejs/kit';
 import { getKids, safeJson } from '#lib/server/db.ts';
 import { SIZE_FIELDS } from '#lib/sizes.ts';
@@ -6,11 +8,11 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 export const loadMe = async ({ locals }: RequestEvent) => {
 	const [me, kids] = await Promise.all([
-		locals.db.prepare('SELECT name, email, avatar_url, birthday, sizes FROM users WHERE id = ?').bind(locals.user.id).first<{ name: string; email: string | null; avatar_url: string | null; birthday: string | null; sizes: string }>(),
+		locals.db.prepare('SELECT name, email, avatar_url, birthday, sizes, sticker, paper FROM users WHERE id = ?').bind(locals.user.id).first<{ name: string; email: string | null; avatar_url: string | null; birthday: string | null; sizes: string; sticker: string | null; paper: string | null }>(),
 		getKids(locals.db, locals.user.id)
 	]);
 	return {
-		profile: { name: me?.name ?? 'You', email: me?.email ?? null, avatar_url: me?.avatar_url ?? null, birthday: me?.birthday ?? null, sizes: safeJson<Sizes>(me?.sizes, {}) },
+		profile: { name: me?.name ?? 'You', email: me?.email ?? null, avatar_url: me?.avatar_url ?? null, birthday: me?.birthday ?? null, sizes: safeJson<Sizes>(me?.sizes, {}), sticker: me?.sticker ?? null, paper: me?.paper ?? null },
 		kids,
 		authEnabled: locals.authEnabled
 	};
@@ -27,6 +29,17 @@ function readSizes(form: FormData): string {
 const dateOrNull = (v: FormDataEntryValue | null) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '')) ? String(v) : null);
 
 export const meActions = {
+	/** Your sticker (instead of your photo) and your signature wrapping paper. */
+	saveLook: async ({ request, locals }: RequestEvent) => {
+		const form = await request.formData();
+		const sticker = String(form.get('sticker') ?? '');
+		const paper = String(form.get('paper') ?? '');
+		await locals.db
+			.prepare('UPDATE users SET sticker = ?, paper = ? WHERE id = ?')
+			.bind(readSticker(sticker) ? sticker : null, isPaper(paper) ? paper : null, locals.user.id)
+			.run();
+		return { lookSaved: true };
+	},
 	saveProfile: async ({ request, locals }: RequestEvent) => {
 		const form = await request.formData();
 		const birthday = dateOrNull(form.get('birthday'));

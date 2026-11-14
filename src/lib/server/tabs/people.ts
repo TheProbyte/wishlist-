@@ -14,13 +14,13 @@ export const loadPeople = async ({ locals, cookies }: RequestEvent) => {
 			.all<{ id: string; name: string; owner_id: string; invite_token: string }>(),
 		db
 			.prepare(
-				`SELECT m.circle_id, u.id, u.name, u.avatar_url,
+				`SELECT m.circle_id, u.id, u.name, u.avatar_url, u.sticker, u.paper,
 				        (SELECT COUNT(*) FROM items i WHERE i.list_id = 'mst_' || u.id) AS gift_count
 				 FROM circle_members m JOIN users u ON u.id = m.user_id
 				 WHERE m.circle_id IN (SELECT circle_id FROM circle_members WHERE user_id = ?) ORDER BY m.joined_at`
 			)
 			.bind(user.id)
-			.all<{ circle_id: string; id: string; name: string; avatar_url: string | null; gift_count: number }>(),
+			.all<{ circle_id: string; id: string; name: string; avatar_url: string | null; sticker: string | null; paper: string | null; gift_count: number }>(),
 		db
 			.prepare(
 				`SELECT e.id, e.name, e.exchange_date, e.budget_cents, e.currency, e.drawn_at,
@@ -36,11 +36,11 @@ export const loadPeople = async ({ locals, cookies }: RequestEvent) => {
 		upcomingInCircles(db, user.id, 365)
 	]);
 	// Everyone you share a circle with, once each: who they are, which circles, their next occasion.
-	const byId = new Map<string, { id: string; name: string; avatar_url: string | null; gift_count: number; circles: string[]; next: (typeof upcoming)[number] | null }>();
+	const byId = new Map<string, { id: string; name: string; avatar_url: string | null; sticker: string | null; paper: string | null; gift_count: number; circles: string[]; next: (typeof upcoming)[number] | null }>();
 	for (const m of members.results) {
 		if (m.id === user.id) continue;
 		const circle = circles.results.find((c) => c.id === m.circle_id)?.name ?? '';
-		const p = byId.get(m.id) ?? { id: m.id, name: m.name, avatar_url: m.avatar_url, gift_count: m.gift_count, circles: [], next: upcoming.find((u) => u.personId === m.id) ?? null };
+		const p = byId.get(m.id) ?? { id: m.id, name: m.name, avatar_url: m.avatar_url, sticker: m.sticker, paper: m.paper, gift_count: m.gift_count, circles: [], next: upcoming.find((u) => u.personId === m.id) ?? null };
 		if (circle && !p.circles.includes(circle)) p.circles.push(circle);
 		byId.set(m.id, p);
 	}

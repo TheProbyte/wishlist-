@@ -8,11 +8,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	if (!x) error(404, 'That Secret Santa isn’t one you’re in.');
 	const [{ results: members }, recipient] = await Promise.all([
 		locals.db
-			.prepare('SELECT u.id, u.name, u.avatar_url FROM exchange_members m JOIN users u ON u.id = m.user_id WHERE m.exchange_id = ? ORDER BY m.joined_at')
+			.prepare('SELECT u.id, u.name, u.avatar_url, u.sticker FROM exchange_members m JOIN users u ON u.id = m.user_id WHERE m.exchange_id = ? ORDER BY m.joined_at')
 			.bind(x.id)
-			.all<{ id: string; name: string; avatar_url: string | null }>(),
+			.all<{ id: string; name: string; avatar_url: string | null; sticker: string | null }>(),
 		// Only ever your own match: nobody, not even the organiser, sees the others.
-		x.recipient_id ? locals.db.prepare('SELECT id, name, avatar_url FROM users WHERE id = ?').bind(x.recipient_id).first<{ id: string; name: string; avatar_url: string | null }>() : null
+		x.recipient_id ? locals.db.prepare('SELECT id, name, avatar_url, sticker FROM users WHERE id = ?').bind(x.recipient_id).first<{ id: string; name: string; avatar_url: string | null; sticker: string | null }>() : null
 	]);
 	return {
 		exchange: { id: x.id, name: x.name, budget_cents: x.budget_cents, currency: x.currency, exchange_date: x.exchange_date, drawn: !!x.drawn_at, invite_token: x.invite_token },

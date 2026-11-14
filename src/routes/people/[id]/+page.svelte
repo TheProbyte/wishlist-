@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PaperStrip from '#lib/components/PaperStrip.svelte';
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -21,10 +22,11 @@
 
 <svelte:head><title>{first}’s wish list · The Giver</title></svelte:head>
 
+{#if data.person.paper}<PaperStrip wrap={data.person.paper} height="h-10 sm:h-12" class="-mt-3 mb-3 sm:mt-0" />{/if}
 <!-- Compact header: back, their picture and name, and their birthday. -->
 <section class="mb-4 flex items-center gap-3">
 	<a href="/people" class="-ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cocoa-850 text-fg active:scale-95" aria-label="People"><Icon name="chevron-left" size={22} /></a>
-	<Avatar name={data.person.name} src={data.person.avatar_url} size={48} />
+	<Avatar name={data.person.name} src={data.person.avatar_url} sticker={data.person.sticker} size={48} />
 	<div class="min-w-0">
 		<h1 class="display truncate text-[28px] leading-tight sm:text-[40px]">{first}’s wish lists</h1>
 		{#if data.person.birthday}<p class="text-sm font-bold text-rust-300">Birthday {countdownLabel(occasionDate('birthday', data.person.birthday))}</p>{/if}

@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ locals, params, cookies, url, setHe
 	if (!locals.authEnabled) error(404, 'Not found');
 	if (params.id === locals.user.id) error(404, 'That’s you! Your own lists are on the Lists tab.');
 	if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'You can only see lists of people in your circles.');
-	const person = await locals.db.prepare('SELECT id, name, avatar_url, sizes, birthday FROM users WHERE id = ?').bind(params.id).first<{ id: string; name: string; avatar_url: string | null; sizes: string; birthday: string | null }>();
+	const person = await locals.db.prepare('SELECT id, name, avatar_url, sizes, birthday, sticker, paper FROM users WHERE id = ?').bind(params.id).first<{ id: string; name: string; avatar_url: string | null; sizes: string; birthday: string | null; sticker: string | null; paper: string | null }>();
 	if (!person) error(404, 'Not found');
 
 	const giver = { token: cookies.get(GIVER_COOKIE) ?? null, userId: locals.user.id };
@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ locals, params, cookies, url, setHe
 	refreshStale(locals.db, pages[0].items);
 	const wanted = url.searchParams.get('list');
 	return {
-		person: { id: person.id, name: person.name, avatar_url: person.avatar_url, birthday: person.birthday },
+		person: { id: person.id, name: person.name, avatar_url: person.avatar_url, birthday: person.birthday, sticker: person.sticker, paper: person.paper },
 		pages: pages.filter((p, i) => i === 0 || p.items.length || p.id === wanted),
 		start: wanted && pages.some((p) => p.id === wanted) ? wanted : pages[0].id,
 		categories,

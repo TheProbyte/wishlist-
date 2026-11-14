@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PaperPicker from '#lib/components/PaperPicker.svelte';
+	import { STICKER_ICONS, STICKER_INKS, makeSticker, readSticker } from '#lib/stickers.ts';
+	import { INKS, INK_NAMES, type Ink } from '#lib/papers.ts';
 	import { getPref, setPref } from '#lib/prefs.ts';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
@@ -32,6 +35,17 @@
 		setTimeout(() => (copiedCode = false), 1800);
 	}
 
+	// Your look.
+	// svelte-ignore state_referenced_locally
+	const startSticker = readSticker(data.profile.sticker);
+	let useSticker = $state(!!startSticker);
+	let stickerIcon = $state<string>(startSticker?.icon ?? 'gift');
+	let stickerInk = $state<Ink>(startSticker?.ink ?? 'mustard');
+	// svelte-ignore state_referenced_locally
+	let myPaper = $state(data.profile.paper ?? 'sunburst');
+	let lookBusy = $state(false);
+	let lookSaved = $state(false);
+
 	// The paper pointer, remembered on this computer.
 	let paperPointer = $state(false);
 	$effect(() => {
@@ -40,12 +54,61 @@
 </script>
 
 <section class="mb-8 flex items-center gap-4">
-	<Avatar name={data.profile.name === 'You' ? 'Y' : data.profile.name} src={data.profile.avatar_url} size={64} />
+	<Avatar name={data.profile.name === 'You' ? 'Y' : data.profile.name} src={data.profile.avatar_url} sticker={data.profile.sticker} size={64} />
 	<div class="min-w-0">
 		<h1 class="display accent-bar truncate text-[36px] leading-tight">{data.profile.name === 'You' ? 'You' : data.profile.name}</h1>
 		{#if data.profile.email}<p class="truncate text-sm text-fg-muted">{data.profile.email}</p>{/if}
 	</div>
 </section>
+
+<!-- Your look: a sticker instead of your photo, and your signature paper. -->
+<form
+	method="POST"
+	action="?/saveLook"
+	class="card mb-8 p-4 sm:p-5"
+	use:enhance={() => {
+		lookBusy = true;
+		return async ({ update }) => {
+			await update({ reset: false });
+			lookBusy = false;
+			lookSaved = true;
+			setTimeout(() => (lookSaved = false), 1800);
+		};
+	}}
+>
+	<h2 class="text-lg font-bold">Your look</h2>
+	<p class="mt-0.5 text-sm text-fg-muted">How you show up to your people: on your tag, your share links, and the paper your gifts get wrapped in.</p>
+	<input type="hidden" name="sticker" value={useSticker ? makeSticker(stickerIcon, stickerInk) : ''} />
+
+	<div class="mt-4 flex items-center gap-4">
+		<Avatar name={data.profile.name} src={data.profile.avatar_url} sticker={useSticker ? makeSticker(stickerIcon, stickerInk) : null} size={64} />
+		<div class="flex gap-1.5 rounded-full bg-cocoa-950 p-1 text-sm font-bold">
+			<button type="button" class="rounded-full px-3 py-1.5 {useSticker ? 'bg-cocoa-800 text-fg' : 'text-fg-faint'}" aria-pressed={useSticker} onclick={() => (useSticker = true)}>Sticker</button>
+			<button type="button" class="rounded-full px-3 py-1.5 {!useSticker ? 'bg-cocoa-800 text-fg' : 'text-fg-faint'}" aria-pressed={!useSticker} onclick={() => (useSticker = false)}>{data.profile.avatar_url ? 'My photo' : 'My initial'}</button>
+		</div>
+	</div>
+	{#if useSticker}
+		<div class="mt-4 grid grid-cols-6 gap-2 sm:grid-cols-9">
+			{#each STICKER_ICONS as icon (icon)}
+				<button type="button" class="grid aspect-square place-items-center rounded-[12px] transition {stickerIcon === icon ? 'bg-mustard-400 text-cocoa-950' : 'bg-cocoa-800 text-fg-muted hover:text-fg'}" aria-label={icon} aria-pressed={stickerIcon === icon} onclick={() => (stickerIcon = icon)}>
+					<Icon name={icon} size={20} />
+				</button>
+			{/each}
+		</div>
+		<div class="mt-3 flex flex-wrap gap-2">
+			{#each STICKER_INKS as ink (ink)}
+				<button type="button" class="h-9 w-9 rounded-full ring-3 ring-offset-2 ring-offset-cocoa-850 transition {stickerInk === ink ? 'ring-mustard-400' : 'ring-transparent hover:ring-cocoa-600'}" style="background: {INKS[ink]}; box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25)" aria-label={INK_NAMES[ink]} aria-pressed={stickerInk === ink} onclick={() => (stickerInk = ink)}></button>
+			{/each}
+		</div>
+	{/if}
+
+	<span class="label mt-5">Your paper</span>
+	<PaperPicker bind:value={myPaper} name="paper" />
+
+	<div class="mt-4 flex justify-end">
+		<button class="btn-primary" disabled={lookBusy}>{lookSaved ? 'Saved' : lookBusy ? 'Saving…' : 'Save my look'}</button>
+	</div>
+</form>
 
 {#if !data.authEnabled}
 	<div class="mb-8 flex gap-3 rounded-[var(--radius-card)] bg-mustard-400/15 px-4 py-3 text-sm text-mustard-300">

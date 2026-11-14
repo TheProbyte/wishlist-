@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { paperFor } from '#lib/papers.ts';
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
@@ -55,8 +56,9 @@
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
 						<div class="tag-shape paper-grain relative flex origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2 flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
+							{#if person.paper}<span class="absolute inset-x-0 top-0 h-14 opacity-90" style="background: {paperFor(person.paper).background}" aria-hidden="true"></span>{/if}
 							<span class="absolute top-3 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-cocoa-950 ring-3 ring-[var(--accent)]/60"></span>
-							<Avatar name={person.name} src={person.avatar_url} size={58} />
+							<Avatar name={person.name} src={person.avatar_url} sticker={person.sticker} size={58} />
 							<span class="w-full truncate"><span class="mr-1 text-xs font-bold text-fg-faint">To:</span><span class="display text-[20px]">{person.name.split(' ')[0]}</span></span>
 							<span class="-mt-1 w-full truncate text-xs text-fg-faint">{person.circles.join(' · ')}</span>
 							{#if person.next}
@@ -100,7 +102,7 @@
 			<div class="grid gap-2.5 md:grid-cols-2">
 				{#each later.slice(0, 6) as u, i (u.personId + u.label + u.date)}
 					<a href={u.listId ? `/people/${u.personId}?list=${u.listId}` : `/people/${u.personId}`} class="card rise flex items-center gap-3 p-3 pr-4 transition active:translate-y-0.5" style="--i: {i}">
-						<Avatar name={u.kid ?? u.name} src={u.kid ? null : u.avatar_url} size={44} />
+						<Avatar name={u.kid ?? u.name} src={u.kid ? null : u.avatar_url} sticker={u.kid ? null : u.sticker} size={44} />
 						<div class="min-w-0 flex-1">
 							<p class="truncate font-bold">{u.kid ? `${u.kid} (${u.name.split(' ')[0]}’s)` : u.name}</p>
 							<p class="truncate text-sm text-fg-muted">{u.label} · {formatDate(u.date)}</p>
@@ -137,14 +139,14 @@
 							</div>
 							<!-- Everyone's faces, overlapping -->
 							<div class="flex shrink-0 -space-x-2.5">
-								{#each c.members.slice(0, 5) as m (m.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={m.name} src={m.avatar_url} size={30} /></span>{/each}
+								{#each c.members.slice(0, 5) as m (m.id)}<span class="rounded-full ring-3 ring-cocoa-850"><Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={30} /></span>{/each}
 								{#if c.members.length > 5}<span class="grid h-[30px] min-w-[30px] place-items-center rounded-full bg-cocoa-800 px-1 text-xs font-bold ring-3 ring-cocoa-850">+{c.members.length - 5}</span>{/if}
 							</div>
 						</div>
 						{#if others.length}
 							<div class="mt-3 flex flex-wrap gap-1.5">
 								{#each others as m (m.id)}
-									<a href="/people/{m.id}" class="chip pr-3 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} size={26} />{m.name.split(' ')[0]}<Icon name="chevron-right" size={14} /></a>
+									<a href="/people/{m.id}" class="chip pr-3 pl-1 hover:text-fg"><Avatar name={m.name} src={m.avatar_url} sticker={m.sticker} size={26} />{m.name.split(' ')[0]}<Icon name="chevron-right" size={14} /></a>
 								{/each}
 							</div>
 						{:else}

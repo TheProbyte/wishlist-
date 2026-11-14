@@ -125,7 +125,7 @@
 			big
 		/>
 		{#each data.lists as list, i (list.id)}
-			<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} transitionName="paper-{list.id}" index={i + 1} />
+			<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 		{:else}
 			<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists yet</p>
 		{/each}
@@ -155,7 +155,7 @@
 				big
 			/>
 			{#each section.lists as list, i (list.id)}
-				<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} transitionName="paper-{list.id}" index={i + 1} />
+				<ShelfItem href="/lists/{list.id}" wrap={list.wrap} occasion={list.occasion} title={list.name} {...listSub(list)} count={list.item_count} days={daysUntil(list.next_date)} transitionName="paper-{list.id}" index={i + 1} />
 			{:else}
 				<p class="col-span-2 -mt-3 text-center text-sm text-fg-faint md:col-span-1 md:mt-0 md:pb-10 md:text-left">No lists for {section.kid.name} yet</p>
 			{/each}
@@ -169,7 +169,7 @@
 		<div class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 no-scrollbar" data-no-swipe>
 			{#each data.friends.slice(0, 8) as f, i (f.personId + f.label + f.date)}
 				<a href={f.listId ? `/people/${f.personId}?list=${f.listId}` : `/people/${f.personId}`} class="card rise flex w-56 shrink-0 items-center gap-3 p-3 transition active:translate-y-0.5" style="--i: {i}">
-					<Avatar name={f.name} src={f.avatar_url} size={44} />
+					<Avatar name={f.name} src={f.avatar_url} sticker={f.kid ? null : f.sticker} size={44} />
 					<div class="min-w-0">
 						<p class="truncate text-sm font-bold">{f.kid ? f.kid : f.name.split(' ')[0]}</p>
 						<p class="truncate text-xs text-fg-muted">{f.label}</p>

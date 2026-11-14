@@ -12,13 +12,14 @@ export interface Mate {
 	name: string;
 	avatar_url: string | null;
 	birthday: string | null;
+	sticker: string | null;
 }
 
 /** Everyone who shares at least one circle with this person. */
 export async function circleMates(db: D1Database, userId: string): Promise<Mate[]> {
 	const { results } = await db
 		.prepare(
-			`SELECT DISTINCT u.id, u.name, u.avatar_url, u.birthday FROM circle_members me
+			`SELECT DISTINCT u.id, u.name, u.avatar_url, u.birthday, u.sticker FROM circle_members me
 			 JOIN circle_members them ON them.circle_id = me.circle_id AND them.user_id != me.user_id
 			 JOIN users u ON u.id = them.user_id
 			 WHERE me.user_id = ? ORDER BY u.name`
@@ -46,6 +47,7 @@ export interface Upcoming {
 	personId: string;
 	name: string;
 	avatar_url: string | null;
+	sticker: string | null;
 	/** "Birthday", or the list's name. */
 	label: string;
 	/** Set when it's a kid's occasion. */
@@ -77,7 +79,7 @@ export async function upcomingInCircles(db: D1Database, userId: string, withinDa
 		const days = daysUntil(date);
 		if (date && days != null && days >= 0 && days <= withinDays) {
 			const m = byId.get(l.owner_id)!;
-			out.push({ personId: m.id, name: m.name, avatar_url: m.avatar_url, label: l.name, kid: l.kid_name, date, days, listId: l.id });
+			out.push({ personId: m.id, name: m.name, avatar_url: m.avatar_url, sticker: m.sticker, label: l.name, kid: l.kid_name, date, days, listId: l.id });
 		}
 	}
 	// Birthdays saved on profiles, unless a birthday list already covers them.
@@ -86,7 +88,7 @@ export async function upcomingInCircles(db: D1Database, userId: string, withinDa
 		const [, mo, d] = m.birthday.split('-').map(Number);
 		const date = nextAnnual(mo, d);
 		const days = daysUntil(date)!;
-		if (days <= withinDays) out.push({ personId: m.id, name: m.name, avatar_url: m.avatar_url, label: 'Birthday', kid: null, date, days, listId: null });
+		if (days <= withinDays) out.push({ personId: m.id, name: m.name, avatar_url: m.avatar_url, sticker: m.sticker, label: 'Birthday', kid: null, date, days, listId: null });
 	}
 	return out.sort((a, b) => a.days - b.days);
 }
