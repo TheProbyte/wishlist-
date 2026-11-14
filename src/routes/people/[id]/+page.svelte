@@ -68,7 +68,7 @@
 			<p class="mb-4 text-sm font-bold text-fg-muted">{formatDate(next)} · <span class="text-rust-300">{countdownLabel(next)}</span></p>
 		{/if}
 		{#if p.items.length}
-			<GiverShelf items={p.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={p.sizes} person={p.kid ?? data.person.name} />
+			<GiverShelf dock={p.id === active ? 'tabs' : 'off'} items={p.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={p.sizes} person={p.kid ?? data.person.name} />
 		{:else}
 			<div class="py-10 text-center"><EmptyArt class="mx-auto mb-3 opacity-80" /><p class="text-sm text-fg-faint">Nothing on this list yet.</p></div>
 		{/if}

@@ -67,7 +67,7 @@
 	</div>
 </section>
 
-<GiverShelf items={data.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={data.sizes} person={data.person} preview={data.isOwner} sticky />
+<GiverShelf items={data.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={data.sizes} person={data.person} preview={data.isOwner} sticky dock="edge" who={data.isOwner ? null : { name: data.giverName }} />
 
 {#if !data.isOwner}
 	<!-- First visit to this link: the front door. -->

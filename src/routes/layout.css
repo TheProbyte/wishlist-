@@ -1282,3 +1282,21 @@ select,
 		rotate: 0deg;
 	}
 }
+
+/* Claiming a gift: after the paper and ribbons, the bow ties on with a pop. */
+.bow-tie {
+	animation: bow-tie 520ms var(--ease-spring) both;
+}
+@keyframes bow-tie {
+	from {
+		transform: scale(0) rotate(-40deg);
+		opacity: 0;
+	}
+	60% {
+		transform: scale(1.25) rotate(8deg);
+		opacity: 1;
+	}
+	to {
+		transform: none;
+	}
+}

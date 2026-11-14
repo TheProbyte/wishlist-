@@ -107,3 +107,15 @@ export interface ImportResult {
 	/** You already have this gift (same product): which one, and whose Everything it's in. */
 	duplicate?: { id: string; title: string; master: string } | null;
 }
+
+/** A gift as a giver sees it: how much is taken (by claims, or chipped in), and what's yours. */
+export type GiverItem = Item & {
+	claimed: number;
+	mine: number;
+	/** Your own note on it (only you see it). */
+	myNote: string | null;
+	/** Chipping in: how much is covered, by how many, and your part. */
+	chipped: number;
+	chippers: number;
+	myChip: number;
+};

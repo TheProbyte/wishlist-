@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { getCategories, getListByToken, masterOf, sizesFor, getKid } from '#lib/server/db.ts';
-import { GIVER_COOKIE, NAME_COOKIE, claim, giftInMaster, giverItems, isOwner, unclaim } from '#lib/server/giving.ts';
+import { GIVER_COOKIE, NAME_COOKIE, claim, contribute, giftInMaster, giverItems, isOwner, saveGiverNote, unclaim, uncontribute } from '#lib/server/giving.ts';
 import { refreshStale } from '#lib/server/tracking.ts';
 import { isOwnersDevice } from '#lib/server/auth.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -50,5 +50,15 @@ export const actions: Actions = {
 		if (list && locals.authEnabled && (isOwner(list, locals.viewer) || (await isOwnersDevice(locals.db, cookies, list.owner_id)))) return fail(400, { error: 'That’s your own list.' });
 		return claim(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token));
 	},
-	unclaim: async ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token))
+	unclaim: async ({ request, locals, params, cookies }) => unclaim(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token)),
+	/** Who's giving: the name other givers see on what you take (kept on this device). */
+	name: async ({ request, cookies, url }) => {
+		const name = String((await request.formData()).get('name') ?? '').trim().slice(0, 40);
+		if (!name) return fail(400, { error: 'Add your name.' });
+		cookies.set(NAME_COOKIE, name, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: 60 * 60 * 24 * 365 });
+		return { named: name };
+	},
+	contribute: async ({ request, locals, params, cookies }) => contribute(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token)),
+	uncontribute: async ({ request, locals, params, cookies }) => uncontribute(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token)),
+	note: async ({ request, locals, params, cookies }) => saveGiverNote(locals.db, request, cookies, giverAccount(locals), await findFor(locals.db, params.token))
 };

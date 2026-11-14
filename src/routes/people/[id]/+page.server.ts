@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { daysUntil, occasionDate } from '#lib/format.ts';
 import { getCategories, getKids, masterId, safeJson } from '#lib/server/db.ts';
-import { GIVER_COOKIE, claim, giverItems, unclaim } from '#lib/server/giving.ts';
+import { GIVER_COOKIE, claim, contribute, giverItems, saveGiverNote, unclaim, uncontribute } from '#lib/server/giving.ts';
 import { orderedLists } from '#lib/server/lists.ts';
 import { canView } from '#lib/server/people.ts';
 import { refreshStale } from '#lib/server/tracking.ts';
@@ -62,9 +62,9 @@ export const load: PageServerLoad = async ({ locals, params, cookies, url, setHe
 /** A gift anywhere on this person's (or their kids') lists. */
 const theirs = (db: D1Database, personId: string) => (itemId: string) =>
 	db
-		.prepare('SELECT i.id, i.quantity, l.owner_id FROM items i JOIN lists l ON l.id = i.list_id WHERE l.owner_id = ? AND l.kind = \'master\' AND i.id = ?')
+		.prepare('SELECT i.id, i.quantity, i.price_cents, l.owner_id FROM items i JOIN lists l ON l.id = i.list_id WHERE l.owner_id = ? AND l.kind = \'master\' AND i.id = ?')
 		.bind(personId, itemId)
-		.first<{ id: string; quantity: number; owner_id: string }>();
+		.first<{ id: string; quantity: number; owner_id: string; price_cents: number | null }>();
 
 export const actions: Actions = {
 	claim: async ({ request, locals, params, cookies }) => {
@@ -74,5 +74,17 @@ export const actions: Actions = {
 	unclaim: async ({ request, locals, params, cookies }) => {
 		if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'Not found');
 		return unclaim(locals.db, request, cookies, locals.user, theirs(locals.db, params.id));
+	},
+	contribute: async ({ request, locals, params, cookies }) => {
+		if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'Not found');
+		return contribute(locals.db, request, cookies, locals.user, theirs(locals.db, params.id));
+	},
+	uncontribute: async ({ request, locals, params, cookies }) => {
+		if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'Not found');
+		return uncontribute(locals.db, request, cookies, locals.user, theirs(locals.db, params.id));
+	},
+	note: async ({ request, locals, params, cookies }) => {
+		if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'Not found');
+		return saveGiverNote(locals.db, request, cookies, locals.user, theirs(locals.db, params.id));
 	}
 };
