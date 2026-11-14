@@ -238,7 +238,7 @@
 			class="relative flex w-full flex-col overflow-hidden overscroll-contain rounded-t-[28px] bg-cocoa-900 shadow-[0_-3px_0_0_var(--color-cocoa-700)] sm:max-h-[92dvh]! sm:rounded-[24px] sm:shadow-[0_4px_0_0_var(--color-edge)] {wide
 				? 'sm:max-w-3xl'
 				: 'sm:max-w-lg'} {dragging ? '' : 'transition-[transform,max-height] duration-300 ease-[var(--ease-out-soft)]'}"
-			style="transform: translateY({dragY}px); max-height: {view ? maxHeight : `min(${maxHeight}, calc(100dvh - 3rem))`}"
+			style="transform: translateY({dragY}px); max-height: {view ? maxHeight : `min(${maxHeight}, calc(100dvh - max(3rem, env(safe-area-inset-top) + 0.75rem)))`}"
 			in:sheetIn
 			out:sheetOut
 		>

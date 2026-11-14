@@ -139,7 +139,7 @@
 	<title>The Giver</title>
 </svelte:head>
 
-<header class="sticky top-0 z-40 bg-cocoa-950" style="view-transition-name: site-header">
+<header class="sticky top-0 z-40 bg-cocoa-950 pt-[env(safe-area-inset-top)]" style="view-transition-name: site-header">
 	<div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
 		<a href={shared ? page.url.pathname : '/'} class="flex items-center gap-2.5">
 			<Logo />

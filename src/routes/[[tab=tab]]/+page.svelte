@@ -103,7 +103,7 @@
 <div
 	bind:this={strip}
 	{onscroll}
-	class="no-scrollbar flex h-[calc(100dvh-76px)] snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
+	class="no-scrollbar flex h-[calc(100dvh-var(--header-h))] snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
 >
 	{#each ORDER as tab, i (tab)}
 		<section

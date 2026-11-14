@@ -16,7 +16,8 @@ import { prefersReducedMotion, setNavDirection } from './motion.ts';
  * The tab bar on phones stays where it is throughout; everything happens above it.
  */
 
-const HEADER = 76;
+/** The bottom of the site header (taller in the installed app, below the status bar). */
+const headerBottom = () => document.querySelector('header')?.getBoundingClientRect().bottom ?? 76;
 const BACKGROUND = 'var(--color-cocoa-950)';
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
@@ -27,7 +28,7 @@ function stripGuess() {
 	const wide = vw >= 640;
 	const pad = wide ? 24 : 16;
 	const container = Math.min(vw, 1152);
-	return { left: (vw - container) / 2 + pad, top: HEADER + (wide ? 40 : 28 - 12), width: container - pad * 2, height: wide ? 80 : 60 };
+	return { left: (vw - container) / 2 + pad, top: headerBottom() + (wide ? 40 : 28 - 12), width: container - pad * 2, height: wide ? 80 : 60 };
 }
 
 /** A torn edge across a box `w` wide at height `y`: teeth about every 16px, like PaperStrip's. */
@@ -61,7 +62,7 @@ export async function openPresent(present: HTMLElement, href: string, listId: st
 	const layer = document.createElement('div');
 	Object.assign(layer.style, { position: 'fixed', left: '0', right: '0', top: '0', bottom: phone ? 'calc(4rem + env(safe-area-inset-bottom))' : '0', zIndex: '70', overflow: 'hidden', pointerEvents: 'auto' });
 	const cover = document.createElement('div');
-	Object.assign(cover.style, { position: 'absolute', left: '0', right: '0', top: `${HEADER}px`, bottom: '0', background: BACKGROUND, opacity: '0' });
+	Object.assign(cover.style, { position: 'absolute', left: '0', right: '0', top: `${headerBottom()}px`, bottom: '0', background: BACKGROUND, opacity: '0' });
 	layer.appendChild(cover);
 	const box = copy(present);
 	Object.assign(box.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });

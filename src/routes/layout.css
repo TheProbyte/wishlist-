@@ -462,6 +462,9 @@ html[data-nav='close']::view-transition-new(root) {
 
 /* One accent per tab: Lists mustard, People teal, You rust. The layout sets data-accent. */
 :root {
+	/* The header: 64px bar + 12px stripe, below the phone's status bar in the installed app
+	   (which draws edge to edge so the theme reaches under the clock and the home bar). */
+	--header-h: calc(76px + env(safe-area-inset-top, 0px));
 	--stripe-a: var(--color-mustard-400);
 	--stripe-b: var(--color-rust-500);
 	--stripe-c: var(--color-teal-500);

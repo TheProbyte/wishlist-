@@ -126,7 +126,7 @@ export const holdDrag: Action<HTMLElement, HoldDragOptions> = (node, initial) =>
 		scrollFrame = 0;
 		if (!lifted) return;
 		// The edges of what you can see: under the header, and above the tab bar.
-		const top = 76 + EDGE;
+		const top = (document.querySelector('header')?.getBoundingClientRect().bottom ?? 76) + EDGE;
 		const bottom = innerHeight - (innerWidth < 640 ? 64 : 0) - EDGE;
 		const speed = !moved ? 0 : y < top ? -Math.min(16, (top - y) / 4) : y > bottom ? Math.min(16, (y - bottom) / 4) : 0;
 		if (speed) {

@@ -33,7 +33,7 @@
 	</div>
 </section>
 
-<div class="sticky top-[76px] z-30 -mx-4 mb-3 flex gap-1.5 overflow-x-auto bg-cocoa-950 px-4 py-2  sm:mx-0 sm:flex-wrap sm:px-0 no-scrollbar" data-no-swipe>
+<div class="sticky top-[var(--header-h)] z-30 -mx-4 mb-3 flex gap-1.5 overflow-x-auto bg-cocoa-950 px-4 py-2  sm:mx-0 sm:flex-wrap sm:px-0 no-scrollbar" data-no-swipe>
 	{#each data.pages as p (p.id)}
 		<button class="chip shrink-0 {active === p.id ? 'chip-on' : 'hover:text-fg'}" data-chip={p.id} aria-pressed={active === p.id} onclick={() => (active = p.id)}>
 			<Icon name={p.kid && p.label === p.kid ? 'teddy' : p.label === 'Everything' ? 'gift' : occasionMeta(p.occasion).icon} size={15} />{p.label}

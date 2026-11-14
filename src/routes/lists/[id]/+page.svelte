@@ -453,7 +453,7 @@
 	<!-- One toolbar: categories, sort, view and more. Phones: docked above the tab bar, in thumb
 	     reach (it steps aside while selecting). Bigger screens: sticks under the header. -->
 	<div
-		class="lift-hide peel-follow fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-1.5 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition duration-200 sm:sticky sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:mb-5 sm:gap-2 sm:rounded-none sm:bg-cocoa-950 sm:p-0 sm:py-2 sm:shadow-none sm:ring-0 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
+		class="lift-hide peel-follow fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-1.5 rounded-[var(--radius-card)] bg-cocoa-900 p-1.5 shadow-[0_3px_0_0_var(--color-edge),0_12px_32px_-8px_rgb(0_0_0/0.75)] ring-2 ring-cocoa-700 transition duration-200 sm:sticky sm:inset-x-auto sm:top-[var(--header-h)] sm:bottom-auto sm:mb-5 sm:gap-2 sm:rounded-none sm:bg-cocoa-950 sm:p-0 sm:py-2 sm:shadow-none sm:ring-0 {selecting || reordering ? 'max-sm:pointer-events-none max-sm:translate-y-[150%] max-sm:opacity-0' : ''}"
 		style="view-transition-name: list-toolbar"
 	>
 		<div class="no-scrollbar -my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]" data-no-swipe>
@@ -539,7 +539,7 @@
 	</div>
 	{#if panelOpen && viewing}
 		<!-- Wide screens: the gift beside the list, staying in view as the list scrolls. -->
-		<aside class="sticky top-[140px] max-h-[calc(100dvh-160px)] self-start overflow-y-auto rounded-[var(--radius-card)] bg-cocoa-900 p-4 shadow-[0_3px_0_0_var(--color-edge)] ring-2 ring-cocoa-800" aria-label="Gift">
+		<aside class="sticky top-[calc(var(--header-h)+64px)] max-h-[calc(100dvh-var(--header-h)-84px)] self-start overflow-y-auto rounded-[var(--radius-card)] bg-cocoa-900 p-4 shadow-[0_3px_0_0_var(--color-edge)] ring-2 ring-cocoa-800" aria-label="Gift">
 			{#key viewing.id}
 				<div class="rise">
 					<GiftView
