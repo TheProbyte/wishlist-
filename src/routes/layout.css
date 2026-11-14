@@ -812,3 +812,32 @@ html[data-nav='morph']::view-transition-group(*) {
 		0 0 0 3px var(--accent),
 		0 3px 0 3px var(--color-edge);
 }
+
+/* The giver's welcome tag (GiverWelcome): swings in on its string, then flips over. */
+.welcome-swing {
+	transform-origin: 50% -64px;
+	animation: welcome-swing 900ms var(--ease-out-soft) both;
+}
+@keyframes welcome-swing {
+	0% {
+		transform: translateY(-40px) rotate(-14deg);
+		opacity: 0;
+	}
+	45% {
+		transform: rotate(8deg);
+		opacity: 1;
+	}
+	70% {
+		transform: rotate(-4deg);
+	}
+	100% {
+		transform: none;
+	}
+}
+.welcome-card {
+	transition: transform 230ms cubic-bezier(0.5, 0, 0.6, 1);
+	transform: perspective(900px) rotateY(0deg);
+}
+.welcome-card.is-turning {
+	transform: perspective(900px) rotateY(90deg);
+}

@@ -5,7 +5,7 @@ import { SESSION_COOKIE, authEnabled, localUser, ownerMarks, rememberOwner, user
 import { ensureSchema } from '#lib/server/schema.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
-const PUBLIC = [/^\/icons\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
+const PUBLIC = [/^\/icons\//, /^\/og\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
 
 // Ask for the two main font files up front, alongside the styles, so text never waits on them.
 const preload = ({ type, path }: { type: string; path: string }) =>

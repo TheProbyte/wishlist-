@@ -20,6 +20,8 @@
 	let { children }: LayoutProps = $props();
 	// Pages givers see through a share link: no app navigation.
 	const shared = $derived(page.url.pathname.startsWith('/s/') || page.url.pathname.startsWith('/u/'));
+	// Signing in: no app tabs yet (they'd only lead back here).
+	const signingIn = $derived(page.url.pathname.startsWith('/login'));
 	// On the tab pager the active tab follows the swipe; elsewhere it's from the address.
 	const onPager = $derived(page.route.id === '/[[tab=tab]]');
 	const active = $derived(onPager && shell.active ? Math.round(shell.progress) : tabIndex(page.url.pathname));
@@ -143,7 +145,7 @@
 			<Logo />
 			<span class="display text-[22px] text-fg">The Giver</span>
 		</a>
-		{#if !shared}
+		{#if !shared && !signingIn}
 			<nav class="hidden items-center gap-1 sm:flex" aria-label="Main">
 				{#each TABS as tab, i (tab.href)}
 					<a href={tab.href} onclick={(e) => tabClick(e, i)} aria-current={active === i ? 'page' : undefined} class="relative flex min-h-11 items-center px-3 text-[15px] font-bold transition {active === i ? 'text-fg' : 'text-fg-faint hover:text-fg'}">
@@ -166,7 +168,7 @@
 	{#if placeholder}<PageSkeleton kind={placeholder} />{:else}{@render children()}{/if}
 </main>
 
-{#if !shared}
+{#if !shared && !signingIn}
 	<!-- Phones: tab bar at the bottom, in thumb reach. The stripe marker slides to the active tab. -->
 	<nav
 		class="fixed inset-x-0 bottom-0 z-40 bg-cocoa-950 pb-[env(safe-area-inset-bottom)] shadow-[0_-3px_0_0_var(--color-edge)] sm:hidden"
