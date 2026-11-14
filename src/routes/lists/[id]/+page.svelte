@@ -18,6 +18,7 @@
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import ProductImage from '#lib/components/ProductImage.svelte';
+	import GiftView from '#lib/components/GiftView.svelte';
 	import PaperStrip from '#lib/components/PaperStrip.svelte';
 	import PasteBar from '#lib/components/PasteBar.svelte';
 	import SwipePages from '#lib/components/SwipePages.svelte';
@@ -207,6 +208,34 @@
 		notice = null;
 		draft = { title: '', currency: totals[0]?.[0] ?? 'USD' };
 		editorOpen = true;
+	}
+
+	/* ------------------------------------------------ looking at one gift */
+
+	// Phones: a sheet. Wide screens: a panel beside the list, so the list stays in view.
+	let viewingId = $state<string | null>(null);
+	let viewSheet = $state(false);
+	let wide = $state(false);
+	$effect(() => {
+		const mq = matchMedia('(min-width: 1024px)');
+		const update = () => (wide = mq.matches);
+		update();
+		mq.addEventListener('change', update);
+		return () => mq.removeEventListener('change', update);
+	});
+	const viewing = $derived(viewingId ? items.find((i) => i.id === viewingId) : undefined);
+	const panelOpen = $derived(wide && !!viewing);
+	function openGift(item: Item) {
+		viewingId = item.id;
+		if (!wide) viewSheet = true;
+	}
+	function listNames(item: Item) {
+		return item.lists.map((id) => data.lists.find((l) => l.id === id)?.name).filter((n): n is string => !!n);
+	}
+	function editViewing() {
+		if (!viewing) return;
+		viewSheet = false;
+		edit(viewing);
 	}
 
 	function edit(item: Item) {
@@ -467,15 +496,18 @@
 	</div>
 
 
+	<div class={panelOpen ? 'grid grid-cols-[minmax(0,1fr)_380px] gap-6 xl:grid-cols-[minmax(0,1fr)_420px]' : ''}>
+	<div class="min-w-0">
 	<SwipePages {pages} bind:active={filter} onchange={followChip}>
 		{#snippet page(pageId)}
-		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4' : 'grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'} role="list">
+		<div class="@container">
+		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 @xl:grid-cols-2 @xl:gap-3 @4xl:grid-cols-3 @6xl:grid-cols-4' : 'grid grid-cols-2 gap-2.5 @xl:gap-5 @[38rem]:grid-cols-3 @4xl:grid-cols-4 @5xl:grid-cols-5'} role="list">
 			{#each giftsFor(pageId) as item, i (item.id)}
 				<div
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
 					out:cardOut={{ on: animateChanges() }}
-					class="{i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''}"
+					class="{i > 7 ? (layout === 'row' ? 'offscreen-row' : 'offscreen-card') : ''} {fresh ? 'rise' : ''} {panelOpen && viewingId === item.id ? 'viewing' : ''}"
 					style="--i: {i}"
 					role="listitem"
 					data-gift={item.id}
@@ -492,7 +524,8 @@
 						{item}
 						{layout}
 						position={sort === 'rank' ? items.indexOf(item) + 1 : undefined}
-						onopen={() => (selecting ? toggleSelect(item.id) : reordering ? undefined : edit(item))}
+						onopen={() => (selecting ? toggleSelect(item.id) : reordering ? undefined : openGift(item))}
+						icon={item.category_id ? (catById.get(item.category_id)?.icon ?? null) : null}
 						onrate={selecting ? undefined : (r) => rate(item, r)}
 						onstep={reordering && rankable(pageId) ? (d) => step(item, d) : undefined}
 						selected={selecting ? isSelected(item.id) : null}
@@ -500,8 +533,29 @@
 				</div>
 			{/each}
 		</div>
+		</div>
 		{/snippet}
 	</SwipePages>
+	</div>
+	{#if panelOpen && viewing}
+		<!-- Wide screens: the gift beside the list, staying in view as the list scrolls. -->
+		<aside class="sticky top-[140px] max-h-[calc(100dvh-160px)] self-start overflow-y-auto rounded-[var(--radius-card)] bg-cocoa-900 p-4 shadow-[0_3px_0_0_var(--color-edge)] ring-2 ring-cocoa-800" aria-label="Gift">
+			{#key viewing.id}
+				<div class="rise">
+					<GiftView
+						item={viewing}
+						category={viewing.category_id ? catById.get(viewing.category_id) : undefined}
+						position={sort === 'rank' ? items.indexOf(viewing) + 1 : undefined}
+						lists={listNames(viewing)}
+						onedit={editViewing}
+						onrate={(r) => rate(viewing!, r)}
+						onclose={() => (viewingId = null)}
+					/>
+				</div>
+			{/key}
+		</aside>
+	{/if}
+	</div>
 {/if}
 
 {#if hint}
@@ -514,6 +568,23 @@
 		</p>
 	</div>
 {/if}
+
+<!-- Phones: one gift, as a sheet that opens part-way (drag up for the rest). -->
+<Modal bind:open={viewSheet} expandable>
+	{#snippet header()}<div class="h-2"></div>{/snippet}
+	{#if viewing}
+		<div class="-mt-2">
+			<GiftView
+				item={viewing}
+				category={viewing.category_id ? catById.get(viewing.category_id) : undefined}
+				position={sort === 'rank' ? items.indexOf(viewing) + 1 : undefined}
+				lists={listNames(viewing)}
+				onedit={editViewing}
+				onrate={(r) => rate(viewing!, r)}
+			/>
+		</div>
+	{/if}
+</Modal>
 
 <!-- More: everything that used to crowd the header. -->
 <Modal bind:open={moreOpen} title={title}>
@@ -664,7 +735,7 @@
 				{@const on = picked.includes(g.id)}
 				<label class="relative cursor-pointer overflow-hidden rounded-[14px] bg-cocoa-850 p-1.5 ring-3 transition {on ? 'ring-mustard-400' : 'ring-transparent'}">
 					<input type="checkbox" name="ids" value={g.id} class="sr-only" checked={on} onchange={() => (picked = on ? picked.filter((x) => x !== g.id) : [...picked, g.id])} />
-					<ProductImage src={g.image_url} alt="" size={160} class="aspect-square w-full rounded-[10px]" />
+					<ProductImage src={g.image_url} alt="" size={160} seed={g.id} class="aspect-square w-full rounded-[10px]" />
 					<span class="mt-1.5 line-clamp-2 block px-1 text-xs font-bold">{g.title}</span>
 					{#if g.price_cents != null}<span class="block px-1 pb-1 text-xs text-fg-muted">{formatPrice(g.price_cents, g.currency)}</span>{/if}
 					{#if on}<span class="absolute top-3 right-3 grid h-7 w-7 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="check" size={16} /></span>{/if}

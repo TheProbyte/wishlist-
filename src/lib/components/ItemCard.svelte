@@ -3,6 +3,7 @@
 	import ProductImage from './ProductImage.svelte';
 	import Sticker from './Sticker.svelte';
 	import Icon from './Icon.svelte';
+	import Rosette from './Rosette.svelte';
 	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
 	import type { Item } from '#lib/types.ts';
 
@@ -13,6 +14,7 @@
 	let {
 		item,
 		position,
+		icon = null,
 		onopen,
 		onrate,
 		onstep,
@@ -22,6 +24,8 @@
 		item: Item;
 		/** 1-based rank shown when sorted by most wanted. */
 		position?: number;
+		/** The category's icon, drawn when the gift has no photo. */
+		icon?: string | null;
 		onopen: () => void;
 		onrate?: (rating: number) => void;
 		/** Reorder mode: move up or down one place with clear buttons. */
@@ -55,8 +59,12 @@
 	<article class="gift-hover card relative flex items-center gap-3 p-2 pr-3 select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
 		{#if selected !== null}{@render tick()}{/if}
 		<button type="button" class="relative shrink-0" onclick={onopen} aria-label="Open {item.title}" data-photo>
-			<ProductImage src={item.image_url} alt="" size={64} class="h-16 w-16 rounded-[10px] {soldOut ? 'opacity-60' : ''}" />
-			{#if position}<span class="absolute -top-1 -left-1 grid h-6 min-w-6 place-items-center rounded-full px-1 text-[11px] font-bold shadow-[0_2px_0_0_var(--color-edge)] {position === 1 ? 'bg-mustard-400 text-cocoa-950' : 'bg-cocoa-950 text-fg'}">{position}</span>{/if}
+			<ProductImage src={item.image_url} alt="" size={64} {icon} seed={item.id} class="h-16 w-16 rounded-[10px] {soldOut ? 'opacity-60' : ''}" />
+			{#if position && position <= 3}
+				<Rosette place={position as 1 | 2 | 3} size={24} class="absolute -top-2 -left-2" />
+			{:else if position}
+				<span class="absolute -top-1 -left-1 grid h-6 min-w-6 place-items-center rounded-full bg-cocoa-950 px-1 text-[11px] font-bold text-fg shadow-[0_2px_0_0_var(--color-edge)]">{position}</span>
+			{/if}
 		</button>
 		<div class="min-w-0 flex-1 {selected !== null ? 'pr-8' : ''}">
 			<button type="button" class="block w-full text-left" onclick={onopen}>
@@ -81,11 +89,14 @@
 	<article class="gift-hover card relative flex h-full flex-col overflow-hidden select-none [-webkit-touch-callout:none] {selected ? 'ring-3 ring-mustard-400' : ''}">
 		{#if selected !== null}{@render tick()}{/if}
 		<button type="button" class="block p-1.5 pb-0 text-left sm:p-2 sm:pb-0" onclick={onopen} aria-label="Open {item.title}" data-photo>
-			<ProductImage src={item.image_url} alt="" size={280} class="aspect-square w-full rounded-[12px] {soldOut ? 'opacity-60' : ''}" />
+			<ProductImage src={item.image_url} alt="" size={280} {icon} seed={item.id} class="aspect-square w-full rounded-[12px] {soldOut ? 'opacity-60' : ''}" />
 		</button>
 
-		{#if position}
-			<Sticker tone={position === 1 ? 'mustard' : 'cocoa'} tilt={position % 2 ? -5 : 4} class="absolute top-3 left-3">#{position}</Sticker>
+		{#if position && position <= 3}
+			<!-- The top three get prize rosettes. -->
+			<Rosette place={position as 1 | 2 | 3} size={38} class="absolute top-1.5 left-2.5 -rotate-6" />
+		{:else if position}
+			<Sticker tone="cocoa" tilt={position % 2 ? -5 : 4} class="absolute top-3 left-3">#{position}</Sticker>
 		{/if}
 		{#if selected === null}
 			{#if soldOut}

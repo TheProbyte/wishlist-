@@ -10,6 +10,7 @@
 	import { afterNavigate, goto, onNavigate, preloadCode, preloadData } from '$app/navigation';
 	import { edgeBack } from '#lib/edgeBack.ts';
 	import PullRibbon from '#lib/components/PullRibbon.svelte';
+	import PageSkeleton from '#lib/components/PageSkeleton.svelte';
 	import { getPref } from '#lib/prefs.ts';
 	import { onMount } from 'svelte';
 	import { TABS, navDirection, prefersReducedMotion, setNavDirection, tabIndex } from '#lib/motion.ts';
@@ -65,10 +66,25 @@
 
 	// While a page is on its way (and only if it takes more than a moment), the header's stripes run.
 	let loading = $state(false);
+	// A list or person page that's slow to arrive gets cardboard stand-ins in its place.
+	let placeholder = $state<'list' | 'person' | null>(null);
 	$effect(() => {
-		if (!navigating.to) return void (loading = false);
+		const to = navigating.to;
+		if (!to) {
+			loading = false;
+			placeholder = null;
+			return;
+		}
+		const kind = to.route.id === '/lists/[id]' ? 'list' : to.route.id === '/people/[id]' ? 'person' : null;
 		const t = setTimeout(() => (loading = true), 120);
-		return () => clearTimeout(t);
+		const p = setTimeout(() => {
+			// Not while a present is opening: it covers the screen itself.
+			if (kind && !document.documentElement.hasAttribute('data-opening')) placeholder = kind;
+		}, 220);
+		return () => {
+			clearTimeout(t);
+			clearTimeout(p);
+		};
 	});
 
 	// Swipe back from the left edge on any page that isn't a tab. Goes back through the app's
@@ -147,7 +163,7 @@
 
 <!-- The tab pager fills the space itself; other pages scroll as normal pages. -->
 <main class={onPager ? 'overflow-hidden' : `mx-auto max-w-6xl px-4 pt-7 sm:px-6 sm:pt-10 ${shared ? 'pb-24' : 'pb-52 sm:pb-24'}`}>
-	{@render children()}
+	{#if placeholder}<PageSkeleton kind={placeholder} />{:else}{@render children()}{/if}
 </main>
 
 {#if !shared}

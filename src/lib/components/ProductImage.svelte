@@ -1,25 +1,76 @@
 <script lang="ts">
 	import { thumb } from '#lib/format.ts';
+	import { PAPERS } from '#lib/papers.ts';
+	import Icon from './Icon.svelte';
 
-	/** `size`: the largest it's shown, in CSS pixels; a smaller copy is fetched where the shop has one. */
-	let { src, alt = '', size, class: cls = '' }: { src: string | null | undefined; alt?: string; size?: number; class?: string } = $props();
+	/**
+	 * A gift's photo on a soft cream tile (product shots are made for white backgrounds).
+	 *
+	 * - The photo lifts in like tissue paper coming off when it loads.
+	 * - No photo (or one that won't load): the gift's category drawn on a swatch of wrapping
+	 *   paper, chosen from `seed` (the gift's id) so the same gift always gets the same paper.
+	 *
+	 * `size`: the largest it's shown, in CSS pixels; a smaller copy is fetched where the shop has one.
+	 */
+	let {
+		src,
+		alt = '',
+		size,
+		icon = null,
+		seed = '',
+		class: cls = ''
+	}: { src: string | null | undefined; alt?: string; size?: number; icon?: string | null; seed?: string; class?: string } = $props();
+
 	const url = $derived(size ? thumb(src, Math.min(1500, Math.round(size * 2))) : src);
 	let failed = $state(false);
+	let loaded = $state(false);
+	let img = $state<HTMLImageElement>();
 	$effect(() => {
 		void src;
 		failed = false;
+		loaded = false;
 	});
+	// Already in the cache: no lift, just there.
+	$effect(() => {
+		if (img?.complete && img.naturalWidth) loaded = true;
+	});
+
+	function hash(s: string) {
+		let h = 0;
+		for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+		return Math.abs(h);
+	}
+	const paper = $derived(PAPERS[hash(seed || alt || 'gift') % PAPERS.length]);
+	const iconSize = $derived(Math.round(Math.max(18, Math.min(64, (size ?? 120) * 0.22))));
 </script>
 
-<!-- Product shots are made for white backgrounds, so they sit on a soft light tile. -->
-<div class="grid place-items-center overflow-hidden bg-cream {cls}">
+<div class="relative grid place-items-center overflow-hidden bg-cream {cls}">
 	{#if url && !failed}
-		<img src={url} {alt} loading="lazy" decoding="async" referrerpolicy="no-referrer" class="h-full w-full object-contain p-3 mix-blend-multiply" onerror={() => (failed = true)} />
+		<img
+			bind:this={img}
+			src={url}
+			{alt}
+			loading="lazy"
+			decoding="async"
+			referrerpolicy="no-referrer"
+			class="h-full w-full object-contain p-3 mix-blend-multiply transition-[opacity,transform] duration-500 ease-[var(--ease-out-soft)] {loaded ? 'opacity-100' : 'scale-[0.97] opacity-0'}"
+			onload={() => (loaded = true)}
+			onerror={() => (failed = true)}
+		/>
+		{#if !loaded}
+			<!-- Tissue paper over the photo until it arrives; it lifts away as the photo loads. -->
+			<span class="tissue pointer-events-none absolute inset-0" aria-hidden="true"></span>
+		{:else}
+			<span class="tissue tissue-lift pointer-events-none absolute inset-0" aria-hidden="true"></span>
+		{/if}
 	{:else}
-		<svg width="40" height="40" viewBox="0 0 64 64" class="text-[#c9b79a]" aria-hidden="true">
-			<rect x="12" y="26" width="40" height="26" rx="5" fill="none" stroke="currentColor" stroke-width="3.5" />
-			<rect x="9" y="19" width="46" height="9" rx="3" fill="currentColor" />
-			<path d="M32 19v33" stroke="#F3E7CF" stroke-width="3.5" />
-		</svg>
+		<!-- No photo: the gift's kind, on a swatch of wrapping paper. -->
+		<span class="absolute inset-0 opacity-90" style="background: {paper.background}" aria-hidden="true"></span>
+		<span
+			class="relative grid aspect-square w-[44%] max-w-28 min-w-9 place-items-center rounded-full bg-cream text-cocoa-950 shadow-[0_3px_0_0_var(--color-edge)] ring-3 ring-cocoa-950/80"
+			aria-hidden="true"
+		>
+			<Icon name={icon || 'gift'} size={iconSize} />
+		</span>
 	{/if}
 </div>

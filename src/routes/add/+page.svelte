@@ -217,7 +217,7 @@
 				{#each wishlist as w, i (i)}
 					<label class="card relative cursor-pointer p-2 ring-3 transition {w.pick ? 'ring-mustard-400' : 'opacity-50 ring-transparent'}">
 						<input type="checkbox" class="sr-only" bind:checked={w.pick} />
-						<ProductImage src={w.image_url} size={200} class="aspect-square w-full rounded-[12px]" />
+						<ProductImage src={w.image_url} size={200} seed={w.url ?? w.title ?? ''} class="aspect-square w-full rounded-[12px]" />
 						<span class="mt-2 line-clamp-2 block px-1 text-sm font-bold">{w.title}</span>
 						{#if w.price_cents != null}<span class="block px-1 pb-1 text-sm text-fg-muted">{formatPrice(w.price_cents, w.currency)}</span>{/if}
 						{#if w.pick}<span class="absolute top-4 right-4 grid h-7 w-7 place-items-center rounded-full bg-mustard-400 text-cocoa-950"><Icon name="check" size={16} /></span>{/if}

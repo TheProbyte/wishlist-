@@ -32,6 +32,7 @@
 
 	const visible = $derived(hideTaken ? items.filter((i) => i.claimed < i.quantity || i.mine > 0) : items);
 	const claimingItem = $derived(items.find((i) => i.id === claimingId));
+	const catIcon = (id: string | null) => (id ? (categories.find((c) => c.id === id)?.icon ?? null) : null);
 
 	// Tap a gift for everything about it: big photo, their note, sizes, the shop, and claiming.
 	let detailId = $state<string | null>(null);
@@ -56,7 +57,7 @@
 		{@const fresh = celebrating === item.id}
 		<article class="gift-hover card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
 			<button type="button" class="relative block p-1.5 pb-0 text-left sm:p-2 sm:pb-0" aria-label="More about {item.title}" onclick={() => openDetail(item.id)}>
-				<ProductImage src={item.image_url} alt={item.title} size={280} class="aspect-square w-full rounded-[12px]" />
+				<ProductImage src={item.image_url} alt={item.title} size={280} icon={catIcon(item.category_id)} seed={item.id} class="aspect-square w-full rounded-[12px]" />
 				{#if item.mine > 0}
 					<!-- Yours: wrapped in a teal ribbon. -->
 					<div class="pointer-events-none absolute inset-x-2 top-2 bottom-0 overflow-hidden rounded-[12px]" aria-hidden="true">
@@ -123,7 +124,7 @@
 		{@const taken = detail.claimed >= detail.quantity && detail.mine === 0}
 		<div class="-mt-3">
 			<div class="relative">
-				<ProductImage src={detail.image_url} alt={detail.title} size={640} class="aspect-[4/3] w-full rounded-[18px]" />
+				<ProductImage src={detail.image_url} alt={detail.title} size={640} icon={catIcon(detail.category_id)} seed={detail.id} class="aspect-[4/3] w-full rounded-[18px]" />
 				<div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
 					{#if detail.mine > 0}<Sticker tone="teal" tilt={-4}>You’re getting this</Sticker>{:else if taken}<Sticker tone="cocoa" tilt={-4}>Taken</Sticker>{/if}
 					{#if detail.availability === 'out_of_stock'}<Sticker tone="rust" tilt={3}>Sold out</Sticker>{:else if hasPriceDrop(detail)}<Sticker tone="mustard" tilt={3}>Price drop</Sticker>{/if}

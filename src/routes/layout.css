@@ -749,3 +749,66 @@ html[data-nav='morph']::view-transition-group(*) {
 :root[data-lifted] * {
 	cursor: grabbing !important;
 }
+
+/* Photos arrive from under tissue paper (ProductImage): crinkled cream that lifts and fades. */
+.tissue {
+	background:
+		linear-gradient(115deg, transparent 0 30%, rgb(255 255 255 / 0.35) 38%, transparent 46%) 0 0 / 220% 100%,
+		repeating-linear-gradient(32deg, rgb(201 183 154 / 0.18) 0 2px, transparent 2px 9px),
+		repeating-linear-gradient(-58deg, rgb(201 183 154 / 0.14) 0 1px, transparent 1px 11px),
+		#efe2c6;
+	animation: tissue-shine 1.4s linear infinite;
+}
+@keyframes tissue-shine {
+	from {
+		background-position:
+			120% 0,
+			0 0,
+			0 0,
+			0 0;
+	}
+	to {
+		background-position:
+			-120% 0,
+			0 0,
+			0 0,
+			0 0;
+	}
+}
+.tissue-lift {
+	animation: tissue-lift 520ms var(--ease-out-soft) forwards;
+	transform-origin: 30% 0;
+}
+@keyframes tissue-lift {
+	to {
+		opacity: 0;
+		transform: translateY(-28%) rotate(-4deg) scale(1.04);
+	}
+}
+
+/* Cardboard placeholders while a page loads: box shapes with a soft shine running across. */
+.cardboard {
+	background:
+		linear-gradient(110deg, transparent 0 35%, rgb(255 255 255 / 0.05) 45%, transparent 55%) 0 0 / 250% 100%,
+		var(--color-cocoa-850);
+	animation: cardboard-shine 1.3s linear infinite;
+}
+@keyframes cardboard-shine {
+	from {
+		background-position:
+			130% 0,
+			0 0;
+	}
+	to {
+		background-position:
+			-130% 0,
+			0 0;
+	}
+}
+
+/* The gift showing in the side panel (wide screens). */
+.viewing > article {
+	box-shadow:
+		0 0 0 3px var(--accent),
+		0 3px 0 3px var(--color-edge);
+}
