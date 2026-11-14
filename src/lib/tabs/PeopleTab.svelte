@@ -54,7 +54,7 @@
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
-						<div class="tag-shape paper-grain relative flex flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
+						<div class="tag-shape paper-grain relative flex origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2 flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
 							<span class="absolute top-3 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-cocoa-950 ring-3 ring-[var(--accent)]/60"></span>
 							<Avatar name={person.name} src={person.avatar_url} size={58} />
 							<span class="w-full truncate"><span class="mr-1 text-xs font-bold text-fg-faint">To:</span><span class="display text-[20px]">{person.name.split(' ')[0]}</span></span>
@@ -97,7 +97,7 @@
 	{#if later.length}
 		<section class="mb-10">
 			<h2 class="mb-3 text-lg font-bold">Also coming up</h2>
-			<div class="space-y-2.5">
+			<div class="grid gap-2.5 md:grid-cols-2">
 				{#each later.slice(0, 6) as u, i (u.personId + u.label + u.date)}
 					<a href={u.listId ? `/people/${u.personId}?list=${u.listId}` : `/people/${u.personId}`} class="card rise flex items-center gap-3 p-3 pr-4 transition active:translate-y-0.5" style="--i: {i}">
 						<Avatar name={u.kid ?? u.name} src={u.kid ? null : u.avatar_url} size={44} />

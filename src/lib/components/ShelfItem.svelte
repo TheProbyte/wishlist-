@@ -50,7 +50,7 @@
 		const present = box?.firstElementChild as HTMLElement | null;
 		if (!present) return;
 		e.preventDefault();
-		openPresent(present, href);
+		openPresent(present, href, href.split('/').pop() ?? '');
 	}
 	const shape = $derived(big ? 'aspect-[2.7/1] w-[92%]' : SHAPES[index % SHAPES.length]);
 </script>
@@ -68,7 +68,8 @@
 		</Present>
 	</div>
 	<div class="shelf-plank" aria-hidden="true"></div>
-	<div class="px-1 pt-2.5">
+	<!-- Same height under every box, so the planks of a row line up. -->
+	<div class="h-[58px] overflow-hidden px-1 pt-2.5">
 		<p class="truncate {big ? 'display text-[22px] leading-tight' : 'text-[15px] font-bold'}">{title}</p>
 		<p class="truncate text-[13px] text-fg-muted {subClass}">{sub || ' '}</p>
 	</div>

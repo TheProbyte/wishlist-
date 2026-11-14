@@ -699,3 +699,42 @@ html[data-nav='open']::view-transition-new(*.paper) {
 html[data-nav='morph']::view-transition-group(*) {
 	animation-duration: 220ms;
 }
+
+/* The shelf's planks run to the end of each row, so a part-filled row is still one long shelf. */
+.shelf {
+	overflow-x: clip;
+	overflow-clip-margin: 8px;
+}
+.shelf .shelf-plank::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: calc(100% - 4px);
+	width: 100vw;
+	height: 100%;
+	border-radius: 3px;
+	background: inherit;
+	box-shadow: inherit;
+}
+
+/* Pointing at a gift (mouse only): the card lifts, its photo leans in a little. */
+@media (hover: hover) and (pointer: fine) {
+	.gift-hover {
+		transition:
+			translate 200ms var(--ease-spring),
+			box-shadow 200ms;
+	}
+	.gift-hover img {
+		transition: scale 300ms var(--ease-out-soft);
+	}
+	.gift-hover:hover {
+		translate: 0 -3px;
+		box-shadow: 0 6px 0 0 var(--color-edge);
+	}
+	.gift-hover:hover img {
+		scale: 1.06;
+	}
+	.shelf a:hover .shelf-plank {
+		filter: brightness(1.08);
+	}
+}

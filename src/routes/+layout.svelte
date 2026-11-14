@@ -54,7 +54,8 @@
 
 	// The paper pointer (a choice on the You page), and seasonal stripes in the header.
 	onMount(() => {
-		if (getPref('pointer') === 'paper') document.documentElement.dataset.pointer = 'paper';
+		// The paper pointer is on for mice unless you've turned it off on the You page.
+		if (getPref('pointer') !== 'normal' && matchMedia('(pointer: fine)').matches) document.documentElement.dataset.pointer = 'paper';
 		const d = new Date();
 		const m = d.getMonth();
 		const day = d.getDate();

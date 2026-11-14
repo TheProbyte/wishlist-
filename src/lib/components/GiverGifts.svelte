@@ -50,11 +50,11 @@
 	const formId = `claim-${uid}`;
 </script>
 
-<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 	{#each visible as item, i (item.id)}
 		{@const taken = item.claimed >= item.quantity && item.mine === 0}
 		{@const fresh = celebrating === item.id}
-		<article class="card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
+		<article class="gift-hover card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
 			<button type="button" class="relative block p-1.5 pb-0 text-left sm:p-2 sm:pb-0" aria-label="More about {item.title}" onclick={() => openDetail(item.id)}>
 				<ProductImage src={item.image_url} alt={item.title} size={280} class="aspect-square w-full rounded-[12px]" />
 				{#if item.mine > 0}

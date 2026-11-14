@@ -63,7 +63,8 @@
 </script>
 
 <!-- Top: who you are, and the two things you do here most. -->
-<section class="mb-5">
+<div class="mb-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+<section class="min-w-0">
 	<p class="text-[15px] font-bold text-[var(--accent-text)]">Hey{data.everything.item_count ? ' again' : ''}{me?.name && me.name !== 'You' ? `, ${me.name.split(' ')[0]}` : ''}!</p>
 	<h1 class="display accent-bar text-[34px] leading-[1.05] text-fg sm:text-5xl">Your wish lists</h1>
 	<div class="mt-5 flex gap-2">
@@ -77,6 +78,24 @@
 		</button>
 	</div>
 </section>
+<!-- Next up: one slim strip on phones; on a computer it fills the space beside the title. -->
+<div class="lg:w-[28rem] lg:shrink-0">
+{#if next}
+	{@const days = daysUntil(next.next_date) ?? 0}
+	{@const turning = milestone(next.occasion, next.occasion_date)}
+	<a href="/lists/{next.id}" class="card group rise flex items-center gap-3 p-2 pr-3 lg:p-3 lg:pr-4 transition active:translate-y-0.5">
+		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={55} bow={false} class="h-12 w-14 shrink-0 rounded-[12px]" />
+		<div class="min-w-0 flex-1">
+			<p class="truncate text-[15px] font-bold"><span class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</span> {next.name}</p>
+			<p class="truncate text-[13px] text-fg-muted">{formatDate(next.next_date)} · {gifts(next.item_count)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
+		</div>
+		<Countdown {days} />
+	</a>
+	<a href="/upcoming" class="mt-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={15} />See everything coming up<Icon name="chevron-right" size={15} /></a>
+{/if}
+
+</div>
+</div>
 
 <!-- Bigger screens: the paste bar sits here. Phones get it docked above the tab bar (the shell). -->
 <PasteBar class="mb-6 hidden sm:flex" />
@@ -92,24 +111,9 @@
 	</a>
 {/each}
 
-<!-- Next up: one slim strip, so the shelf sits low, in thumb reach. -->
-{#if next}
-	{@const days = daysUntil(next.next_date) ?? 0}
-	{@const turning = milestone(next.occasion, next.occasion_date)}
-	<a href="/lists/{next.id}" class="card group rise flex items-center gap-3 p-2 pr-3 transition active:translate-y-0.5">
-		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={55} bow={false} class="h-12 w-14 shrink-0 rounded-[12px]" />
-		<div class="min-w-0 flex-1">
-			<p class="truncate text-[15px] font-bold"><span class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</span> {next.name}</p>
-			<p class="truncate text-[13px] text-fg-muted">{formatDate(next.next_date)} · {gifts(next.item_count)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
-		</div>
-		<Countdown {days} />
-	</a>
-	<a href="/upcoming" class="mt-1 inline-flex min-h-10 items-center gap-1 text-[13px] font-bold text-fg-faint hover:text-fg"><Icon name="calendar" size={15} />See everything coming up<Icon name="chevron-right" size={15} /></a>
-{/if}
-
 <!-- The shelf: Everything first and biggest, then every list, standing on planks. -->
 <section class="mt-6" aria-label="Your lists">
-	<div class="grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+	<div class="shelf grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
 		<ShelfItem
 			href="/lists/{data.everything.id}"
 			wrap={data.everything.wrap ?? 'sunburst'}
@@ -139,7 +143,7 @@
 				</button>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+		<div class="shelf grid grid-cols-2 items-end gap-x-3.5 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
 			<ShelfItem
 				href="/lists/{section.everything.id}"
 				wrap={section.everything.wrap ?? 'sunburst'}

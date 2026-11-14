@@ -480,7 +480,7 @@
 
 	<SwipePages {pages} bind:active={filter} onchange={followChip}>
 		{#snippet page(pageId)}
-		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3' : 'grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4'} role="list">
+		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4' : 'grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'} role="list">
 			{#each giftsFor(pageId) as item, i (item.id)}
 				<div
 					animate:flip={{ duration: dur(200) }}

@@ -35,7 +35,7 @@
 	// The paper pointer, remembered on this computer.
 	let paperPointer = $state(false);
 	$effect(() => {
-		paperPointer = getPref('pointer') === 'paper';
+		paperPointer = getPref('pointer') !== 'normal';
 	});
 </script>
 
