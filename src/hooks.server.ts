@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { error, json, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
-import { SESSION_COOKIE, authEnabled, localUser, userFromSession } from '#lib/server/auth.ts';
+import { SESSION_COOKIE, authEnabled, localUser, ownerMarks, rememberOwner, userFromSession } from '#lib/server/auth.ts';
 import { ensureSchema } from '#lib/server/schema.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
@@ -31,6 +31,8 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	event.locals.viewer = user;
 	if (user) {
 		event.locals.user = user;
+		// Devices signed in before owner markers existed get theirs now (once).
+		if (!ownerMarks(event.cookies).length) await rememberOwner(db, event.cookies, user.id, event.url.protocol === 'https:');
 	} else if (!PUBLIC.some((re) => re.test(event.url.pathname))) {
 		if (event.url.pathname.startsWith('/api/')) return json({ error: 'Sign in first.' }, { status: 401 });
 		redirect(303, `/login?next=${encodeURIComponent(event.url.pathname + event.url.search)}`);

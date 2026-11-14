@@ -62,7 +62,7 @@
 {#if preview}
 	<div class="mb-4 flex gap-3 rounded-[var(--radius-card)] bg-teal-600/25 px-4 py-3 text-sm text-teal-300">
 		<Icon name="gift" size={20} />
-		<span><span class="font-bold">This is what givers see.</span> Who’s getting what is hidden from you, so it stays a surprise.</span>
+		<span><span class="font-bold">This is your list, as givers see it.</span> Who’s getting what is hidden from you here, even when you’re signed out, so it stays a surprise.</span>
 	</div>
 {/if}
 

@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { ensureMaster, newId, newToken } from './db';
 import type { User } from '#lib/types.ts';
+import type { Cookies } from '@sveltejs/kit';
 
 /**
  * Sign-in.
@@ -131,4 +132,42 @@ export async function upsertGoogleUser(db: D1Database, p: GoogleProfile): Promis
 	}
 	await ensureMaster(db, id);
 	return { id, name: p.name, email: p.email, avatar_url: p.picture };
+}
+
+/* ------------------------------------------------ keeping surprises from the owner */
+
+/**
+ * Every device you've signed in on keeps a private marker for you (a long-lived cookie that
+ * signing out doesn't clear). Your own share links check it, so on those devices claims stay
+ * hidden even when you're signed out. Up to four people's markers are kept, for shared devices.
+ */
+export const OWNER_COOKIE = 'giver_me';
+const OWNER_COOKIE_YEARS = 5;
+const MAX_MARKS = 4;
+
+export function ownerMarks(cookies: Cookies): string[] {
+	return (cookies.get(OWNER_COOKIE) ?? '').split('.').filter((m) => /^[A-Za-z0-9_-]{20,64}$/.test(m));
+}
+
+/** Make sure this device carries the signed-in person's marker. */
+export async function rememberOwner(db: D1Database, cookies: Cookies, userId: string, secure: boolean) {
+	const row = await db.prepare('SELECT owner_mark FROM users WHERE id = ?').bind(userId).first<{ owner_mark: string | null }>();
+	let mark = row?.owner_mark ?? null;
+	if (!mark) {
+		mark = newToken() + newToken();
+		await db.prepare('UPDATE users SET owner_mark = ? WHERE id = ? AND owner_mark IS NULL').bind(mark, userId).run();
+		mark = (await db.prepare('SELECT owner_mark FROM users WHERE id = ?').bind(userId).first<{ owner_mark: string | null }>())?.owner_mark ?? mark;
+	}
+	const marks = ownerMarks(cookies);
+	if (marks[0] === mark) return;
+	const next = [mark, ...marks.filter((m) => m !== mark)].slice(0, MAX_MARKS);
+	cookies.set(OWNER_COOKIE, next.join('.'), { path: '/', httpOnly: true, sameSite: 'lax', secure, maxAge: OWNER_COOKIE_YEARS * 365 * 86400 });
+}
+
+/** Whether this device belongs to the person who owns `ownerId`'s lists (signed in or not). */
+export async function isOwnersDevice(db: D1Database, cookies: Cookies, ownerId: string): Promise<boolean> {
+	const marks = ownerMarks(cookies);
+	if (!marks.length) return false;
+	const row = await db.prepare('SELECT owner_mark FROM users WHERE id = ?').bind(ownerId).first<{ owner_mark: string | null }>();
+	return !!row?.owner_mark && marks.includes(row.owner_mark);
 }

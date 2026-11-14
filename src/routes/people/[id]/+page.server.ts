@@ -8,7 +8,8 @@ import type { List, Sizes } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Someone in your circles (or your Secret Santa match): everything on their lists, to claim from. */
-export const load: PageServerLoad = async ({ locals, params, cookies, url }) => {
+export const load: PageServerLoad = async ({ locals, params, cookies, url, setHeaders }) => {
+	setHeaders({ 'cache-control': 'private, no-store' });
 	if (!locals.authEnabled) error(404, 'Not found');
 	if (params.id === locals.user.id) error(404, 'That’s you! Your own lists are on the Lists tab.');
 	if (!(await canView(locals.db, locals.user.id, params.id))) error(404, 'You can only see lists of people in your circles.');

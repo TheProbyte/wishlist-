@@ -169,6 +169,7 @@
 {#if data.authEnabled}
 	<form method="POST" action="/auth/logout">
 		<button class="btn-quiet w-full justify-center text-rust-300">Sign out</button>
+		<p class="mt-1 text-center text-xs text-fg-faint">Claims on your lists stay hidden on this device even after you sign out.</p>
 	</form>
 {/if}
 

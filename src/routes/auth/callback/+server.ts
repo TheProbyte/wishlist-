@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import { SESSION_COOKIE, SESSION_DAYS, createSession, googleProfile, upsertGoogleUser } from '#lib/server/auth.ts';
+import { SESSION_COOKIE, SESSION_DAYS, createSession, googleProfile, rememberOwner, upsertGoogleUser } from '#lib/server/auth.ts';
 import { GIVER_COOKIE } from '#lib/server/giving.ts';
 import type { RequestHandler } from './$types';
 
@@ -16,6 +16,8 @@ export const GET: RequestHandler = async ({ url, cookies, locals }) => {
 	const user = await upsertGoogleUser(locals.db, profile);
 	const token = await createSession(locals.db, user.id);
 	cookies.set(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge: SESSION_DAYS * 86400 });
+	// From now on this device keeps your surprises hidden, even after you sign out.
+	await rememberOwner(locals.db, cookies, user.id, url.protocol === 'https:');
 
 	// Gifts claimed on share links before signing in become this account's claims.
 	const giver = cookies.get(GIVER_COOKIE);
