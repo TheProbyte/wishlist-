@@ -25,7 +25,7 @@
 	import { holdDrag } from '#lib/holdDrag.ts';
 	import { swipeRow } from '#lib/swipeRow.ts';
 	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
-	import { undoable, isHidden } from '#lib/undo.svelte.ts';
+	import { undoable, isHidden, toast } from '#lib/undo.svelte.ts';
 	import { untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { firstTime, getPref, setPref } from '#lib/prefs.ts';
@@ -338,6 +338,13 @@
 			if (seq === importSeq) importing = false;
 		}
 		link = '';
+	}
+
+	/** After adding one: straight back to the paste bar, ready for the next link. */
+	async function addAnother() {
+		scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+		await tick();
+		document.querySelector<HTMLInputElement>('main input[placeholder^="Paste a link"]')?.focus({ preventScroll: true });
 	}
 
 	function addManually() {
@@ -927,6 +934,10 @@
 	sizes={data.sizes}
 	saveLabel={isEverything ? 'Add gift' : 'Add to list'}
 	ondrop={(id, mode) => dropGifts([id], mode === 'list' ? 'remove' : 'delete')}
+	onsaved={() => {
+		if (draft?.id) return;
+		toast(`Added “${short(draft?.title || 'your gift')}”`, { label: 'Add another', run: addAnother });
+	}}
 	onfail={(m) => {
 		bulkNote = m;
 		setTimeout(() => (bulkNote = null), 3000);

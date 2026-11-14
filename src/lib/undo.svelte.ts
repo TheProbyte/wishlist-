@@ -28,7 +28,31 @@ interface Pending {
 export const UNDO_MS = 5000;
 
 /** What's on screen: the strip's message, and when it started (for its draining ribbon). */
-export const undoStrip = $state({ id: 0, message: '', started: 0 });
+export const undoStrip = $state({ id: 0, message: '', started: 0, kind: 'undo' as 'undo' | 'toast', action: '', ms: UNDO_MS });
+let toastAction: (() => void) | null = null;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** A plain message in the same strip, with one optional thing to do (e.g. "Add another"). */
+export function toast(message: string, action?: { label: string; run: () => void }, ms = 4000) {
+	flushUndo();
+	clearTimeout(toastTimer);
+	const id = ++seq;
+	toastAction = action?.run ?? null;
+	Object.assign(undoStrip, { id, message, started: performance.now(), kind: 'toast', action: action?.label ?? '', ms });
+	toastTimer = setTimeout(() => undoStrip.id === id && (undoStrip.id = 0), ms);
+}
+/** The strip's button: Undo, or the toast's own action. */
+export function stripAction() {
+	if (undoStrip.kind === 'undo') return undo();
+	const run = toastAction;
+	undoStrip.id = 0;
+	run?.();
+}
+/** Close the strip (sends a waiting undo now). */
+export function dismissStrip() {
+	if (undoStrip.kind === 'undo') return flushUndo();
+	undoStrip.id = 0;
+}
 /** Gifts, lists and gift-on-list pairs waiting to be deleted: pages leave these out. */
 export const hidden = $state<{ keys: string[] }>({ keys: [] });
 export const isHidden = (key: string) => hidden.keys.includes(key);
@@ -89,9 +113,8 @@ export function undoable(o: { message: string; requests: UndoRequest[]; revert: 
 	hidden.keys = [...hidden.keys, ...keys];
 	const p: Pending = { id, message: o.message, requests: o.requests, revert: o.revert, done: o.done, keys, timer: setTimeout(() => flushUndo(), UNDO_MS) };
 	pending = p;
-	undoStrip.id = id;
-	undoStrip.message = o.message;
-	undoStrip.started = performance.now();
+	clearTimeout(toastTimer);
+	Object.assign(undoStrip, { id, message: o.message, started: performance.now(), kind: 'undo', action: 'Undo', ms: UNDO_MS });
 }
 
 /** Undo: nothing was sent, so just put it back. */
