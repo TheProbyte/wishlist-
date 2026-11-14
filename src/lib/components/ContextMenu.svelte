@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { backOut, cubicIn, cubicOut } from 'svelte/easing';
 	import { goto } from '$app/navigation';
 	import Icon from './Icon.svelte';
 	import { menu, closeMenu, type MenuAction, type MenuItem, type MenuPapers } from '#lib/menu.svelte.ts';
@@ -50,9 +50,18 @@
 		return header ? parseFloat(getComputedStyle(header).paddingTop) || 0 : 0;
 	}
 
+	// In: it grows out of the finger (or pointer) with the slightest overshoot, and is solid
+	// almost at once, so nothing half-there hangs about. Out: a quick shrink and fade.
 	function pop(_node: HTMLElement) {
 		if (prefersReducedMotion()) return { duration: 0 };
-		return { duration: 150, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: scale(${0.9 + 0.1 * t})` };
+		return {
+			duration: menu.touch ? 260 : 170,
+			css: (t: number) => `opacity: ${Math.min(1, t * 3)}; transform: scale(${0.86 + 0.14 * backOut(t)})`
+		};
+	}
+	function shrink(_node: HTMLElement) {
+		if (prefersReducedMotion()) return { duration: 0 };
+		return { duration: dur(130), easing: cubicIn, css: (t: number) => `opacity: ${t}; transform: scale(${0.95 + 0.05 * t})` };
 	}
 
 	async function choose(item: MenuAction, i: number) {
@@ -97,7 +106,7 @@
 	<div class="fixed inset-0 z-[90]" role="presentation">
 		<button
 			type="button"
-			class="absolute inset-0 cursor-default {menu.touch ? 'bg-[#120b07]/55' : ''}"
+			class="absolute inset-0 cursor-default {menu.touch ? 'bg-[#120b07]/50' : ''}"
 			aria-label="Close menu"
 			tabindex="-1"
 			onclick={closeMenu}
@@ -105,7 +114,8 @@
 				e.preventDefault();
 				closeMenu();
 			}}
-			transition:fade={{ duration: dur(140) }}
+			in:fade={{ duration: dur(220), easing: cubicOut }}
+			out:fade={{ duration: dur(130) }}
 		></button>
 		<div
 			bind:this={panel}
@@ -117,7 +127,7 @@
 			class="paper-grain absolute w-[min(16rem,calc(100vw-16px))] overflow-hidden rounded-[18px] bg-cocoa-900 p-1.5 shadow-[0_4px_0_0_var(--color-edge),0_18px_40px_-12px_rgb(0_0_0/0.7)] ring-2 ring-cocoa-700 outline-none select-none"
 			style="left: {pos.left}px; top: {pos.top}px; transform-origin: {pos.origin}; visibility: {h ? 'visible' : 'hidden'}"
 			in:pop
-			out:fade={{ duration: dur(100) }}
+			out:shrink
 		>
 			{#if spec.title}
 				<div class="px-3 pt-2 pb-2">

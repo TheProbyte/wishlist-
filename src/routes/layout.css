@@ -1084,8 +1084,13 @@ html:not([data-shared]) body {
 	-webkit-user-select: none;
 	user-select: none;
 }
-html:not([data-shared]) img {
+html:not([data-shared]) :is(a, img) {
+	/* No iOS "lift" of a held link or picture to drag it somewhere. */
 	-webkit-user-drag: none;
+}
+html {
+	/* No grey flash over whatever you touch. */
+	-webkit-tap-highlight-color: transparent;
 }
 input,
 textarea,
@@ -1095,15 +1100,4 @@ select,
 	-webkit-touch-callout: default;
 	-webkit-user-select: text;
 	user-select: text;
-}
-
-/* Holding something with a menu: it sinks a little while the hold builds, then grows back a
-   touch as the menu opens. (`scale`, not transform, so it adds to whatever else is moving it.) */
-[data-holding] {
-	scale: 0.95;
-	transition: scale 450ms var(--ease-out-soft);
-}
-[data-menu-open] {
-	scale: 1.03;
-	transition: scale 180ms var(--ease-spring);
 }

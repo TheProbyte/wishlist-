@@ -80,6 +80,7 @@
 	class="group rise flex flex-col justify-end {big ? 'col-span-2' : ''}" style="--i: {index}">
 	<div
 		bind:this={box}
+		data-lift
 		class="relative mx-auto {shape.aspect} {restless ? 'shelf-restless' : ''} transition-transform duration-200 ease-[var(--ease-spring)] group-hover:-translate-y-1.5 group-active:translate-y-0.5"
 		style="width: {shape.width}%; --delay: {(index % 4) * 1.3}s"
 	>

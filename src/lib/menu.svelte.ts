@@ -56,6 +56,31 @@ export function openMenu(spec: MenuSpec, x: number, y: number, touch: boolean, o
 	openedAt = performance.now();
 }
 
+const prefersReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** A light tap you can feel as the menu opens. Android: vibrate. iPhone (iOS 18+) has no way in
+ *  but one: switching a switch control gives the system's own tick. */
+let haptic: HTMLLabelElement | null = null;
+function buzz() {
+	if (navigator.vibrate) {
+		navigator.vibrate(8);
+		return;
+	}
+	if (!haptic) {
+		haptic = document.createElement('label');
+		haptic.setAttribute('aria-hidden', 'true');
+		haptic.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+		const input = document.createElement('input');
+		input.type = 'checkbox';
+		input.setAttribute('switch', '');
+		input.tabIndex = -1;
+		haptic.append(input);
+		document.body.append(haptic);
+	}
+	haptic.click();
+	haptic.querySelector('input')?.blur();
+}
+
 export function closeMenu() {
 	menu.owner?.removeAttribute('data-menu-open');
 	menu.owner = null;
@@ -109,6 +134,28 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 	let held = false;
 	let sx = 0;
 	let sy = 0;
+
+	/* How a hold feels: one continuous motion. The thing you're pressing sinks steadily for the
+	   whole hold (a quick tap barely moves it), and at the moment the menu grows out from under
+	   your finger it eases back up, both in the same frame. Only the marked part moves
+	   ([data-lift], e.g. the present, not its shelf and name). */
+	let anim: Animation | undefined;
+	const target = () => node.querySelector<HTMLElement>('[data-lift]') ?? node;
+	const STILL = 90; // nothing moves for the first moment, so taps stay still
+	function sink() {
+		if (prefersReduced()) return;
+		anim?.cancel();
+		anim = target().animate([{ scale: '1' }, { scale: '0.95' }], { duration: HOLD - STILL, delay: STILL, easing: 'cubic-bezier(0.3, 0, 0.6, 1)', fill: 'forwards' });
+	}
+	function rise(ms: number) {
+		const el = target();
+		const now = getComputedStyle(el).scale;
+		anim?.cancel();
+		anim = undefined;
+		if (prefersReduced() || now === 'none' || Math.abs(parseFloat(now) - 1) < 0.002) return;
+		anim = el.animate([{ scale: now }, { scale: '1' }], { duration: ms, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' });
+	}
+
 	function touchstart(e: TouchEvent) {
 		cancel();
 		// The innermost element with a menu gets the hold.
@@ -117,8 +164,8 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 		(e as TouchEvent & { menuClaimed?: boolean }).menuClaimed = true;
 		sx = e.touches[0].clientX;
 		sy = e.touches[0].clientY;
-		node.setAttribute('data-holding', '');
 		timer = setTimeout(fire, HOLD);
+		sink();
 	}
 	function touchmove(e: TouchEvent) {
 		if (!timer) return;
@@ -130,21 +177,22 @@ export const contextMenu: Action<HTMLElement, ContextMenuOptions> = (node, initi
 			held = false;
 			if (e.cancelable) e.preventDefault();
 			swallowUntil = performance.now() + 300;
+			return;
 		}
 		cancel();
 	}
 	function cancel() {
+		if (timer) rise(160);
 		clearTimeout(timer);
 		timer = undefined;
-		node.removeAttribute('data-holding');
 	}
 	function fire() {
 		timer = undefined;
-		node.removeAttribute('data-holding');
 		const spec = o.spec();
-		if (!spec) return;
+		if (!spec) return rise(160);
 		held = true;
-		navigator.vibrate?.(8);
+		buzz();
+		rise(240);
 		openMenu(spec, sx, sy, true, node);
 	}
 

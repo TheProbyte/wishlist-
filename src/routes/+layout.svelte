@@ -82,8 +82,16 @@
 			if ((e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable], .selectable')) return;
 			e.preventDefault();
 		};
+		// Nor can links and pictures be pulled out of the page (iOS lifts them on a long press).
+		const noDrag = (e: DragEvent) => {
+			if (!shared && (e.target as HTMLElement).closest?.('a, img')) e.preventDefault();
+		};
 		addEventListener('contextmenu', block);
-		return () => removeEventListener('contextmenu', block);
+		addEventListener('dragstart', noDrag);
+		return () => {
+			removeEventListener('contextmenu', block);
+			removeEventListener('dragstart', noDrag);
+		};
 	});
 
 	/** Shortcuts on each tab: hold it (or right-click it) to jump straight to the useful things. */

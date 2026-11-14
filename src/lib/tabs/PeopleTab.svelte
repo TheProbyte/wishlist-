@@ -101,7 +101,7 @@
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
-						<div class="tag-shape paper-grain relative flex origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2 flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
+						<div data-lift class="tag-shape paper-grain relative flex origin-top transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2 flex-col items-center gap-1.5 overflow-hidden bg-cocoa-850 px-3 pt-8 pb-4 text-center">
 							{#if person.paper}<span class="absolute inset-x-0 top-0 h-14 opacity-90" style="background: {paperFor(person.paper).background}" aria-hidden="true"></span>{/if}
 							<span class="absolute top-3 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-cocoa-950 ring-3 ring-[var(--accent)]/60"></span>
 							<Avatar name={person.name} src={person.avatar_url} sticker={person.sticker} size={58} />
