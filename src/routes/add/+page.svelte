@@ -140,6 +140,7 @@
 		<div class="card p-6">
 			<div class="stripes-run mb-5 h-1.5 rounded-full" role="progressbar" aria-label="Reading the shop page"></div>
 			<p class="text-fg-muted">Reading the shop page…</p>
+			<p class="mt-1 text-sm text-fg-faint">A long wish list takes a few seconds: every page of it is read.</p>
 		</div>
 	{:else if phase === 'empty'}
 		<form

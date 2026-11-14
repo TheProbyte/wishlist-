@@ -226,3 +226,59 @@ test('mobile Amazon product links parse to the same clean product', () => {
 		assert.equal(r.price_cents, 4499, link);
 	}
 });
+
+/* ------------------------------------------------ long wish lists come in pages */
+
+import { importAmazonWishlist, nextWishlistPage } from '../src/lib/server/importer.ts';
+
+const item = (n: number) =>
+	`<li data-itemid="I${n}" data-price="${10 + n}.00" class="g-item-sortable"><img src="https://m.media-amazon.com/images/I/img${n}._SS135_.jpg"><a id="itemName_I${n}" href="/dp/B0000000${String(n).padStart(2, '0')}/?coliid=I${n}">Gift number ${n}</a></li>`;
+const items = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => item(from + i)).join('\n');
+
+test('Amazon wish list: follows every page, however Amazon points to the next one', async () => {
+	const list = 'https://www.amazon.com/hz/wishlist/ls/2ABCDEFGHIJ?ref_=wl_share';
+	const pages: Record<string, string> = {
+		// Page 1: what the app's "view only" link opens. Ten gifts, then a hidden showMoreUrl.
+		[list]: `<html><body><ul id="g-items">${items(1, 10)}</ul>
+<input type="hidden" class="showMoreUrl" value="/hz/wishlist/slv/items?filter=unpurchased&amp;paginationToken=TOKEN2&amp;type=wishlist&amp;lid=2ABCDEFGHIJ&amp;ajax=true" name="showMoreUrl"></body></html>`,
+		// Page 2: a fragment with a "See more" link instead.
+		'https://www.amazon.com/hz/wishlist/slv/items?filter=unpurchased&paginationToken=TOKEN2&type=wishlist&lid=2ABCDEFGHIJ&ajax=true': `${items(11, 20)}
+<a class="a-link-normal wl-see-more" href="/hz/wishlist/ls/2ABCDEFGHIJ?lek=KEY3&amp;type=wishlist&amp;ajax=false">See more</a>`,
+		// Page 3: only a lastEvaluatedKey.
+		'https://www.amazon.com/hz/wishlist/ls/2ABCDEFGHIJ?lek=KEY3&type=wishlist&ajax=false': `${items(21, 30)}<input type="hidden" name="lastEvaluatedKey" value="KEY4">`,
+		// Page 4: the last few, and the end marker.
+		'https://www.amazon.com/hz/wishlist/ls/2ABCDEFGHIJ?ref_=wl_share&lek=KEY4&type=wishlist&ajax=true': `${items(31, 34)}<div id="endOfListMarker"></div>`
+	};
+	const asked: string[] = [];
+	const fetcher = (async (input: string | URL | Request) => {
+		const url = String(input);
+		asked.push(url);
+		const body = pages[url];
+		const res = new Response(body ?? 'not found', { status: body ? 200 : 404 });
+		Object.defineProperty(res, 'url', { value: url });
+		return res;
+	}) as typeof fetch;
+
+	const r = await importAmazonWishlist(list, fetcher);
+	assert.equal(r.items.length, 34, `asked for: ${asked.join('\n')}`);
+	assert.equal(r.items[0].title, 'Gift number 1');
+	assert.equal(r.items[33].title, 'Gift number 34');
+	assert.equal(new Set(r.items.map((i) => i.url)).size, 34);
+	assert.equal(asked.length, 4);
+});
+
+test('Amazon wish list: a page that repeats what we have stops the paging', async () => {
+	const list = 'https://www.amazon.com/hz/wishlist/ls/LOOP';
+	const page = `${items(1, 3)}<input type="hidden" name="showMoreUrl" value="/hz/wishlist/ls/LOOP">`;
+	let calls = 0;
+	const fetcher = (async (input: string | URL | Request) => {
+		calls++;
+		const res = new Response(page, { status: 200 });
+		Object.defineProperty(res, 'url', { value: String(input) });
+		return res;
+	}) as typeof fetch;
+	const r = await importAmazonWishlist(list, fetcher);
+	assert.equal(r.items.length, 3);
+	assert.equal(calls, 2);
+	assert.equal(nextWishlistPage('<div id="endOfListMarker"></div>', new URL(list)), null);
+});

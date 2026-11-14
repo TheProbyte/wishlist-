@@ -816,16 +816,90 @@ export interface WishlistImport {
 }
 
 /** Fetch a public Amazon wish list and read its items. */
-export async function importAmazonWishlist(input: string): Promise<WishlistImport> {
+/**
+ * Where the next page of a wish list is. Amazon sends a list in pages of about ten (the page you
+ * see loads more as you scroll), and says where the next one is in one of a few ways: a hidden
+ * "showMoreUrl", a "See more" link, or a "lastEvaluatedKey". The end has an endOfListMarker.
+ */
+export function nextWishlistPage(html: string, base: URL): URL | null {
+	if (/id=["']endOfListMarker["']/i.test(html)) return null;
+	const decode = (v: string) => v.replace(/&amp;/g, '&').replace(/&#x2F;|&#47;/gi, '/').trim();
+	const inputValue = (name: string) => {
+		for (const tag of html.match(/<input\b[^>]*>/gi) ?? []) {
+			if (!new RegExp(`name=["']${name}["']`, 'i').test(tag)) continue;
+			const v = tag.match(/value=["']([^"']*)["']/i)?.[1];
+			if (v) return decode(v);
+		}
+		return null;
+	};
+	const tryUrl = (v: string | null) => {
+		if (!v) return null;
+		try {
+			const u = new URL(v, base);
+			return isAmazon(u) ? u : null;
+		} catch {
+			return null;
+		}
+	};
+	const more = tryUrl(inputValue('showMoreUrl'));
+	if (more) return more;
+	for (const tag of html.match(/<a\b[^>]*>/gi) ?? []) {
+		if (!/wl-see-more/i.test(tag)) continue;
+		const href = tryUrl(decode(tag.match(/href=["']([^"']+)["']/i)?.[1] ?? ''));
+		if (href) return href;
+	}
+	const lek = inputValue('lastEvaluatedKey');
+	if (lek) {
+		const u = new URL(base.toString());
+		u.searchParams.set('lek', lek);
+		u.searchParams.set('type', 'wishlist');
+		u.searchParams.set('ajax', 'true');
+		return u;
+	}
+	return null;
+}
+
+const WISHLIST_MAX_PAGES = 30;
+const WISHLIST_MAX_ITEMS = 600;
+
+export async function importAmazonWishlist(input: string, fetcher: typeof fetch = fetch): Promise<WishlistImport> {
 	const url = normaliseUrl(input);
 	if (!url) return { items: [], blocked: false };
 	// "owner-view" is the owner's own (signed-in) page; the public one is "guest-view".
 	url.pathname = url.pathname.replace('/registries/gl/owner-view/', '/registries/gl/guest-view/');
 	try {
-		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
+		const res = await fetcher(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
 		const html = await readCapped(res);
-		const items = parseAmazonWishlist(html, new URL(res.url || url.toString()));
-		if (items.length) return { items, blocked: false };
+		const base = new URL(res.url || url.toString());
+		const items = parseAmazonWishlist(html, base);
+		if (items.length) {
+			// The rest of the list, page by page, until Amazon says that's the end.
+			const seen = new Set(items.map((i) => i.url));
+			const started = Date.now();
+			let next = nextWishlistPage(html, base);
+			for (let page = 1; next && page < WISHLIST_MAX_PAGES && items.length < WISHLIST_MAX_ITEMS && Date.now() - started < 20_000; page++) {
+				let more: string;
+				try {
+					const r = await fetcher(next.toString(), {
+						headers: { ...BROWSER_HEADERS, referer: base.toString(), 'x-requested-with': 'XMLHttpRequest' },
+						redirect: 'follow',
+						signal: AbortSignal.timeout(TIMEOUT_MS)
+					});
+					if (!r.ok) break;
+					more = await readCapped(r);
+				} catch {
+					break;
+				}
+				const fresh = parseAmazonWishlist(more, base).filter((i) => !seen.has(i.url));
+				if (!fresh.length) break;
+				for (const i of fresh) {
+					seen.add(i.url);
+					items.push(i);
+				}
+				next = nextWishlistPage(more, base);
+			}
+			return { items: items.slice(0, WISHLIST_MAX_ITEMS), blocked: false };
+		}
 		const pageTitle = text(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '').slice(0, 80);
 		const blocked = res.status >= 400 || /validateCaptcha|Enter the characters you see below|Sorry! Something went wrong|automated access/i.test(html);
 		const signIn = /ap\/signin|Amazon Sign-In/i.test(res.url + pageTitle);
