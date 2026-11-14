@@ -160,3 +160,69 @@ test('Amazon gift lists (registries): owner links count, tiles are read', async 
 	assert.equal(items[0].url, 'https://www.amazon.com/dp/B08N5WRWNW');
 	assert.equal(items[1].image_url, 'https://m.media-amazon.com/images/I/81q.jpg');
 });
+
+/* ------------------------------------------------ links shared from a phone */
+
+import { resolveShortLink, isAmazonWishlist } from '../src/lib/server/importer.ts';
+
+/** A pretend network: each URL answers with a redirect (or a page). */
+function fakeFetch(routes: Record<string, { status: number; location?: string }>) {
+	const asked: string[] = [];
+	const fetcher = (async (input: string | URL | Request) => {
+		const url = String(input);
+		asked.push(url);
+		const r = routes[url] ?? { status: 404 };
+		return new Response(null, { status: r.status, headers: r.location ? { location: r.location } : {} });
+	}) as typeof fetch;
+	return { fetcher, asked };
+}
+
+test('Amazon app share text: the link is pulled out of the words around it', () => {
+	const u = normaliseUrl('Check out this deal on Amazon! Sony Headphones https://a.co/d/7xKpQ2m');
+	assert.equal(u?.toString(), 'https://a.co/d/7xKpQ2m');
+});
+
+test('a.co short link: stops at the product even if Amazon then shows our server its robot check', async () => {
+	const { fetcher } = fakeFetch({
+		'https://a.co/d/7xKpQ2m': { status: 301, location: 'https://www.amazon.com/dp/B09XS7JWHH?ref_=cm_sw_r_apan' },
+		'https://www.amazon.com/dp/B09XS7JWHH?ref_=cm_sw_r_apan': { status: 302, location: 'https://www.amazon.com/errors/validateCaptcha' }
+	});
+	assert.equal(await resolveShortLink('Look https://a.co/d/7xKpQ2m', fetcher), 'https://www.amazon.com/dp/B09XS7JWHH?ref_=cm_sw_r_apan');
+});
+
+test('amzn.to via a tracking hop to a mobile product page', async () => {
+	const { fetcher, asked } = fakeFetch({
+		'https://amzn.to/3AbCdEf': { status: 301, location: 'https://www.amazon.com/gp/r.html?C=XYZ&U=%2Fgp%2Faw%2Fd%2FB0018OKX68' },
+		'https://www.amazon.com/gp/r.html?C=XYZ&U=%2Fgp%2Faw%2Fd%2FB0018OKX68': { status: 302, location: '/gp/aw/d/B0018OKX68?psc=1' }
+	});
+	assert.equal(await resolveShortLink('https://amzn.to/3AbCdEf', fetcher), 'https://www.amazon.com/gp/aw/d/B0018OKX68?psc=1');
+	assert.equal(asked.length, 2);
+});
+
+test('a.co link to a wish list resolves to the wish list', async () => {
+	const { fetcher } = fakeFetch({
+		'https://a.co/d/wl123': { status: 301, location: 'https://www.amazon.com/hz/wishlist/ls/2ABCDEFGHIJ?ref_=wl_share' }
+	});
+	const out = await resolveShortLink('https://a.co/d/wl123', fetcher);
+	assert.equal(out, 'https://www.amazon.com/hz/wishlist/ls/2ABCDEFGHIJ?ref_=wl_share');
+	assert.equal(isAmazonWishlist(new URL(out)), true);
+});
+
+test('short link that fails to load: the original link is kept, nothing breaks', async () => {
+	const fetcher = (async () => {
+		throw new Error('offline');
+	}) as typeof fetch;
+	assert.equal(await resolveShortLink('https://a.co/d/zzz', fetcher), 'https://a.co/d/zzz');
+});
+
+test('mobile Amazon product links parse to the same clean product', () => {
+	for (const link of [
+		'https://www.amazon.com/gp/aw/d/B0018OKX68?psc=1',
+		'https://amazon.com/dp/B0018OKX68',
+		'https://www.amazon.com/Levis-Mens-Regular-Jeans/dp/B0018OKX68/ref=mp_s_a_1_3?keywords=levis'
+	]) {
+		const r = parseProductPage(new URL(link), fixture('amazon-jeans.html'));
+		assert.equal(r.url, 'https://www.amazon.com/dp/B0018OKX68', link);
+		assert.equal(r.price_cents, 4499, link);
+	}
+});

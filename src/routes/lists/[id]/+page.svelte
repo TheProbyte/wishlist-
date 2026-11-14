@@ -171,8 +171,15 @@
 		editorOpen = true;
 		try {
 			const res = await fetch('/api/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: value }) });
-			const r = (await res.json()) as ImportResult & { error?: string };
+			const r = (await res.json()) as ImportResult & { error?: string; kind?: string };
 			if (seq !== importSeq) return;
+			// A whole wish list (e.g. shared from the Amazon app): that's the import screen's job.
+			if (r.kind === 'wishlist') {
+				editorOpen = false;
+				importing = false;
+				link = '';
+				return void goto(`/add?url=${encodeURIComponent(value)}`);
+			}
 			draft = {
 				url: r.url ?? value,
 				title: r.title ?? '',

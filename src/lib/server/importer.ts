@@ -683,17 +683,51 @@ export function isAmazonWishlist(url: URL): boolean {
 	);
 }
 
-/** Amazon's app shares short links (a.co, amzn.to). Follow one to see where it really goes. */
-export async function resolveShortLink(input: string): Promise<string> {
-	const url = normaliseUrl(input);
-	if (!url || !/^(a\.co|amzn\.(to|eu|asia))$/i.test(url.hostname)) return input;
-	try {
-		const res = await fetch(url.toString(), { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
+/**
+ * Amazon's app shares short links (a.co, amzn.to, amzn.eu). Follow one to see where it really
+ * goes, one hop at a time: we stop at the first real Amazon address (a product or a wish list),
+ * so if Amazon then bounces our server to its robot check, we still know what was shared.
+ */
+export async function resolveShortLink(input: string, fetcher: typeof fetch = fetch): Promise<string> {
+	const start = normaliseUrl(input);
+	if (!start || !isShortLink(start)) return input;
+	let url = start;
+	for (let hop = 0; hop < 6; hop++) {
+		let res: Response;
+		try {
+			res = await fetcher(url.toString(), { headers: BROWSER_HEADERS, redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
+		} catch {
+			break;
+		}
 		res.body?.cancel().catch(() => {});
-		return res.url || input;
-	} catch {
-		return input;
+		const location = res.headers.get('location');
+		if (res.status < 300 || res.status >= 400 || !location) {
+			// Some fetchers follow redirects anyway: take wherever it ended up, if that's real.
+			const landed = res.url ? normaliseUrl(res.url) : null;
+			if (landed && !isShortLink(landed) && isRealAmazonPage(landed)) return landed.toString();
+			break;
+		}
+		let next: URL;
+		try {
+			next = new URL(location, url);
+		} catch {
+			break;
+		}
+		if (isRealAmazonPage(next)) return next.toString();
+		url = next;
 	}
+	return url === start ? input : url.toString();
+}
+
+function isShortLink(url: URL): boolean {
+	return /^(a\.co|amzn\.(to|eu|asia|com))$/i.test(url.hostname);
+}
+
+/** An Amazon address that says what it is: a product or a wish list / registry (not a robot check). */
+function isRealAmazonPage(url: URL): boolean {
+	if (!isAmazon(url) || isShortLink(url)) return false;
+	if (/validateCaptcha|\/errors\/|\/ap\/signin/i.test(url.pathname)) return false;
+	return !!amazonAsin(url) || isAmazonWishlist(url);
 }
 
 /**

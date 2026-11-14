@@ -738,3 +738,8 @@ html[data-nav='morph']::view-transition-group(*) {
 		filter: brightness(1.08);
 	}
 }
+
+/* While a present is opening (openPresent), the list's gifts wait to rise until they're revealed. */
+:root[data-opening] .rise {
+	animation-play-state: paused;
+}
