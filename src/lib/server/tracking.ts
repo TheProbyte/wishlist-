@@ -10,7 +10,7 @@ import type { Item } from '#lib/types.ts';
  * A lower price marks a price drop; the old price is kept to show what it was.
  */
 const STALE_AFTER = 20 * 3600; // seconds
-const PER_VIEW = 4;
+const PER_VIEW = 1;
 
 export function refreshStale(db: D1Database, items: Pick<Item, 'id' | 'url' | 'last_checked' | 'price_cents' | 'prev_price_cents'>[]) {
 	const now = Math.floor(Date.now() / 1000);

@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Modal from './Modal.svelte';
@@ -79,6 +79,19 @@
 	let duplicate = $state<{ id: string; title: string } | null>(null);
 	let allowDuplicate = $state(false);
 	let form = $state<HTMLFormElement>();
+	// Something needs you (already have it, or it couldn't save): bring it into view, since it
+	// sits at the end of the form and could be below the screen.
+	async function showAttention() {
+		await tick();
+		requestAnimationFrame(() => {
+			const el = form?.querySelector<HTMLElement>('[data-attention]');
+			const box = el?.closest<HTMLElement>('.overflow-y-auto');
+			if (!el || !box) return;
+			const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+			box.scrollTo({ top: Math.max(0, top - (box.clientHeight - el.offsetHeight) / 2), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+		});
+	}
+
 	// The second step: folded away until wanted.
 	let more = $state(false);
 
@@ -238,8 +251,10 @@
 					onsaved?.(String(result.data?.saved ?? ''));
 				} else if (result.type === 'failure' && result.data?.duplicate) {
 					duplicate = result.data.duplicate as { id: string; title: string };
+					showAttention();
 				} else if (result.type === 'failure') {
 					error = String(result.data?.error ?? 'Couldn’t save that.');
+					showAttention();
 				} else {
 					await update();
 				}
@@ -440,7 +455,7 @@
 				</div>
 
 				{#if duplicate}
-					<div class="rounded-[var(--radius-control)] bg-mustard-400/15 p-4 text-sm">
+					<div class="rounded-[var(--radius-control)] bg-mustard-400/15 p-4 text-sm" data-attention>
 						<p class="flex gap-2 font-bold text-mustard-300"><Icon name="alert" size={18} />You already have this one</p>
 						<p class="mt-1 text-fg-muted">“{duplicate.title}” is already on your wish list.</p>
 						<div class="mt-3 flex flex-wrap gap-2">
@@ -451,7 +466,7 @@
 						</div>
 					</div>
 				{/if}
-				{#if error}<p class="text-sm font-bold text-rust-300">{error}</p>{/if}
+				{#if error}<p class="text-sm font-bold text-rust-300" data-attention>{error}</p>{/if}
 			</div>
 		</div>
 	</form>

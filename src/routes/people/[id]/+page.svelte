@@ -9,6 +9,7 @@
 	import { askForIdeas, looksThin } from '#lib/nudge.ts';
 	import { toast } from '#lib/undo.svelte.ts';
 	import { dur } from '#lib/motion.ts';
+	import { onMount } from 'svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -24,6 +25,10 @@
 		const r = await askForIdeas(data.person.name, soonest ? { label: soonest.label, kid: soonest.kid } : null);
 		if (r === 'copied') toast('Message copied: paste it to them');
 	}
+
+	// The other lists' pages are built on the phone once the page is up, not by the server.
+	const built = $state({ ready: false });
+	onMount(() => requestAnimationFrame(() => (built.ready = true)));
 
 	function followChip(id: string) {
 		document.querySelector(`[data-chip="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: dur(1) ? 'smooth' : 'auto' });
@@ -67,10 +72,10 @@
 		{#if next}
 			<p class="mb-4 text-sm font-bold text-fg-muted">{formatDate(next)} · <span class="text-rust-300">{countdownLabel(next)}</span></p>
 		{/if}
-		{#if p.items.length}
-			<GiverShelf dock={p.id === active ? 'tabs' : 'off'} items={p.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={p.sizes} person={p.kid ?? data.person.name} />
-		{:else}
+		{#if !p.items.length}
 			<div class="py-10 text-center"><EmptyArt class="mx-auto mb-3 opacity-80" /><p class="text-sm text-fg-faint">Nothing on this list yet.</p></div>
+		{:else if p.id === active || built.ready}
+			<GiverShelf dock={p.id === active ? 'tabs' : 'off'} items={p.items} categories={data.categories} giverName={data.giverName} error={form?.error ?? null} sizes={p.sizes} person={p.kid ?? data.person.name} />
 		{/if}
 	{/snippet}
 </SwipePages>

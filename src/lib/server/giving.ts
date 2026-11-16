@@ -25,7 +25,9 @@ export async function giverItems(
 	giver: { token: string | null; userId: string | null },
 	hideClaims = false
 ): Promise<GiverItem[]> {
-	const items = await getItems(db, list);
+	// Long shop descriptions are cut for givers' pages (the start is what's worth reading), which
+	// keeps big lists light to send.
+	const items = (await getItems(db, list)).map((i) => (i.description && i.description.length > 600 ? { ...i, description: `${i.description.slice(0, 597).trimEnd()}…` } : i));
 	const none = { claimed: 0, mine: 0, myNote: null, chipped: 0, chippers: 0, myChip: 0 };
 	if (hideClaims) return items.map((i) => ({ ...i, ...none }));
 	const me = [giver.token ?? '', giver.userId ?? ''];

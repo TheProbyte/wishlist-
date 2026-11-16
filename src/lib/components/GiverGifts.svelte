@@ -7,6 +7,7 @@
 	import Sticker from './Sticker.svelte';
 	import Confetti from './Confetti.svelte';
 	import Rosette from './Rosette.svelte';
+	import { progressive } from '#lib/progressive.svelte.ts';
 	import { formatPrice, hasPriceDrop } from '#lib/format.ts';
 	import { paperFor } from '#lib/papers.ts';
 	import type { Category, GiverItem } from '#lib/types.ts';
@@ -69,7 +70,9 @@
 	let celebrating = $state<string | null>(null);
 	let fire = $state(0);
 
-	const visible = $derived(hideTaken ? items.filter((i) => !isTaken(i)) : items);
+	// The server builds the first cards; the rest are added as soon as the page is up.
+	const built = progressive();
+	const visible = $derived(built.cap(hideTaken ? items.filter((i) => !isTaken(i)) : items));
 	const claimingItem = $derived(items.find((i) => i.id === claimingId) ?? lane.find((i) => i.id === claimingId));
 	const catIcon = (id: string | null) => (id ? (categories.find((c) => c.id === id)?.icon ?? null) : null);
 

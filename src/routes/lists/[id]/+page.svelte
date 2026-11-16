@@ -24,6 +24,7 @@
 	import SwipePages from '#lib/components/SwipePages.svelte';
 	import { holdDrag } from '#lib/holdDrag.ts';
 	import { swipeRow } from '#lib/swipeRow.ts';
+	import { progressive } from '#lib/progressive.svelte.ts';
 	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
 	import { undoable, isHidden, toast } from '#lib/undo.svelte.ts';
 	import { untrack } from 'svelte';
@@ -192,6 +193,10 @@
 	$effect(() => {
 		swipeable = matchMedia('(pointer: coarse)').matches;
 	});
+
+	// Long lists: the server builds the first cards of the page showing; the rest (and the other
+	// category pages) are added as soon as the page is up.
+	const built = progressive();
 
 	/* ------------------------------------------------ the mini header */
 
@@ -760,7 +765,7 @@
 		{#snippet page(pageId)}
 		<div class="@container">
 		<div class={layout === 'row' ? 'grid grid-cols-1 gap-2 @xl:grid-cols-2 @xl:gap-3 @4xl:grid-cols-3 @6xl:grid-cols-4' : 'grid grid-cols-2 gap-2.5 @xl:gap-5 @[38rem]:grid-cols-3 @4xl:grid-cols-4 @5xl:grid-cols-5'} role="list">
-			{#each giftsFor(pageId) as item, i (item.id)}
+			{#each built.cap(giftsFor(pageId), pageId === filter ? 12 : 0) as item, i (item.id)}
 				<div
 					animate:flip={{ duration: dur(200) }}
 					in:cardIn={{ on: animateChanges() && !fresh }}
