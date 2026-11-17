@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
+	import { toast } from '#lib/undo.svelte.ts';
 	import ProductImage from './ProductImage.svelte';
 	import Stars from './Stars.svelte';
 	import Modal from './Modal.svelte';
@@ -86,6 +88,45 @@
 		noteSaved = false;
 		detailOpen = true;
 	}
+	/* Back from the shop: people buy (or mark it bought on Amazon) and forget to say so here, so
+	   nobody else knows. Tapping a shop link remembers which gift it was; coming back to this
+	   page (even after the browser reloaded it), a strip asks if they got it, with the button. */
+	const SHOP_KEY = 'giver:shop';
+	function wentToShop(item: GiverItem) {
+		if (preview || item.mine > 0 || item.myChip > 0 || isTaken(item)) return;
+		try {
+			sessionStorage.setItem(SHOP_KEY, JSON.stringify({ id: item.id, title: item.title, at: Date.now() }));
+		} catch {
+			/* private mode: no reminder, that's all */
+		}
+	}
+	function backFromShop() {
+		if (document.visibilityState !== 'visible') return;
+		let seen: { id: string; title: string; at: number } | null = null;
+		try {
+			seen = JSON.parse(sessionStorage.getItem(SHOP_KEY) ?? 'null');
+		} catch {
+			seen = null;
+		}
+		if (!seen) return;
+		const away = Date.now() - seen.at;
+		if (away < 2500) return; // just switching apps for a second
+		sessionStorage.removeItem(SHOP_KEY);
+		const item = items.find((i) => i.id === seen!.id) ?? lane.find((i) => i.id === seen!.id);
+		if (!item || away > 3 * 3600 * 1000 || item.mine > 0 || item.myChip > 0 || isTaken(item)) return;
+		const name = item.title.length > 20 ? `${item.title.slice(0, 18).trimEnd()}…` : item.title;
+		toast(`Did you get “${name}”?`, { label: 'Mark it mine', run: () => claim(item.id) }, 12000);
+	}
+	onMount(() => {
+		backFromShop();
+		document.addEventListener('visibilitychange', backFromShop);
+		addEventListener('pageshow', backFromShop);
+		return () => {
+			document.removeEventListener('visibilitychange', backFromShop);
+			removeEventListener('pageshow', backFromShop);
+		};
+	});
+
 	function claim(id: string) {
 		claimingId = id;
 		nameOpen = true;
@@ -173,7 +214,7 @@
 						{#if item.rating}<Stars value={item.rating} size={13} />{/if}
 					</div>
 					{#if item.url}
-						<a href={item.url} target="_blank" rel="noopener noreferrer" class="-my-1 flex min-h-9 items-center gap-1 truncate text-xs font-bold text-fg-faint hover:text-teal-300"><span class="truncate">{item.store ?? 'See it in the shop'}</span><Icon name="external" size={12} /></a>
+						<a href={item.url} target="_blank" rel="noopener noreferrer" onclick={() => wentToShop(item)} class="-my-1 flex min-h-9 items-center gap-1 truncate text-xs font-bold text-fg-faint hover:text-teal-300"><span class="truncate">{item.store ?? 'See it in the shop'}</span><Icon name="external" size={12} /></a>
 					{/if}
 					{#if !preview && item.chipped > 0 && item.price_cents}
 						<!-- Chipping in: how much of it is covered so far. -->
@@ -255,7 +296,7 @@
 			{/if}
 
 			{#if detail.url}
-				<a href={detail.url} target="_blank" rel="noopener noreferrer" class="btn-ghost mt-5 w-full">See it at {detail.store ?? 'the shop'}<Icon name="external" size={15} /></a>
+				<a href={detail.url} target="_blank" rel="noopener noreferrer" onclick={() => detail && wentToShop(detail)} class="btn-ghost mt-5 w-full">See it at {detail.store ?? 'the shop'}<Icon name="external" size={15} /></a>
 			{/if}
 
 			{#if !preview && (detail.mine > 0 || detail.myChip > 0)}
