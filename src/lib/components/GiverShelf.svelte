@@ -58,7 +58,6 @@
 
 	let category = $state('all');
 	let price = $state('any');
-	let hideTaken = $state(false);
 
 	const usedCategories = $derived(categories.filter((c) => items.some((i) => i.category_id === c.id)));
 	const usedPrices = $derived(PRICES.filter((p) => items.some((i) => i.price_cents != null && p.test(i.price_cents))));
@@ -73,9 +72,11 @@
 	const covered = (i: GiverItem) => i.price_cents != null && i.chipped > 0 && i.chipped >= i.price_cents;
 	const takenByOthers = (i: GiverItem) => (i.claimed >= i.quantity || covered(i)) && i.mine === 0 && i.myChip === 0;
 	const takenCount = $derived(items.filter(takenByOthers).length);
+	// Everything spoken for (yours too), for the count at the top.
+	const spokenFor = $derived(items.filter((i) => i.claimed >= i.quantity || covered(i)).length);
 	// Most wanted: their top three still to give (or yours), big in a row above the rest, when
 	// nothing's filtered and the list is long enough for it to help.
-	const lane = $derived(category === 'all' && price === 'any' && items.length >= 6 ? items.filter((i) => !takenByOthers(i)).slice(0, 3) : []);
+	const lane = $derived(category === 'all' && price === 'any' && items.length >= 6 ? items.filter((i) => !takenByOthers(i) && (preview || (i.mine === 0 && i.myChip === 0))).slice(0, 3) : []);
 	const rest = $derived(lane.length ? shown.filter((i) => !lane.includes(i)) : shown);
 </script>
 
@@ -112,11 +113,6 @@
 				<button class="chip shrink-0 {price === pr.id ? 'chip-on' : 'hover:text-fg'}" aria-pressed={price === pr.id} onclick={() => (price = price === pr.id ? 'any' : pr.id)}>{pr.label}</button>
 			{/each}
 		{/if}
-		{#if !preview && takenCount}
-			<button class="chip shrink-0 px-3 {hideTaken ? 'chip-on' : 'hover:text-fg'}" aria-pressed={hideTaken} onclick={() => (hideTaken = !hideTaken)}>
-				<Icon name={hideTaken ? 'check' : 'gift'} size={15} />Hide taken
-			</button>
-		{/if}
 		{#if usedCategories.length <= 1 && usedPrices.length <= 1}
 			<span class="self-center text-sm font-bold text-fg-faint">{items.length} {items.length === 1 ? 'gift' : 'gifts'}{#if !preview && takenCount}&nbsp;· {takenCount} taken{/if}</span>
 		{/if}
@@ -148,7 +144,11 @@
 	</div>
 {/if}
 
-<GiverGifts items={rest} {lane} {categories} giverName={who?.name || giverName} {error} {hideTaken} {preview} />
+{#if !preview && spokenFor}
+	<!-- At a glance: how much is already spoken for, and how much is left to choose from. -->
+	<p class="mb-3 text-sm font-bold text-fg-muted">{spokenFor} of {items.length} taken · <span class="text-teal-300">{items.length - spokenFor} left to choose from</span></p>
+{/if}
+<GiverGifts items={rest} {lane} {categories} giverName={who?.name || giverName} {error} {preview} />
 {#if who}
 	<Modal bind:open={whoOpen} title="Who’s giving?">
 		<form

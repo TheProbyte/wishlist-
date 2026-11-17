@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { fly, scale } from 'svelte/transition';
+	import { dur } from '#lib/motion.ts';
 	import { toast } from '#lib/undo.svelte.ts';
 	import ProductImage from './ProductImage.svelte';
 	import Stars from './Stars.svelte';
@@ -21,7 +24,6 @@
 		categories,
 		giverName,
 		error = null,
-		hideTaken = false,
 		preview = false,
 		lane = []
 	}: {
@@ -29,7 +31,6 @@
 		categories: Category[];
 		giverName: string;
 		error?: string | null;
-		hideTaken?: boolean;
 		preview?: boolean;
 		/** The most wanted few, shown big in a row above the rest. */
 		lane?: GiverItem[];
@@ -74,7 +75,12 @@
 
 	// The server builds the first cards; the rest are added as soon as the page is up.
 	const built = progressive();
-	const visible = $derived(built.cap(hideTaken ? items.filter((i) => !isTaken(i)) : items));
+	// Yours first, then what's still free to pick, then the taken ones (folded away).
+	const isMine = (i: GiverItem) => !preview && (i.mine > 0 || i.myChip > 0);
+	const mine = $derived(items.filter(isMine));
+	const open = $derived(built.cap(items.filter((i) => !isMine(i) && !isTaken(i))));
+	const taken = $derived(items.filter((i) => !isMine(i) && isTaken(i)));
+	let showTaken = $state(false);
 	const claimingItem = $derived(items.find((i) => i.id === claimingId) ?? lane.find((i) => i.id === claimingId));
 	const catIcon = (id: string | null) => (id ? (categories.find((c) => c.id === id)?.icon ?? null) : null);
 
@@ -171,8 +177,7 @@
 	</section>
 {/if}
 
-<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-	{#each visible as item, i (item.id)}
+{#snippet giftCard(item: GiverItem, i: number)}
 		{@const taken = isTaken(item)}
 		{@const fresh = celebrating === item.id}
 		<article class="gift-hover card rise relative flex flex-col transition {taken ? 'opacity-50' : ''}" style="--i: {i}">
@@ -244,8 +249,39 @@
 				</div>
 			</div>
 		</article>
-	{/each}
+{/snippet}
+
+<!-- Givers see what's left to pick first: yours on top, then everything still free, then the
+     ones already taken folded away at the bottom. -->
+{#if mine.length}
+	<section class="mb-6" aria-label="You’re getting">
+		<h2 class="mb-2.5 flex items-center gap-2 text-sm font-bold text-teal-300"><Icon name="gift" size={15} />You’re getting {mine.length === 1 ? 'this' : `these ${mine.length}`}</h2>
+		<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+			{#each mine as item, i (item.id)}<div class="grid" in:fly|global={{ y: -20, duration: dur(260) }}>{@render giftCard(item, i)}</div>{/each}
+		</div>
+	</section>
+{/if}
+
+<div class="grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+	{#each open as item, i (item.id)}<div class="grid" animate:flip={{ duration: dur(260) }} out:scale={{ start: 0.85, duration: dur(220) }}>{@render giftCard(item, i)}</div>{/each}
 </div>
+
+{#if taken.length && !preview}
+	<!-- Already taken: folded into one strip at the bottom; tap to look. -->
+	<section class="mt-8" aria-label="Already taken">
+		<button class="flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-card)] border-2 border-dashed border-cocoa-700 px-4 text-left transition hover:border-cocoa-600" aria-expanded={showTaken} onclick={() => (showTaken = !showTaken)}>
+			<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cocoa-800 text-fg-faint"><Icon name="check" size={16} /></span>
+			<span class="min-w-0 flex-1"><span class="block font-bold">Already taken ({taken.length})</span><span class="block text-xs text-fg-faint">Someone’s getting {taken.length === 1 ? 'this one' : 'these'}, so you don’t have to</span></span>
+			<span class="text-sm font-bold text-fg-faint">{showTaken ? 'Hide' : 'Show'}</span>
+			<Icon name="chevron-down" size={18} class="shrink-0 text-fg-faint transition-transform duration-300 {showTaken ? 'rotate-180' : ''}" />
+		</button>
+		{#if showTaken}
+			<div class="mt-3 grid grid-cols-2 gap-2.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" transition:fly={{ y: -10, duration: dur(200) }}>
+				{#each taken as item, i (item.id)}{@render giftCard(item, i)}{/each}
+			</div>
+		{/if}
+	</section>
+{/if}
 
 
 <!-- One gift, in full. -->
