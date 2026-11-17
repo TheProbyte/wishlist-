@@ -83,8 +83,9 @@ function giverToken(cookies: Cookies): string {
 
 export async function claim(db: D1Database, request: Request, cookies: Cookies, viewer: User | null, find: FindItem) {
 	const form = await request.formData();
-	const name = String(form.get('name') ?? viewer?.name ?? '').trim().slice(0, 40);
-	if (!name) return fail(400, { error: 'Add your name so others know it’s taken.' });
+	// A name helps other givers coordinate, but a claim never fails for the lack of one.
+	const given = String(form.get('name') ?? '').trim().slice(0, 40);
+	const name = given || viewer?.name?.slice(0, 40) || 'Someone';
 	const item = await find(String(form.get('id') ?? ''));
 	if (!item) return fail(404, { error: 'That gift has been removed.' });
 	if (viewer && viewer.id === item.owner_id) return fail(400, { error: 'That’s your own gift.' });
@@ -95,7 +96,7 @@ export async function claim(db: D1Database, request: Request, cookies: Cookies, 
 	if (chipping?.n) return fail(409, { error: 'People are already chipping in on this one. Chip in too?' });
 
 	const token = giverToken(cookies);
-	cookies.set(NAME_COOKIE, name, cookieOpts);
+	if (given) cookies.set(NAME_COOKIE, given, cookieOpts);
 	await db
 		.prepare('INSERT INTO claims (id, item_id, giver_token, giver_name, giver_user_id, quantity) VALUES (?, ?, ?, ?, ?, 1)')
 		.bind(newId('clm'), item.id, token, name, viewer?.id ?? null)
@@ -125,8 +126,9 @@ const mine = `(giver_token = ? OR (giver_user_id IS NOT NULL AND giver_user_id =
 /** Chip in part of a pricey gift. It counts as taken once the pieces cover the price. */
 export async function contribute(db: D1Database, request: Request, cookies: Cookies, viewer: User | null, find: FindItem) {
 	const form = await request.formData();
-	const name = String(form.get('name') ?? viewer?.name ?? '').trim().slice(0, 40);
-	if (!name) return fail(400, { error: 'Add your name so the others know who’s in.' });
+	// A name helps other givers coordinate, but a claim never fails for the lack of one.
+	const given = String(form.get('name') ?? '').trim().slice(0, 40);
+	const name = given || viewer?.name?.slice(0, 40) || 'Someone';
 	const item = await find(String(form.get('id') ?? ''));
 	if (!item) return fail(404, { error: 'That gift has been removed.' });
 	if (viewer && viewer.id === item.owner_id) return fail(400, { error: 'That’s your own gift.' });
@@ -140,7 +142,7 @@ export async function contribute(db: D1Database, request: Request, cookies: Cook
 	if (claimed?.n) return fail(409, { error: 'Someone’s getting the whole thing already.' });
 	if ((covered?.n ?? 0) >= item.price_cents) return fail(409, { error: 'It’s all covered already.' });
 	const token = giverToken(cookies);
-	cookies.set(NAME_COOKIE, name, cookieOpts);
+	if (given) cookies.set(NAME_COOKIE, given, cookieOpts);
 	await db
 		.prepare('INSERT INTO contributions (id, item_id, giver_token, giver_user_id, giver_name, amount_cents) VALUES (?, ?, ?, ?, ?, ?)')
 		.bind(newId('chp'), item.id, token, viewer?.id ?? null, name, Math.min(amount, item.price_cents - (covered?.n ?? 0)))

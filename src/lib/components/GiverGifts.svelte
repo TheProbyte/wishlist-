@@ -406,8 +406,8 @@
 			<p class="mb-5 text-sm text-fg-muted">Marking <span class="font-bold text-fg">{claimingItem.title}</span> as yours. Other givers will see it’s taken. The list owner won’t.</p>
 		{/if}
 		<label class="block">
-			<span class="label">Your name</span>
-			<input class="field" name="name" required maxlength="40" placeholder="So other givers know" bind:value={name} />
+			<span class="label">Your name <span class="normal-case text-fg-faint">(optional)</span></span>
+			<input class="field" name="name" maxlength="40" placeholder="So other givers know it’s you" bind:value={name} />
 		</label>
 		{#if error && nameOpen}<p class="mt-3 text-sm font-bold text-rust-300">{error}</p>{/if}
 	</form>
@@ -451,7 +451,7 @@
 		{/if}
 		<label class="mt-5 block">
 			<span class="label">Your name</span>
-			<input class="field" name="name" required maxlength="40" placeholder="So the others know who’s in" bind:value={name} />
+			<input class="field" name="name" maxlength="40" placeholder="So the others know who’s in (optional)" bind:value={name} />
 		</label>
 		{#if error && chipOpen}<p class="mt-3 text-sm font-bold text-rust-300">{error}</p>{/if}
 	</form>
