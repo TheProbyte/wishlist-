@@ -5,6 +5,7 @@ import { SESSION_COOKIE, authEnabled, localUser, ownerMarks, rememberOwner, user
 import { ensureSchema } from '#lib/server/schema.ts';
 import { dailyReminders, later } from '#lib/server/push.ts';
 import { isHighlight, resolveTheme, themeBackground } from '#lib/themes.ts';
+import { lookOf } from '#lib/server/look.ts';
 
 /** Pages anyone can open: share links, sign-in, images, app files. */
 const PUBLIC = [/^\/icons\//, /^\/og\//, /^\/service-worker\.js$/, /^\/s\//, /^\/u\//, /^\/login\/?$/, /^\/auth\//, /^\/img\//, /^\/manifest\.webmanifest$/, /^\/robots\.txt$/];
@@ -17,7 +18,7 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	// Pages arrive already in your theme (no flash of the default colours).
 	const resolve = async (e: typeof event) => {
 		const page = e.request.method === 'GET' && !e.url.pathname.endsWith('__data.json') && !e.url.pathname.startsWith('/api/') && (e.request.headers.get('accept') ?? '').includes('text/html');
-		const look = page && e.locals.user ? await e.locals.db.prepare('SELECT theme, highlight FROM users WHERE id = ?').bind(e.locals.user.id).first<{ theme: string | null; highlight: string | null }>().catch(() => null) : null;
+		const look = page && e.locals.user ? await lookOf(e.locals) : null;
 		const theme = resolveTheme(look?.theme);
 		const highlight = isHighlight(look?.highlight) && look.highlight !== 'auto' ? look.highlight : null;
 		if (!theme && !highlight) return kitResolve(e, { preload });
@@ -43,14 +44,16 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	}
 
 	const token = event.cookies.get(SESSION_COOKIE);
-	const user = token ? await userFromSession(db, token) : null;
-	event.locals.viewer = user;
-	if (user) {
+	const session = token ? await userFromSession(db, token) : null;
+	event.locals.viewer = session?.user ?? null;
+	if (session) {
+		const { user } = session;
 		event.locals.user = user;
+		event.locals.look = session.look;
 		// Once a day, the first visit sets off the reminders (in the background).
 		later(dailyReminders(db));
 		// Devices signed in before owner markers existed get theirs now (once).
-		if (!ownerMarks(event.cookies).length) await rememberOwner(db, event.cookies, user.id, event.url.protocol === 'https:');
+		if (!ownerMarks(event.cookies).length) await rememberOwner(db, event.cookies, user.id, event.url.protocol === 'https:', session.ownerMark);
 	} else if (!PUBLIC.some((re) => re.test(event.url.pathname))) {
 		if (event.url.pathname.startsWith('/api/')) return json({ error: 'Sign in first.' }, { status: 401 });
 		redirect(303, `/login?next=${encodeURIComponent(event.url.pathname + event.url.search)}`);

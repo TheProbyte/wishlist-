@@ -9,6 +9,8 @@ declare global {
 			user: User;
 			/** The signed-in person on public pages (share links), if any. */
 			viewer: User | null;
+			/** The signed-in person's colours, read along with their session (undefined until looked up). */
+			look?: { theme: string | null; highlight: string | null };
 			/** Whether Google sign-in is switched on (keys are set). */
 			authEnabled: boolean;
 		}

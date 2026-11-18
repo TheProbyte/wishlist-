@@ -36,14 +36,21 @@ async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function userFromSession(db: D1Database, token: string): Promise<User | null> {
-	return db
+/**
+ * The signed-in person, plus what every page needs to know about them (their colours, and this
+ * device's owner marker), in the one lookup.
+ */
+export async function userFromSession(db: D1Database, token: string) {
+	const row = await db
 		.prepare(
-			`SELECT u.id, u.name, u.email, u.avatar_url FROM sessions s JOIN users u ON u.id = s.user_id
+			`SELECT u.id, u.name, u.email, u.avatar_url, u.theme, u.highlight, u.owner_mark FROM sessions s JOIN users u ON u.id = s.user_id
 			 WHERE s.id = ? AND s.expires_at > unixepoch()`
 		)
 		.bind(await sha256(token))
-		.first<User>();
+		.first<User & { theme: string | null; highlight: string | null; owner_mark: string | null }>();
+	if (!row) return null;
+	const { theme, highlight, owner_mark, ...user } = row;
+	return { user: user as User, look: { theme, highlight }, ownerMark: owner_mark };
 }
 
 export async function createSession(db: D1Database, userId: string): Promise<string> {
@@ -150,9 +157,8 @@ export function ownerMarks(cookies: Cookies): string[] {
 }
 
 /** Make sure this device carries the signed-in person's marker. */
-export async function rememberOwner(db: D1Database, cookies: Cookies, userId: string, secure: boolean) {
-	const row = await db.prepare('SELECT owner_mark FROM users WHERE id = ?').bind(userId).first<{ owner_mark: string | null }>();
-	let mark = row?.owner_mark ?? null;
+export async function rememberOwner(db: D1Database, cookies: Cookies, userId: string, secure: boolean, known?: string | null) {
+	let mark = known !== undefined ? known : ((await db.prepare('SELECT owner_mark FROM users WHERE id = ?').bind(userId).first<{ owner_mark: string | null }>())?.owner_mark ?? null);
 	if (!mark) {
 		mark = newToken() + newToken();
 		await db.prepare('UPDATE users SET owner_mark = ? WHERE id = ? AND owner_mark IS NULL').bind(mark, userId).run();

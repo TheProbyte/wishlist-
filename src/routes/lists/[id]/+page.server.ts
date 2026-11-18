@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getCategories, getItems, getKid, getList, masterOf, newToken, sizesFor } from '#lib/server/db.ts';
+import { getCategories, getItems, getKid, getList, masterOf, newToken, safeJson } from '#lib/server/db.ts';
+import type { Sizes } from '#lib/types.ts';
 import { readItemForm } from '#lib/server/items.ts';
 import { deleteGift, findDuplicate, giftIn, rateGift, removeFromList, reorderGifts, saveGift } from '#lib/server/gifts.ts';
 import { refreshStale } from '#lib/server/tracking.ts';
@@ -17,13 +18,13 @@ async function ownList(locals: App.Locals, id: string) {
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const list = await ownList(locals, params.id);
 	// Everything this page needs, asked for at once.
-	const [items, categories, scopeLists, sizes, kid, me, everything] = await Promise.all([
+	const [items, categories, scopeLists, kid, me, everything] = await Promise.all([
 		getItems(locals.db, list),
 		getCategories(locals.db, locals.user.id),
 		orderedLists(locals.db, locals.user.id, list.kid_id),
-		sizesFor(locals.db, list),
+		// Whoever it's for (a kid, or you): their sizes and birthday, in one lookup.
 		list.kid_id ? getKid(locals.db, list.kid_id) : null,
-		list.kid_id ? null : locals.db.prepare('SELECT birthday FROM users WHERE id = ?').bind(locals.user.id).first<{ birthday: string | null }>(),
+		list.kid_id ? null : locals.db.prepare('SELECT sizes, birthday FROM users WHERE id = ?').bind(locals.user.id).first<{ sizes: string | null; birthday: string | null }>(),
 		// For an occasion list: the Everything list, to pick more gifts from.
 		list.kind === 'list'
 			? locals.db
@@ -45,7 +46,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		items,
 		categories,
 		neighbours,
-		sizes,
+		sizes: kid ? kid.sizes : safeJson<Sizes>(me?.sizes, {}),
 		pickable,
 		kid: kid ? { id: kid.id, name: kid.name } : null,
 		// Whoever this list is for: their birthday, for birthday lists.

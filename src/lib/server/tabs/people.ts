@@ -1,40 +1,45 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { newId, newToken } from '#lib/server/db.ts';
 import { GIVER_COOKIE } from '#lib/server/giving.ts';
-import { upcomingInCircles } from '#lib/server/people.ts';
+import { comingUp } from '#lib/server/shared.ts';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export const loadPeople = async ({ locals, cookies }: RequestEvent) => {
 	if (!locals.authEnabled) return { authEnabled: false as const };
 	const { db, user } = locals;
-	const [circles, members, exchanges, getting, upcoming] = await Promise.all([
-		db
-			.prepare('SELECT c.id, c.name, c.owner_id, c.invite_token FROM circles c JOIN circle_members m ON m.circle_id = c.id WHERE m.user_id = ? ORDER BY c.created_at')
-			.bind(user.id)
-			.all<{ id: string; name: string; owner_id: string; invite_token: string }>(),
-		db
-			.prepare(
-				`SELECT m.circle_id, u.id, u.name, u.avatar_url, u.sticker, u.paper,
-				        (SELECT COUNT(*) FROM items i WHERE i.list_id = 'mst_' || u.id) AS gift_count
-				 FROM circle_members m JOIN users u ON u.id = m.user_id
-				 WHERE m.circle_id IN (SELECT circle_id FROM circle_members WHERE user_id = ?) ORDER BY m.joined_at`
-			)
-			.bind(user.id)
-			.all<{ circle_id: string; id: string; name: string; avatar_url: string | null; sticker: string | null; paper: string | null; gift_count: number }>(),
-		db
-			.prepare(
-				`SELECT e.id, e.name, e.exchange_date, e.budget_cents, e.currency, e.drawn_at,
-				        (SELECT COUNT(*) FROM exchange_members x WHERE x.exchange_id = e.id) AS member_count
-				 FROM exchanges e JOIN exchange_members me ON me.exchange_id = e.id WHERE me.user_id = ? ORDER BY e.created_at DESC`
-			)
-			.bind(user.id)
-			.all<{ id: string; name: string; exchange_date: string | null; budget_cents: number | null; currency: string; drawn_at: number | null; member_count: number }>(),
-		db
-			.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN purchased = 0 THEN 1 ELSE 0 END) AS todo FROM claims WHERE giver_user_id = ? OR giver_token = ?')
-			.bind(user.id, cookies.get(GIVER_COOKIE) ?? '')
-			.first<{ n: number; todo: number | null }>(),
-		upcomingInCircles(db, user.id, 365)
+	// The four lookups in one trip to the database, alongside what's coming up (shared with the Lists tab).
+	const [[circles, members, exchanges, gettingRows], upcoming] = await Promise.all([
+		db.batch([
+			db.prepare('SELECT c.id, c.name, c.owner_id, c.invite_token FROM circles c JOIN circle_members m ON m.circle_id = c.id WHERE m.user_id = ? ORDER BY c.created_at').bind(user.id),
+			db
+				.prepare(
+					`SELECT m.circle_id, u.id, u.name, u.avatar_url, u.sticker, u.paper,
+					        (SELECT COUNT(*) FROM items i WHERE i.list_id = 'mst_' || u.id) AS gift_count
+					 FROM circle_members m JOIN users u ON u.id = m.user_id
+					 WHERE m.circle_id IN (SELECT circle_id FROM circle_members WHERE user_id = ?) ORDER BY m.joined_at`
+				)
+				.bind(user.id),
+			db
+				.prepare(
+					`SELECT e.id, e.name, e.exchange_date, e.budget_cents, e.currency, e.drawn_at,
+					        (SELECT COUNT(*) FROM exchange_members x WHERE x.exchange_id = e.id) AS member_count
+					 FROM exchanges e JOIN exchange_members me ON me.exchange_id = e.id WHERE me.user_id = ? ORDER BY e.created_at DESC`
+				)
+				.bind(user.id),
+			db
+				.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN purchased = 0 THEN 1 ELSE 0 END) AS todo FROM claims WHERE giver_user_id = ? OR giver_token = ?')
+				.bind(user.id, cookies.get(GIVER_COOKIE) ?? '')
+		]) as Promise<
+			[
+				D1Result<{ id: string; name: string; owner_id: string; invite_token: string }>,
+				D1Result<{ circle_id: string; id: string; name: string; avatar_url: string | null; sticker: string | null; paper: string | null; gift_count: number }>,
+				D1Result<{ id: string; name: string; exchange_date: string | null; budget_cents: number | null; currency: string; drawn_at: number | null; member_count: number }>,
+				D1Result<{ n: number; todo: number | null }>
+			]
+		>,
+		comingUp(locals)
 	]);
+	const getting = gettingRows.results[0];
 	// Everyone you share a circle with, once each: who they are, which circles, their next occasion.
 	const byId = new Map<string, { id: string; name: string; avatar_url: string | null; sticker: string | null; paper: string | null; gift_count: number; circles: string[]; next: (typeof upcoming)[number] | null }>();
 	for (const m of members.results) {

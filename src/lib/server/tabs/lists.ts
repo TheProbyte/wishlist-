@@ -1,27 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { ensureMaster, getKids, masterId, newId, newToken } from '#lib/server/db.ts';
+import { ensureMaster, masterId, newId, newToken } from '#lib/server/db.ts';
 import { daysUntil, storedDate } from '#lib/format.ts';
-import { masterListEnsured, orderedLists } from '#lib/server/lists.ts';
-import { upcomingInCircles } from '#lib/server/people.ts';
+import { wholeShelf } from '#lib/server/lists.ts';
+import { comingUp, myKids, myProfile } from '#lib/server/shared.ts';
 import { isPaper } from '#lib/papers.ts';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export const loadLists = async ({ locals }: RequestEvent) => {
 	const { db, user } = locals;
-	const [everything, lists, kids, friends, me] = await Promise.all([
-		masterListEnsured(db, user.id),
-		orderedLists(db, user.id),
-		getKids(db, user.id),
-		upcomingInCircles(db, user.id, 45),
-		db.prepare('SELECT birthday FROM users WHERE id = ?').bind(user.id).first<{ birthday: string | null }>()
+	const [shelf, kids, upcoming, profile] = await Promise.all([wholeShelf(db, user.id), myKids(locals), comingUp(locals), myProfile(locals)]);
+	const [everything, kidSections] = await Promise.all([
+		shelf.master(),
+		Promise.all(kids.map(async (kid) => ({ kid: { id: kid.id, name: kid.name, birthday: kid.birthday }, everything: await shelf.master(kid.id), lists: shelf.lists(kid.id) })))
 	]);
-
-	const kidSections = await Promise.all(
-		kids.map(async (kid) => {
-			const [master, kidLists] = await Promise.all([masterListEnsured(db, user.id, kid.id), orderedLists(db, user.id, kid.id)]);
-			return { kid: { id: kid.id, name: kid.name, birthday: kid.birthday }, everything: master!, lists: kidLists };
-		})
-	);
+	const lists = shelf.lists();
+	const friends = upcoming.filter((u) => u.days <= 45);
 
 	const allLists = [...lists, ...kidSections.flatMap((k) => k.lists)];
 	const next = allLists.filter((l) => (daysUntil(l.next_date) ?? -1) >= 0).sort((a, b) => a.next_date!.localeCompare(b.next_date!))[0] ?? null;
@@ -35,7 +28,7 @@ export const loadLists = async ({ locals }: RequestEvent) => {
 		.slice(0, 2)
 		.map((l) => ({ id: l.id, name: l.name, days: daysUntil(l.next_date)!, count: l.item_count, kid: kidSections.find((k) => k.lists.some((x) => x.id === l.id))?.kid.name ?? null }));
 
-	return { everything: everything!, lists, kids: kidSections, nextId: next?.id ?? null, next, reminders, friends, myBirthday: me?.birthday ?? null };
+	return { everything, lists, kids: kidSections, nextId: next?.id ?? null, next, reminders, friends, myBirthday: profile.birthday };
 };
 
 export const listsActions = {

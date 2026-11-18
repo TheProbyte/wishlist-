@@ -15,17 +15,14 @@ export interface Mate {
 	sticker: string | null;
 }
 
+const MATES = `SELECT DISTINCT u.id, u.name, u.avatar_url, u.birthday, u.sticker FROM circle_members me
+	 JOIN circle_members them ON them.circle_id = me.circle_id AND them.user_id != me.user_id
+	 JOIN users u ON u.id = them.user_id
+	 WHERE me.user_id = ? ORDER BY u.name`;
+
 /** Everyone who shares at least one circle with this person. */
 export async function circleMates(db: D1Database, userId: string): Promise<Mate[]> {
-	const { results } = await db
-		.prepare(
-			`SELECT DISTINCT u.id, u.name, u.avatar_url, u.birthday, u.sticker FROM circle_members me
-			 JOIN circle_members them ON them.circle_id = me.circle_id AND them.user_id != me.user_id
-			 JOIN users u ON u.id = them.user_id
-			 WHERE me.user_id = ? ORDER BY u.name`
-		)
-		.bind(userId)
-		.all<Mate>();
+	const { results } = await db.prepare(MATES).bind(userId).all<Mate>();
 	return results;
 }
 
@@ -59,18 +56,20 @@ export interface Upcoming {
 
 /** Occasions coming up for people in your circles: birthdays and their dated lists. */
 export async function upcomingInCircles(db: D1Database, userId: string, withinDays: number): Promise<Upcoming[]> {
-	const mates = await circleMates(db, userId);
+	// Who, and their lists, in one trip to the database.
+	const [{ results: mates }, { results: lists }] = (await db.batch([
+		db.prepare(MATES).bind(userId),
+		db
+			.prepare(
+				`SELECT l.id, l.owner_id, l.name, l.occasion, l.occasion_date, k.name AS kid_name FROM lists l
+				 LEFT JOIN kids k ON k.id = l.kid_id
+				 WHERE l.kind = 'list' AND l.owner_id IN (
+				   SELECT them.user_id FROM circle_members me JOIN circle_members them ON them.circle_id = me.circle_id AND them.user_id != me.user_id
+				   WHERE me.user_id = ?)`
+			)
+			.bind(userId)
+	])) as [D1Result<Mate>, D1Result<{ id: string; owner_id: string; name: string; occasion: string; occasion_date: string | null; kid_name: string | null }>];
 	if (!mates.length) return [];
-	const ids = mates.map((m) => m.id);
-	const marks = ids.map(() => '?').join(',');
-	const { results: lists } = await db
-		.prepare(
-			`SELECT l.id, l.owner_id, l.name, l.occasion, l.occasion_date, k.name AS kid_name FROM lists l
-			 LEFT JOIN kids k ON k.id = l.kid_id
-			 WHERE l.owner_id IN (${marks}) AND l.kind = 'list'`
-		)
-		.bind(...ids)
-		.all<{ id: string; owner_id: string; name: string; occasion: string; occasion_date: string | null; kid_name: string | null }>();
 
 	const out: Upcoming[] = [];
 	const byId = new Map(mates.map((m) => [m.id, m]));
