@@ -2,7 +2,7 @@
 	import { paperFor } from '#lib/papers.ts';
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { enhance, deserialize } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { shell } from '#lib/shell.svelte.ts';
 	import { contextMenu, type MenuSpec } from '#lib/menu.svelte.ts';
@@ -278,7 +278,7 @@
 	</section>
 
 	<Modal bind:open={newCircle} title="New circle">
-		<form id="circle-form" method="POST" action="?/createCircle" use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') newCircle = false; }}>
+		<form id="circle-form" method="POST" action="?/createCircle" use:enhance={() => async ({ update, result }) => { await update({ invalidateAll: false }); await invalidate('app:people'); if (result.type === 'success') newCircle = false; }}>
 			<label class="block">
 				<span class="label">Name</span>
 				<input class="field" name="name" required maxlength="50" placeholder="e.g. The Garcias, Work friends" />

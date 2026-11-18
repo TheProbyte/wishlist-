@@ -1,13 +1,14 @@
 <script lang="ts">
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { deserialize } from '$app/forms';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import ProductImage from '#lib/components/ProductImage.svelte';
 	import GiftTag from '#lib/components/GiftTag.svelte';
 	import Present from '#lib/components/Present.svelte';
 	import { countdownLabel, formatDate, formatPrice, withKid } from '#lib/format.ts';
-	import { undoable, isHidden } from '#lib/undo.svelte.ts';
+	import { undoable, isHidden, toast } from '#lib/undo.svelte.ts';
 	import type { PageProps } from './$types';
 
 	/**
@@ -24,17 +25,25 @@
 	// Wrapped just now: these get wrapped in front of you (the others are simply wrapped already).
 	let justWrapped = $state<string[]>([]);
 
-	async function post(action: string, body: Record<string, string>) {
+	async function post(action: string, body: Record<string, string>): Promise<boolean> {
 		const fd = new FormData();
 		for (const [k, v] of Object.entries(body)) fd.set(k, v);
-		await fetch(`/getting?/${action}`, { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
+		const res = await fetch(`/getting?/${action}`, { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } }).catch(() => null);
+		return !!res && deserialize(await res.text()).type === 'success';
 	}
 	function setStage(c: (typeof data.claims)[number], k: number) {
 		// Tapping the step it's already on steps back one.
-		const next = stageOf(c) === k ? k - 1 : k;
+		const before = stages[c.claim_id];
+		const next = Math.max(0, stageOf(c) === k ? k - 1 : k);
 		if (next === 2) justWrapped = [...justWrapped, c.claim_id];
-		stages[c.claim_id] = Math.max(0, next);
-		post('stage', { claim: c.claim_id, stage: String(Math.max(0, next)) }).then(() => invalidateAll());
+		stages[c.claim_id] = next;
+		// The screen already shows it; nothing to reload. If it didn't save, it goes back.
+		post('stage', { claim: c.claim_id, stage: String(next) }).then((ok) => {
+			if (ok || stages[c.claim_id] !== next) return;
+			if (before === undefined) delete stages[c.claim_id];
+			else stages[c.claim_id] = before;
+			toast('Couldn’t save that. Try again.');
+		});
 	}
 
 	// Notes to yourself, edited right in the row.

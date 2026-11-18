@@ -1,15 +1,16 @@
 import { loadLists, listsActions } from '#lib/server/tabs/lists.ts';
-import { loadPeople, peopleActions } from '#lib/server/tabs/people.ts';
-import { loadMe, meActions } from '#lib/server/tabs/me.ts';
+import { peopleActions } from '#lib/server/tabs/people.ts';
+import { meActions } from '#lib/server/tabs/me.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
  * The three tabs (Lists, People, You) live side by side in one swipeable frame, so their data
- * loads together and switching tabs never waits for the network.
+ * loads together and switching tabs never waits for the network. This is the Lists tab's part;
+ * People and You load in the layout beside it, so each half can be refreshed alone.
  */
 export const load: PageServerLoad = async (event) => {
-	const [listsTab, peopleTab, meTab] = await Promise.all([loadLists(event), loadPeople(event), loadMe(event)]);
-	return { tab: event.params.tab ?? 'lists', listsTab, peopleTab, meTab };
+	event.depends('app:lists');
+	return { tab: event.params.tab ?? 'lists', listsTab: await loadLists(event) };
 };
 
 export const actions: Actions = { ...listsActions, ...peopleActions, ...meActions };

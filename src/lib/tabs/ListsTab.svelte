@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance, deserialize } from '$app/forms';
 	import { page } from '$app/state';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -80,7 +80,6 @@
 		for (const [k, v] of Object.entries(body)) fd.set(k, v);
 		const res = await fetch(`/lists/${listId}?/${action}`, { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
 		const result = deserialize(await res.text());
-		await invalidateAll();
 		return result.type === 'success' || result.type === 'redirect';
 	}
 	async function setWrap(id: string, wrap: string) {
@@ -97,7 +96,7 @@
 			requests: [{ url: `/lists/${id}?/deleteList`, body: {} }],
 			keys: [`list:${id}`],
 			revert: () => {},
-			done: (ok) => ok && invalidateAll()
+			done: (ok) => ok && invalidate('app:lists')
 		});
 	}
 	function listMenu(id: string, wrap: string | null, share: (() => void) | null = null, name = ''): () => MenuItem[] {
@@ -138,7 +137,7 @@
 		const fd = new FormData();
 		for (const id of order) fd.append('ids', id);
 		await fetch('/?/arrangeLists', { method: 'POST', body: fd, headers: { 'x-sveltekit-action': 'true' } });
-		await invalidateAll();
+		await invalidate('app:lists');
 	}
 	async function doneArranging() {
 		arranging = false;
@@ -184,7 +183,7 @@
 	{@const days = daysUntil(next.next_date) ?? 0}
 	{@const turning = milestone(next.occasion, next.occasion_date)}
 	<a href="/lists/{next.id}" class="card group rise flex items-center gap-3 p-2 pr-3 lg:p-3 lg:pr-4 transition active:translate-y-0.5">
-		<Present wrap={next.wrap} occasion={next.occasion} ribbonAt={55} bow={false} class="h-12 w-14 shrink-0 rounded-[12px]" />
+		<Present wrap={wrapOf(next.id, next.wrap)} occasion={next.occasion} ribbonAt={55} bow={false} class="h-12 w-14 shrink-0 rounded-[12px]" />
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-[15px] font-bold"><span class="text-xs font-bold tracking-wider text-rust-300 uppercase">Next up{nextKid ? ` · ${nextKid}` : ''}</span> {next.name}</p>
 			<p class="truncate text-[13px] text-fg-muted">{formatDate(next.next_date)} · {gifts(next.item_count)}{#if turning}<span class="font-bold text-rust-300"> · {turning}</span>{/if}</p>
@@ -370,14 +369,14 @@
 			</div>
 			<div class="mt-6 flex items-center justify-between">
 				<a href={shareUrl} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-teal-300 hover:underline">See what givers see <Icon name="external" size={15} /></a>
-				<form method="POST" action="?/unshareAll" use:enhance={() => async ({ update }) => { await update(); shareOpen = false; }}>
+				<form method="POST" action="?/unshareAll" use:enhance={() => async ({ update }) => { await update({ invalidateAll: false }); await invalidate('app:lists'); shareOpen = false; }}>
 					<input type="hidden" name="list" value={sharing.id} />
 					<button class="btn-quiet hover:text-rust-300">Stop sharing</button>
 				</form>
 			</div>
 		{:else}
 			<p class="text-sm text-fg-muted">Make one private link that shows <span class="font-bold text-fg">every gift</span> on {sharing.who} wish list (Everything) as one list. New gifts show up on it automatically. To share just one list, like Christmas, open it and tap Share there.</p>
-			<form id="share-all-form" method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => update({ reset: false })}>
+			<form id="share-all-form" method="POST" action="?/shareAll" use:enhance={() => async ({ update }) => { await update({ reset: false, invalidateAll: false }); await invalidate('app:lists'); }}>
 				<input type="hidden" name="list" value={sharing.id} />
 			</form>
 		{/if}

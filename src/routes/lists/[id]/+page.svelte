@@ -7,7 +7,7 @@
 	import EmptyArt from '#lib/components/EmptyArt.svelte';
 	import { onMount, tick } from 'svelte';
 	import { enhance, deserialize } from '$app/forms';
-	import { goto, invalidateAll, preloadData } from '$app/navigation';
+	import { goto, invalidate, invalidateAll, preloadData } from '$app/navigation';
 	import { cardIn, cardOut, dur, pageSwipe, prefersReducedMotion } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
@@ -523,7 +523,8 @@
 			requests: [{ url: `/lists/${id}?/deleteList`, body: {} }],
 			keys: [`list:${id}`],
 			revert: () => {},
-			done: (ok) => ok && invalidateAll()
+			// By then you're back on the shelf: only its lists need fetching again.
+			done: (ok) => ok && invalidate('app:lists')
 		});
 		goto('/');
 	}
@@ -553,9 +554,13 @@
 			const n = selected.length;
 			const target = data.lists.find((l) => l.id === extra.target)?.name;
 			note(op === 'category' ? `Updated ${n}` : `${op === 'move' ? 'Moved' : 'Added'} ${n} to ${target}`, 2400);
+			// The screen already shows the rest; what's left is which lists the gifts are on now
+			// (the editor's "On these lists"), so that's filled in here instead of reloading.
+			if (op === 'add' || op === 'move') {
+				const target = extra.target;
+				all = all.map((i) => (ids.has(i.id) ? { ...i, lists: [...new Set([...i.lists, target])] } : i));
+			}
 			stopSelecting();
-			// The screen already shows the result; this just fetches the server's copy behind it.
-			invalidateAll();
 		} else {
 			all = before;
 			note(result.type === 'failure' ? String(result.data?.error ?? 'Couldn’t do that.') : 'Couldn’t do that. Try again.', 3000);
