@@ -375,6 +375,25 @@
 		return () => mq.removeEventListener('change', update);
 	});
 	const viewing = $derived(viewingId ? items.find((i) => i.id === viewingId) : undefined);
+	// Long descriptions arrive cut short; the rest is fetched when the gift is opened. (Kept by
+	// version, so an edited description is fetched afresh.)
+	let fullAbout = $state<Record<string, string | null>>({});
+	const aboutKey = (item: Item) => `${item.id}:${item.updated_at}`;
+	async function aboutOf(item: Item): Promise<string | null | undefined> {
+		if (!item.about_cut) return item.description;
+		const key = aboutKey(item);
+		if (key in fullAbout) return fullAbout[key];
+		const res = await fetch(`/api/gifts/${encodeURIComponent(item.id)}`).catch(() => null);
+		if (!res?.ok) return undefined;
+		const { description } = (await res.json()) as { description: string | null };
+		fullAbout[key] = description;
+		return description;
+	}
+	const whole = (item: Item): Item => (item.about_cut && aboutKey(item) in fullAbout ? { ...item, description: fullAbout[aboutKey(item)], about_cut: false } : item);
+	$effect(() => {
+		const v = viewing;
+		if (v?.about_cut) untrack(() => aboutOf(v));
+	});
 	const panelOpen = $derived(wide && !!viewing);
 	function openGift(item: Item) {
 		viewingId = item.id;
@@ -389,7 +408,13 @@
 		edit(viewing);
 	}
 
-	function edit(item: Item) {
+	async function edit(item: Item) {
+		// The editor always gets the whole description, so saving never cuts it short.
+		if (item.about_cut) {
+			const about = await aboutOf(item);
+			if (about === undefined) return note('Couldn’t open that gift. Try again.');
+			item = { ...item, description: about, about_cut: false };
+		}
 		importSeq++;
 		importing = false;
 		notice = null;
@@ -839,7 +864,7 @@
 			{#key viewing.id}
 				<div class="rise">
 					<GiftView
-						item={viewing}
+						item={whole(viewing)}
 						category={viewing.category_id ? catById.get(viewing.category_id) : undefined}
 						position={sort === 'rank' ? items.indexOf(viewing) + 1 : undefined}
 						lists={listNames(viewing)}
@@ -871,7 +896,7 @@
 	{#if viewing}
 		<div class="-mt-2">
 			<GiftView
-				item={viewing}
+				item={whole(viewing)}
 				category={viewing.category_id ? catById.get(viewing.category_id) : undefined}
 				position={sort === 'rank' ? items.indexOf(viewing) + 1 : undefined}
 				lists={listNames(viewing)}

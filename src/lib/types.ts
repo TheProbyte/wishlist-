@@ -86,6 +86,8 @@ export interface Item {
 	specifics: Specific[];
 	/** The occasion lists this gift is on (its Everything list not included). */
 	lists: string[];
+	/** Set when only the start of a long description was sent; the rest comes when it's opened. */
+	about_cut?: boolean;
 }
 
 /** What the importer hands back for a pasted link. Every field may be missing. */

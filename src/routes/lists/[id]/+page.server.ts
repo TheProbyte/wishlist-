@@ -9,6 +9,8 @@ import { storedDate } from '#lib/format.ts';
 import { orderedLists } from '#lib/server/lists.ts';
 import type { Actions, PageServerLoad } from './$types';
 
+const ABOUT_PREVIEW = 240;
+
 async function ownList(locals: App.Locals, id: string) {
 	const list = await getList(locals.db, id);
 	if (!list || list.owner_id !== locals.user.id) error(404, 'List not found');
@@ -34,6 +36,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			: null
 	]);
 	refreshStale(locals.db, items);
+	// Long shop descriptions are only read once a gift is opened, so just their start comes
+	// with the list (big lists stay light); the rest is fetched on opening or editing.
+	const light = items.map((i) => (i.description && i.description.length > ABOUT_PREVIEW ? { ...i, description: `${i.description.slice(0, ABOUT_PREVIEW).trimEnd()}…`, about_cut: true } : i));
 	const onList = new Set(items.map((i) => i.id));
 	const pickable = everything ? everything.results.filter((i) => !onList.has(i.id)) : [];
 
@@ -43,7 +48,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const neighbours = { prev: order[at - 1] ?? null, next: order[at + 1] ?? null };
 	return {
 		list,
-		items,
+		items: light,
 		categories,
 		neighbours,
 		sizes: kid ? kid.sizes : safeJson<Sizes>(me?.sizes, {}),
