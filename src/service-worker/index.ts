@@ -10,9 +10,14 @@ import { version } from '$app/env';
  * as you go: with no connection, they open from that copy (read-only; the page says it's
  * offline). Other people's pages, share links and sign-in are never kept, and signing out
  * clears the copies.
+ *
+ * Uploaded gift photos never change, so each is kept once it's been shown and never fetched
+ * again (the newest few hundred; signing out clears them too).
  */
 const CACHE = `giver-${version}`;
 const PAGES = 'giver-pages';
+const PHOTOS = 'giver-photos';
+const MAX_PHOTOS = 300;
 const KEEP = /^\/($|lists\/|me($|\/)|people\/?$|upcoming|getting|categories|add$)/;
 const keepable = (url: URL) => KEEP.test(url.pathname) || (url.pathname.endsWith('/__data.json') && KEEP.test(url.pathname.replace(/\/?__data\.json$/, '/').replace(/^\/\/$/, '/')));
 const ASSETS = new Set<string>([...immutable, ...assets].map((a) => a.path));
@@ -25,7 +30,7 @@ sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== PAGES).map((k) => caches.delete(k))))
+			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== PAGES && k !== PHOTOS).map((k) => caches.delete(k))))
 			.then(() => sw.clients.claim())
 	);
 });
@@ -35,10 +40,14 @@ sw.addEventListener('fetch', (event) => {
 	if (url.origin !== location.origin) return;
 	// Signing out: forget the kept pages.
 	if (event.request.method === 'POST' && url.pathname.startsWith('/auth/logout')) {
-		event.waitUntil(caches.delete(PAGES));
+		event.waitUntil(Promise.all([caches.delete(PAGES), caches.delete(PHOTOS)]));
 		return;
 	}
 	if (event.request.method !== 'GET') return;
+	if (url.pathname.startsWith('/img/')) {
+		event.respondWith(photo(event));
+		return;
+	}
 	if (ASSETS.has(url.pathname)) {
 		event.respondWith(caches.match(url.pathname).then((hit) => hit ?? fetch(event.request)));
 		return;
@@ -63,6 +72,24 @@ sw.addEventListener('fetch', (event) => {
 			})
 	);
 });
+
+async function photo(event: FetchEvent): Promise<Response> {
+	const cache = await caches.open(PHOTOS);
+	const hit = await cache.match(event.request);
+	if (hit) return hit;
+	const res = await fetch(event.request);
+	if (res.ok) {
+		const copy = res.clone();
+		event.waitUntil(
+			cache.put(event.request, copy).then(async () => {
+				// Oldest first: past the limit, the oldest go.
+				const keys = await cache.keys();
+				await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_PHOTOS)).map((k) => cache.delete(k)));
+			})
+		);
+	}
+	return res;
+}
 
 /* Notifications: show what arrives, and open the right page when it's tapped. */
 sw.addEventListener('push', (event) => {

@@ -35,6 +35,8 @@ export const handle: Handle = async ({ event, resolve: kitResolve }) => {
 	await ensureSchema(db);
 	event.locals.db = db;
 	event.locals.authEnabled = authEnabled();
+	// Photos are the same for everyone, so there's no need to look up who's asking.
+	if (event.url.pathname.startsWith('/img/')) return kitResolve(event, { preload });
 
 	if (!event.locals.authEnabled) {
 		const user = await localUser(db);

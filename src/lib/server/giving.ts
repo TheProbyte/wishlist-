@@ -19,45 +19,94 @@ import type { GiverItem } from '#lib/types.ts';
 
 type ListRef = Pick<List, 'id' | 'kind' | 'owner_id' | 'kid_id'>;
 
+// Long shop descriptions are cut for givers' pages (the start is what's worth reading), which
+// keeps big lists light to send.
+const trimmed = <T extends { description: string | null }>(i: T): T => (i.description && i.description.length > 600 ? { ...i, description: `${i.description.slice(0, 597).trimEnd()}…` } : i);
+
+const NONE = { claimed: 0, mine: 0, myNote: null, chipped: 0, chippers: 0, myChip: 0 };
+type ClaimRow = { item_id: string; claimed: number; mine: number; note: string | null };
+type ChipRow = { item_id: string; chipped: number; chippers: number; myChip: number; note: string | null };
+
+/** Claims and chip-ins on the gifts in `where` (a condition on items `i`), totalled per gift. */
+function givingQueries(db: D1Database, where: string, binds: unknown[], giver: { token: string | null; userId: string | null }) {
+	const me = [giver.token ?? '', giver.userId ?? ''];
+	return [
+		db
+			.prepare(
+				`SELECT c.item_id, SUM(c.quantity) AS claimed,
+				        SUM(CASE WHEN (c.giver_token != '' AND c.giver_token = ?) OR (c.giver_user_id IS NOT NULL AND c.giver_user_id = ?) THEN c.quantity ELSE 0 END) AS mine,
+				        MAX(CASE WHEN (c.giver_token != '' AND c.giver_token = ?) OR (c.giver_user_id IS NOT NULL AND c.giver_user_id = ?) THEN c.note END) AS note
+				 FROM claims c JOIN items i ON i.id = c.item_id WHERE ${where} GROUP BY c.item_id`
+			)
+			.bind(...me, ...me, ...binds),
+		db
+			.prepare(
+				`SELECT k.item_id, SUM(k.amount_cents) AS chipped, COUNT(*) AS chippers,
+				        SUM(CASE WHEN (k.giver_token != '' AND k.giver_token = ?) OR (k.giver_user_id IS NOT NULL AND k.giver_user_id = ?) THEN k.amount_cents ELSE 0 END) AS myChip,
+				        MAX(CASE WHEN (k.giver_token != '' AND k.giver_token = ?) OR (k.giver_user_id IS NOT NULL AND k.giver_user_id = ?) THEN k.note END) AS note
+				 FROM contributions k JOIN items i ON i.id = k.item_id WHERE ${where} GROUP BY k.item_id`
+			)
+			.bind(...me, ...me, ...binds)
+	] as const;
+}
+
+/** Each gift with what's been claimed or chipped in on it (and what's yours). */
+function withGiving(items: Item[], claims: ClaimRow[], chips: ChipRow[]): GiverItem[] {
+	const byItem = new Map(claims.map((c) => [c.item_id, c]));
+	const chipBy = new Map(chips.map((c) => [c.item_id, c]));
+	return items.map((i) => {
+		const c = byItem.get(i.id);
+		const k = chipBy.get(i.id);
+		return { ...i, claimed: c?.claimed ?? 0, mine: c?.mine ?? 0, myNote: c?.note ?? k?.note ?? null, chipped: k?.chipped ?? 0, chippers: k?.chippers ?? 0, myChip: k?.myChip ?? 0 };
+	});
+}
+
 export async function giverItems(
 	db: D1Database,
 	list: ListRef,
 	giver: { token: string | null; userId: string | null },
 	hideClaims = false
 ): Promise<GiverItem[]> {
-	// Long shop descriptions are cut for givers' pages (the start is what's worth reading), which
-	// keeps big lists light to send.
-	const items = (await getItems(db, list)).map((i) => (i.description && i.description.length > 600 ? { ...i, description: `${i.description.slice(0, 597).trimEnd()}…` } : i));
-	const none = { claimed: 0, mine: 0, myNote: null, chipped: 0, chippers: 0, myChip: 0 };
-	if (hideClaims) return items.map((i) => ({ ...i, ...none }));
-	const me = [giver.token ?? '', giver.userId ?? ''];
-	const [claims, chips] = await Promise.all([
-		db
-			.prepare(
-				`SELECT c.item_id, SUM(c.quantity) AS claimed,
-				        SUM(CASE WHEN c.giver_token = ? OR (c.giver_user_id IS NOT NULL AND c.giver_user_id = ?) THEN c.quantity ELSE 0 END) AS mine,
-				        MAX(CASE WHEN c.giver_token = ? OR (c.giver_user_id IS NOT NULL AND c.giver_user_id = ?) THEN c.note END) AS note
-				 FROM claims c JOIN items i ON i.id = c.item_id WHERE i.list_id = ? GROUP BY c.item_id`
-			)
-			.bind(...me, ...me, masterOf(list))
-			.all<{ item_id: string; claimed: number; mine: number; note: string | null }>(),
-		db
-			.prepare(
-				`SELECT k.item_id, SUM(k.amount_cents) AS chipped, COUNT(*) AS chippers,
-				        SUM(CASE WHEN k.giver_token = ? OR (k.giver_user_id IS NOT NULL AND k.giver_user_id = ?) THEN k.amount_cents ELSE 0 END) AS myChip,
-				        MAX(CASE WHEN k.giver_token = ? OR (k.giver_user_id IS NOT NULL AND k.giver_user_id = ?) THEN k.note END) AS note
-				 FROM contributions k JOIN items i ON i.id = k.item_id WHERE i.list_id = ? GROUP BY k.item_id`
-			)
-			.bind(...me, ...me, masterOf(list))
-			.all<{ item_id: string; chipped: number; chippers: number; myChip: number; note: string | null }>()
+	const items = (await getItems(db, list)).map(trimmed);
+	if (hideClaims) return items.map((i) => ({ ...i, ...NONE }));
+	const [claims, chips] = await Promise.all(givingQueries(db, 'i.list_id = ?', [masterOf(list)], giver).map((q) => q.all()));
+	return withGiving(items, claims.results as ClaimRow[], chips.results as ChipRow[]);
+}
+
+/**
+ * Everything a giver can pick from one person: every gift on their Everything list and their
+ * kids', with what's claimed and chipped in, fetched together in one trip to the database. Each
+ * of their lists is then just a selection of those, in that list's own order.
+ */
+export async function giverShelf(db: D1Database, ownerId: string, giver: { token: string | null; userId: string | null }) {
+	const masters = `i.list_id IN (SELECT id FROM lists WHERE owner_id = ? AND kind = 'master')`;
+	const [items, specs, links, claims, chips] = await db.batch([
+		db.prepare(`SELECT i.* FROM items i WHERE ${masters} ORDER BY i.rank, i.created_at`).bind(ownerId),
+		db.prepare(`SELECT s.item_id, s.label, s.value FROM item_specifics s JOIN items i ON i.id = s.item_id WHERE ${masters} ORDER BY s.position`).bind(ownerId),
+		db.prepare(`SELECT li.item_id, li.list_id, li.rank FROM list_items li JOIN items i ON i.id = li.item_id WHERE ${masters}`).bind(ownerId),
+		...givingQueries(db, masters, [ownerId], giver)
 	]);
-	const byItem = new Map(claims.results.map((c) => [c.item_id, c]));
-	const chipBy = new Map(chips.results.map((c) => [c.item_id, c]));
-	return items.map((i) => {
-		const c = byItem.get(i.id);
-		const k = chipBy.get(i.id);
-		return { ...i, claimed: c?.claimed ?? 0, mine: c?.mine ?? 0, myNote: c?.note ?? k?.note ?? null, chipped: k?.chipped ?? 0, chippers: k?.chippers ?? 0, myChip: k?.myChip ?? 0 };
-	});
+	const specsOf = new Map<string, { label: string; value: string }[]>();
+	for (const r of specs.results as { item_id: string; label: string; value: string }[]) specsOf.set(r.item_id, [...(specsOf.get(r.item_id) ?? []), { label: r.label, value: r.value }]);
+	const placed = links.results as { item_id: string; list_id: string; rank: number }[];
+	const listsOf = new Map<string, string[]>();
+	for (const l of placed) listsOf.set(l.item_id, [...(listsOf.get(l.item_id) ?? []), l.list_id]);
+	const all = withGiving(
+		(items.results as Omit<Item, 'specifics' | 'lists'>[]).map((i) => trimmed({ ...i, specifics: specsOf.get(i.id) ?? [], lists: listsOf.get(i.id) ?? [] })),
+		claims.results as ClaimRow[],
+		chips.results as ChipRow[]
+	);
+	const byId = new Map(all.map((i) => [i.id, i]));
+	return {
+		/** Someone's (or a kid's) Everything list. */
+		master: (masterListId: string) => all.filter((i) => i.list_id === masterListId),
+		/** An occasion list: the gifts placed on it, ranked within it. */
+		list: (listId: string) =>
+			placed
+				.filter((l) => l.list_id === listId && byId.has(l.item_id))
+				.map((l) => ({ ...byId.get(l.item_id)!, rank: l.rank }))
+				.sort((a, b) => a.rank - b.rank || a.created_at - b.created_at)
+	};
 }
 
 /** Whether this person owns the list (or is the parent of the kid it belongs to). */
