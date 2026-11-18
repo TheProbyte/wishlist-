@@ -1,21 +1,14 @@
-import type { Action } from 'svelte/action';
 import { prefersReducedMotion } from './motion.ts';
 
 /**
- * A gift tag on a string swings a little as it comes into view, settling back to still, like
- * it was just hung up. (Each time it scrolls back into view, not over and over while seen.)
+ * Gift tags on strings swing a little and settle, like they were just hung up: on arriving at a
+ * page and on leaving it (each tag a beat after the one before, via its --sway-delay).
  */
-export const sway: Action<HTMLElement> = (node) => {
-	if (prefersReducedMotion() || typeof IntersectionObserver === 'undefined') return;
-	const io = new IntersectionObserver(
-		([e]) => {
-			if (!e.isIntersecting) return;
-			node.classList.remove('tag-sway');
-			void node.offsetWidth;
-			node.classList.add('tag-sway');
-		},
-		{ threshold: 0.35 }
-	);
-	io.observe(node);
-	return { destroy: () => io.disconnect() };
-};
+export function swayAll(container: HTMLElement) {
+	if (prefersReducedMotion()) return;
+	for (const tag of container.querySelectorAll<HTMLElement>('[data-lift]')) {
+		tag.classList.remove('tag-sway');
+		void tag.offsetWidth;
+		tag.classList.add('tag-sway');
+	}
+}

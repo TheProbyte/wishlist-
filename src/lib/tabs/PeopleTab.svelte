@@ -9,8 +9,7 @@
 	import { getPref, setPref } from '#lib/prefs.ts';
 	import { askForIdeas, looksThin } from '#lib/nudge.ts';
 	import { toast } from '#lib/undo.svelte.ts';
-	import { sway } from '#lib/sway.ts';
-	import { swingOnScroll } from '#lib/swing.ts';
+	import { swayAll } from '#lib/sway.ts';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -30,6 +29,19 @@
 		if (!data.authEnabled) return [];
 		const onCards = new Set(data.people.flatMap((p) => (p.next ? [key(p.next)] : [])));
 		return data.upcoming.filter((u) => !onCards.has(key(u)));
+	});
+
+	/* The tags swing on their strings when you arrive on People and when you swipe away from it,
+	   not while scrolling up and down. */
+	let tagsEl = $state<HTMLElement>();
+	let lastTab = -1;
+	$effect(() => {
+		const tab = shell.active ? Math.round(shell.progress) : 1;
+		const el = tagsEl;
+		untrack(() => {
+			if (el && (lastTab === -1 ? tab === 1 : (tab === 1) !== (lastTab === 1))) swayAll(el);
+			lastTab = tab;
+		});
 	});
 
 	let newCircle = $state(false);
@@ -129,7 +141,7 @@
 					{/each}
 				</div>
 			{/if}
-			<div use:swingOnScroll>
+			<div bind:this={tagsEl}>
 			{#each groups as g (g.title ?? 'all')}
 			{#if g.title}<h3 class="mt-6 mb-1 text-sm font-bold text-fg-faint first:mt-0">{g.title}</h3>{/if}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -139,7 +151,7 @@
 						<svg class="absolute top-0 left-1/2 -translate-x-1/2 transition-transform duration-300 group-hover:rotate-6" width="34" height="30" viewBox="0 0 34 30" aria-hidden="true">
 							<path d="M17 28C9 22 4 12 9 6s14-3 12 4" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" opacity="0.7" />
 						</svg>
-						<div data-lift use:sway class="relative origin-top transition-[rotate] duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2" style="--sway-delay: {i * 90}ms; --k: {[1, -0.8, 0.9, -1.1, 0.75, -0.95][i % 6]}; transform: rotate(calc(var(--swing, 0) * var(--k) * 1deg))">
+						<div data-lift class="relative origin-top transition-[rotate] duration-300 ease-[var(--ease-spring)] group-hover:-rotate-2" style="--sway-delay: {i * 90}ms">
 						<!-- The tag's shadow: the same shape a little lower, as a plain layer. (A shadow filter over
 						     the whole tag is slow for iPhones to paint, and could leave a tag blank for a while.) -->
 						<span class="tag-shape absolute inset-0 translate-y-[3px] bg-[var(--color-edge)]" aria-hidden="true"></span>
