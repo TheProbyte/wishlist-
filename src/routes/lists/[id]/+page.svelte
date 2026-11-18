@@ -13,7 +13,8 @@
 	import { flip } from 'svelte/animate';
 	import { fly, scale } from 'svelte/transition';
 	import ItemCard from '#lib/components/ItemCard.svelte';
-	import ItemEditor, { type Draft } from '#lib/components/ItemEditor.svelte';
+	import type { Draft } from '#lib/components/ItemEditor.svelte';
+	import { deferred } from '#lib/deferred.svelte.ts';
 	import Modal from '#lib/components/Modal.svelte';
 	import ListForm from '#lib/components/ListForm.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -242,6 +243,11 @@
 	let link = $state('');
 	let editorOpen = $state(false);
 	let draft = $state<Draft | null>(null);
+	// The editor's code comes once the list is showing (or at once, if it's opened sooner).
+	const Editor = deferred(() => import('#lib/components/ItemEditor.svelte'));
+	$effect(() => {
+		if (editorOpen) Editor.now();
+	});
 	let importing = $state(false);
 	let notice = $state<string | null>(null);
 	let importSeq = 0;
@@ -961,7 +967,8 @@
 	</div>
 {/if}
 
-<ItemEditor
+{#if Editor.component}
+<Editor.component
 	bind:open={editorOpen}
 	{draft}
 	loading={importing}
@@ -981,6 +988,7 @@
 		setTimeout(() => (bulkNote = null), 3000);
 	}}
 />
+{/if}
 
 <!-- List settings -->
 <Modal bind:open={settingsOpen} title={isEverything ? 'Wish list settings' : 'List settings'}>
